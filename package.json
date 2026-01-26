@@ -1,0 +1,40 @@
+{
+  "name": "standard-saas-api-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "local:identity": "yarn workspace @project/identity-service local",
+    "local:records": "yarn workspace @project/records-service local",
+    "local:all": "concurrently --kill-others-on-fail \"yarn local:identity\" \"yarn local:records\"",
+    "db:up": "docker-compose up -d",
+    "db:down": "docker-compose down",
+    "lint": "eslint \"packages/**/*.ts\" --fix",
+    "format": "prettier --write \"packages/**/*.ts\"",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test:all": "jest --passWithNoTests",
+    "precommit:check": "yarn format && yarn type-check && yarn lint && yarn test:all"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.16.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "concurrently": "^8.2.1",
+    "dotenv-cli": "^11.0.0",
+    "eslint": "^8.42.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-jest": "^27.2.2",
+    "husky": "^8.0.3",
+    "jest": "^29.5.0",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.1.0"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
+    "pg": "^8.17.2"
+  }
+}
