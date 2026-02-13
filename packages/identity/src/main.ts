@@ -5,7 +5,15 @@ import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(IdentityModule);
-
+  app.enableCors({
+    origin:
+      env.NODE_ENV === 'development'
+        ? '*' // Permite todo en desarrollo (opcional)
+        : [''], // Lista blanca en producción
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: 'Content-Type, Accept, Authorization',
+    credentials: true,
+  });
   // 1. Filtro global de errores (ya centralizado)
   app.useGlobalFilters(new GlobalExceptionFilter());
 
