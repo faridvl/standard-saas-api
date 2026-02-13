@@ -17,16 +17,26 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    // 1. Extraemos la respuesta completa de la excepción
+    const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
+
+    // 2. Buscamos el mensaje y los detalles (si existen)
+    // NestJS a veces pone el mensaje en .message, Zod lo pusimos en .message también.
     const message =
-      exception instanceof HttpException
-        ? (exception.getResponse() as any).message
+      typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? (exceptionResponse as any).message || exception.message
         : exception.message || 'Internal Server Error';
 
-    // Log estandarizado y elegante
+    const details =
+      typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? (exceptionResponse as any).details || null // <--- AQUÍ CAPTURAMOS TUS DETALLES DE ZOD
+        : null;
+
     const logInfo = {
       path: request.url,
       method: request.method,
       ip: request.ip,
+      details, // Agregamos los detalles al log para debuguear mejor
     };
 
     if (status >= 500) {
@@ -35,10 +45,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       this.logger.warn(`Client Error: ${JSON.stringify(message)}`, logInfo);
     }
 
+    // 3. Enviamos la respuesta incluyendo los 'details'
     response.status(status).json({
       success: false,
       statusCode: status,
       message: message,
+      details: details, // <--- AHORA SÍ SALDRÁ EN POSTMAN
       timestamp: new Date().toISOString(),
     });
   }

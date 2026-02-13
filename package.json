@@ -15,7 +15,11 @@
     "format": "prettier --write \"packages/**/*.ts\"",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "test:all": "jest --passWithNoTests",
-    "precommit:check": "yarn format && yarn type-check && yarn lint && yarn test:all"
+    "precommit:check": "yarn format && yarn type-check && yarn lint && yarn test:all",
+
+    "identity:prisma:gen": "yarn workspace @project/identity-service run prisma generate",
+    "identity:prisma:migrate": "yarn workspace @project/identity-service run prisma migrate dev",
+    "identity:prisma:studio": "yarn workspace @project/identity-service run prisma studio"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

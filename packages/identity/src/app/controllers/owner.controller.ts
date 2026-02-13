@@ -1,16 +1,36 @@
-import { Controller, Post, Body, UsePipes } from '@nestjs/common';
-import { CreateOwnerUseCase } from '../../domain/use-cases/create-owner.use-case';
-import { CreateOwnerDto } from '../../domain/dtos/create-owner.dto';
+import { Controller, Post, Body, UsePipes, UseGuards, Get, Req } from '@nestjs/common';
+import { RegisterTenantUseCase } from '../../domain/use-cases/register-tenant.use-case';
+import { RegisterTenantDto, RegisterTenantSchema } from '../../domain/dtos/register-tenant.dto';
 import { ZodValidationPipe } from '@project/core';
-import { CreateOwnerSchema } from '../../domain/validations/create-owner.schema';
+import { IRegistrationResult } from '../../domain/dtos/registration-result.interface';
+import { LoginUseCase } from '../../domain/use-cases/login.use-case';
+import { AuthGuard } from '../../infrastructure/security/auth.guard';
 
-@Controller('owners')
+@Controller('auth')
 export class OwnerController {
-  constructor(private readonly createOwnerUseCase: CreateOwnerUseCase) {}
+  constructor(
+    private readonly loginUseCase: LoginUseCase,
+    private readonly registerUseCase: RegisterTenantUseCase,
+  ) {}
 
-  @Post()
-  @UsePipes(new ZodValidationPipe(CreateOwnerSchema))
-  async create(@Body() dto: CreateOwnerDto) {
-    return await this.createOwnerUseCase.execute(dto);
+  @Post('register')
+  @UsePipes(new ZodValidationPipe(RegisterTenantSchema))
+  async register(@Body() dto: RegisterTenantDto): Promise<IRegistrationResult> {
+    // Aquí 'dto' ya viene validado y con el tipo correcto
+    return await this.registerUseCase.execute(dto);
+  }
+
+  @Post('login')
+  async login(@Body() body: any) {
+    return this.loginUseCase.execute(body);
+  }
+
+  @UseGuards(AuthGuard) // <--- Protegemos este endpoint específico
+  @Get('test')
+  async testToken(@Req() req: any) {
+    return {
+      message: 'Tu token es válido',
+      userData: req.user, // Aquí verás lo que metimos en el payload (sub, email, role)
+    };
   }
 }

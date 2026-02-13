@@ -3,6 +3,27 @@
 Arquitectura robusta basada en **NestJS**, **Arquitectura Hexagonal**, y despliegue **Serverless (AWS Lambda)**. Diseñada para sistemas multi-tenant escalables utilizando **Prisma 7**.
 
 
+# 🚀 Standard SaaS API Framework
+
+Arquitectura robusta basada en **NestJS**, **Arquitectura Hexagonal**, y despliegue **Serverless (AWS Lambda)**. Diseñada para sistemas multi-tenant escalables utilizando **Prisma 7**.
+
+---
+
+## 📝 Notas para Desarrolladores (Mantenimiento de DB)
+
+Si necesitas modificar la base de datos o es tu primera vez levantando el proyecto, sigue estas guías:
+
+### Cuando es la primera vez (Generar Base de Datos)
+Para que el sistema reconozca los modelos de Prisma por primera vez:
+1. Asegúrate de tener el contenedor activo: `yarn db:up`
+2. Genera el cliente:
+   ```bash
+   yarn workspace @project/identity-service run prisma generate
+   ```
+## Cuando realizas una Migración (Cambios en tablas)
+### Gestión de Identidad (Identity Service)
+- **Generar Cliente:** `yarn identity:prisma:gen`
+- **Crear Migración:** `yarn identity:prisma:migrate --name nombre_cambio`
 
 ## 📋 Requerimientos Previos
 Antes de comenzar, asegúrate de tener instalados:
@@ -113,3 +134,4 @@ Arquitectura Hexagonal: Separación estricta entre Dominio, Aplicación e Infrae
 
 - **CI/CD**: GitHub Actions validará automáticamente cada Pull Request hacia develop y main.
 
+Si necesitas modificar la base de datos o es tu primera vez levantando el proyecto, sigue estas guías:

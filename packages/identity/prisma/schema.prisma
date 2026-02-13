@@ -7,22 +7,43 @@ generator client {
   previewFeatures = ["driverAdapters"]
 }
 
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+// Definición de Roles
+enum Role {
+  OWNER
+  USER
+}
+
 model Tenant {
   id           Int      @id @default(autoincrement())
   uuid         String   @unique @default(uuid())
   businessName String
-  users        User[]
+  businessType String?  
+  status       Status   @default(ACTIVE)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // Relación: Una empresa tiene muchos usuarios
+  users        User[]
 }
 
 model User {
   id        Int      @id @default(autoincrement())
   uuid      String   @unique @default(uuid())
   email     String   @unique
+  name      String   
   password  String
+  role      Role     @default(OWNER)
+  status    Status   @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación: El usuario pertenece a una empresa
   tenantId  Int
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  createdAt DateTime @default(now())
 }
 
