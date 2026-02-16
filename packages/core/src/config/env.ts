@@ -15,7 +15,7 @@ const envSchema = z.object({
 
   // Table Names
   DYNAMO_TABLE_OWNERS: z.string().min(1, 'DYNAMO_TABLE_OWNERS es requerida'),
-  DATABASE_URL: z.string().url(),
+  // DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(10),
 });
 

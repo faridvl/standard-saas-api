@@ -1,12 +1,11 @@
-export type UserRole = 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'USER';
-
-export interface User {
-  id: string;
+// identity/src/domain/entities/user.entity.ts
+export type User = {
+  id: number;
+  uuid: string;
   email: string;
-  password?: string;
-  tenantId: string; // ID de la Clínica (Audiocolors, Yireh, etc.)
-  role: UserRole;
-  permissions: string[];
-  businessName?: string;
-  createdAt: Date;
-}
+  name: string;
+  password: string;
+  role?: string | null;
+  tenantId: number;
+  tenantUuid: string;
+};

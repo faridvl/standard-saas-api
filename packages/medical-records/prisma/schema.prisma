@@ -1,0 +1,27 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"] 
+}
+
+model Patient {
+  id           Int      @id @default(autoincrement())
+  uuid         String   @unique @default(uuid())
+  firstName    String
+  lastName     String
+  phone        String?
+  address      String?
+  birthDate    DateTime
+  
+  tenantId     Int      
+  tenantUuid   String   
+  createdBy    String   
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+}

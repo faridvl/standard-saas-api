@@ -14,3 +14,9 @@ export * from './adapters/pipes/zod-validation.pipe';
 export * from './adapters/filters/global-exception.filter';
 
 export * from './adapters/logger/app-logger';
+
+// ... tus exportaciones actuales
+export * from './interfaces/auth.interface';
+export * from './decorators/current-user.decorator';
+export * from './guards/auth.guard';
+export * from './guards/roles.guard';

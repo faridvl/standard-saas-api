@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@project/core": ["../../packages/core/src/index"],
+      "@project/core/*": ["../../packages/core/src/*"],
+      "@medical-records/*": ["src/*"], 
+      "@prisma/client": ["node_modules/@prisma/client"],
+      "@prisma/client/*": ["node_modules/@prisma/client/*"]
+    }
+  },
+  "include": ["src/**/*", "../../packages/core/src/**/*"]
+}

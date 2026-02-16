@@ -2,15 +2,18 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "baseUrl": "../../", 
-     "paths": {
-      "@project/core": ["packages/core/src/index.ts"],
-      "@project/core/*": ["packages/core/src/*"]
+    "baseUrl": ".", 
+    "paths": {
+      "@project/core": ["../../packages/core/src/index"],
+      "@project/core/*": ["../../packages/core/src/*"],
+      "@prisma/client": ["./node_modules/@prisma/client"],
+      "@prisma/client/*": ["./node_modules/@prisma/client/*"],
+      "src/*": ["src/*"]
     }
   },
   "include": [
     "src/**/*",
-    "../../packages/core/src/**/*"
+    "../../packages/core/src/**/*" 
   ],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }

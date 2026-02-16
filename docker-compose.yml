@@ -8,9 +8,12 @@ services:
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password123
-      POSTGRES_DB: records_db
+      # Esta será la base de datos por defecto, pero crearemos las otras
+      POSTGRES_DB: postgres 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Script para crear múltiples bases de datos
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
 
   dynamodb-local:
     image: amazon/dynamodb-local

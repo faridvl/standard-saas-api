@@ -22,13 +22,11 @@ export class RegisterTenantUseCase {
   async execute(dto: RegisterTenantDto): Promise<IRegistrationResult> {
     this.logger.log('Iniciando registro coordinado', { email: dto.email });
 
-    // 1. Validación previa (Fuera de la transacción para no bloquear la DB)
     const userExists = await this.userStorage.findByEmail(dto.email);
     if (userExists) throw new ConflictException('Email ya registrado');
     const hashedPassword = await this.bcryptService.hash(dto.password);
 
     try {
-      // El Use Case decide que estas dos acciones son una sola unidad de negocio
       const result = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const tenant = await this.tenantStorage.create(
           {

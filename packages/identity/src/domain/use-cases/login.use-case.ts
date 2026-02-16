@@ -1,8 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../../infrastructure/adapters/prisma/prisma.service';
+import { User } from '../entities/user.entity';
 import { UserStorage } from '../../infrastructure/adapters/user.storage';
 import { BcryptService } from '../../infrastructure/security/bcrypt.service';
+import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from '../../app/dtos/login.dto';
+import { JwtPayload } from '@project/core';
 
 @Injectable()
 export class LoginUseCase {
@@ -20,11 +23,12 @@ export class LoginUseCase {
     const isMatch = await this.bcryptService.compare(dto.password, user.password);
     if (!isMatch) throw new UnauthorizedException('Credenciales inválidas');
 
-    const payload = {
+    const payload: JwtPayload = {
       sub: user.uuid,
       email: user.email,
       role: user.role,
       tenantId: user.tenantId,
+      tenantUuid: user.tenantUuid,
     };
 
     return {
@@ -32,6 +36,7 @@ export class LoginUseCase {
       user: {
         name: user.name,
         email: user.email,
+        tenantUuid: user.tenantUuid,
       },
     };
   }

@@ -6,17 +6,16 @@ import { Pool } from 'pg';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
-    // Configuramos el adapter aquí también para cumplir con Prisma 7
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = new Pool({
+      connectionString: process.env.IDENTITY_DB_URL,
+    });
     const adapter = new PrismaPg(pool);
-
     super({ adapter });
   }
 
   async onModuleInit() {
     await this.$connect();
   }
-
   async onModuleDestroy() {
     await this.$disconnect();
   }
