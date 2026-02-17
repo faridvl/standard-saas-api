@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { MedicalSpeciality } from '../../domain/types/medical-control-content.types';
 
-// 1. Esquemas de hallazgos (Findings)
 const AudiologyFindingsSchema = z
   .object({
     otoscopyRight: z.string(),
@@ -13,7 +12,6 @@ const AudiologyFindingsSchema = z
   .strict();
 const GeneralFindingsSchema = z.record(z.string(), z.unknown());
 
-// 2. Esquema de FollowUp
 const FollowUpSchema = z
   .object({
     hasFollowUp: z.boolean(),
@@ -22,9 +20,7 @@ const FollowUpSchema = z
   })
   .optional();
 
-// 3. El esquema principal usando z.union
 export const CreateMedicalControlSchema = z.union([
-  // Caso AUDIOLOGY
   z.object({
     header: z.object({
       patientUUID: z.string().uuid(),
@@ -39,7 +35,6 @@ export const CreateMedicalControlSchema = z.union([
     followUp: FollowUpSchema,
   }),
 
-  // Caso GENERAL u otros
   z.object({
     header: z.object({
       patientUUID: z.string().uuid(),

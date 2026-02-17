@@ -2,11 +2,6 @@
 
 Arquitectura robusta basada en **NestJS**, **Arquitectura Hexagonal**, y despliegue **Serverless (AWS Lambda)**. Diseñada para sistemas multi-tenant escalables utilizando **Prisma 7**.
 
-
-# 🚀 Standard SaaS API Framework
-
-Arquitectura robusta basada en **NestJS**, **Arquitectura Hexagonal**, y despliegue **Serverless (AWS Lambda)**. Diseñada para sistemas multi-tenant escalables utilizando **Prisma 7**.
-
 ---
 
 ## 📝 Notas para Desarrolladores (Mantenimiento de DB)
