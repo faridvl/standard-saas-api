@@ -69,7 +69,8 @@ Generar Cliente Prisma (Crucial) 🔑:
 
 Bash
 ```text
-yarn workspace @project/identity-service run prisma generate
+yarn workspace identity:prisma:gen
+yarn workspace records:prisma:gen
 ```
 Traduce el schema.prisma a código TypeScript. Es obligatorio ejecutarlo si el esquema cambia o es la primera instalación.
 
@@ -77,27 +78,17 @@ Sincronizar Base de Datos (Migraciones):
 
 Bash
 ```text
- yarn workspace @project/identity-service run prisma:migrate
+ `yarn identity:prisma:migrate`
+ `yarn records:prisma:migrate`
  ```
 Ejecutar Microservicio:
 
 Bash
 ```text
  yarn local:identity
+ yarn local:records
  ```
 
-## ⚙️ Detalles de Implementación (Para Devs)
-Prisma 7 & Driver Adapters
-Para garantizar estabilidad en monorepos y evitar errores de inicialización del motor binario de Prisma, utilizamos @prisma/adapter-pg. Esto permite que el PrismaService gestione el pool de conexiones mediante el driver nativo de Node.js (pg).
-
-Onboarding Atómico (Transacciones)
-El registro de Owners (Dueños) es una operación atómica. Utilizando $transaction, el sistema garantiza que:
-
-Se cree el Tenant (Empresa).
-
-Se cree el User (Admin) vinculado.
-
-Si falla cualquier paso, se aplica un Rollback automático, evitando datos huérfanos.
 
 ## 🧪 Pruebas de API (Postman)
 Cuando veas el log Nest application successfully started, realiza una prueba de registro:
@@ -105,23 +96,25 @@ Cuando veas el log Nest application successfully started, realiza una prueba de 
 Método: POST
 
 ```text
-URL: http://localhost:7170/owners
+URL: http://localhost:7170/auth/register
 ```
 
 Cuerpo (JSON):
 
 JSON
 ```text
- {
-  "businessName": "Clínica Dental Pro",
-  "email": "admin@dentalpro.com",
-  "password": "password123"
-} 
+{
+    "businessName": "Prueba",
+    "ownerName": "Usuario",
+    "email": "mail@mail.com",
+    "password": "Password1"
+}
+
 ```
 ## 🛡️ Estándares de Código
 Arquitectura Hexagonal: Separación estricta entre Dominio, Aplicación e Infraestructura.
 
-
+-
 
 - **No any**: El linter bloqueará tipos no definidos para asegurar la integridad de TypeScript.
 
@@ -129,4 +122,5 @@ Arquitectura Hexagonal: Separación estricta entre Dominio, Aplicación e Infrae
 
 - **CI/CD**: GitHub Actions validará automáticamente cada Pull Request hacia develop y main.
 
-Si necesitas modificar la base de datos o es tu primera vez levantando el proyecto, sigue estas guías:
+## 🛡️ Postman collection
+https://gold-crescent-145785.postman.co/workspace/My-Workspace~e8bbceca-6197-4482-813d-3a06905273d2/collection/11147901-46938ce3-739f-4e29-b900-fdbe82c439ec?action=share&source=copy-link&creator=11147901
