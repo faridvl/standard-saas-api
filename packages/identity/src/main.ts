@@ -28,8 +28,13 @@ async function createServer() {
 export const handler = async (req: any, res: any) => {
   const app = await createServer();
   const instance = app.getHttpAdapter().getInstance();
-  // Vercel/Serverless requiere que la respuesta se maneje correctamente
-  return instance(req, res);
+
+  return new Promise((resolve, reject) => {
+    instance(req, res, (err: any) => {
+      if (err) return reject(err);
+      resolve(true);
+    });
+  });
 };
 
 // Lógica para local
