@@ -1,6 +1,6 @@
 {
   "functions": {
-    "src/main.ts": {
+    "**/*.ts": {
       "maxDuration": 30
     }
   }
