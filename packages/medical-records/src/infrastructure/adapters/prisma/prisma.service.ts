@@ -8,14 +8,25 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     const pool = new Pool({
       connectionString: process.env.MEDICAL_RECORDS_DB_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 1,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 1000,
     });
+
     const adapter = new PrismaPg(pool);
-    super({ adapter });
+    // Añadimos configuración de log para ver qué hace Prisma en Vercel
+    super({
+      adapter,
+      log: ['query', 'error', 'warn'],
+    });
   }
 
   async onModuleInit() {
-    await this.$connect();
+    // Eliminamos el await this.$connect() para evitar bloquear el arranque
+    // La conexión se hará bajo demanda en la primera query
   }
+
   async onModuleDestroy() {
     await this.$disconnect();
   }
