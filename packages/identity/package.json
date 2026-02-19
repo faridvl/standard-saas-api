@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "local": "dotenv -e .env -- ts-node-dev --respawn --transpile-only src/main.ts",
-    "build": "prisma generate && tsc --skipLibCheck true || exit 0",
+    "build": "prisma generate && tsc --skipLibCheck true",
     "start": "node dist/main.js",
     "prisma:migrate": "dotenv -e .env -- prisma migrate dev",
     "prisma:generate": "dotenv -e .env -- prisma generate",
