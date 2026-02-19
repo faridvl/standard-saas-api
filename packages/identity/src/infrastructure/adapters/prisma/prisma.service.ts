@@ -8,14 +8,18 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     const pool = new Pool({
       connectionString: process.env.IDENTITY_DB_URL,
-      ssl: {
-        rejectUnauthorized: false, // CLAVE: Esto permite la conexión segura con Neon
-      },
+      ssl: { rejectUnauthorized: false },
       max: 1,
       connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 1000,
     });
+
     const adapter = new PrismaPg(pool);
-    super({ adapter });
+    // Añadimos configuración de log para ver qué hace Prisma en Vercel
+    super({
+      adapter,
+      log: ['query', 'error', 'warn'],
+    });
   }
 
   async onModuleInit() {
