@@ -4,16 +4,16 @@
     "outDir": "./dist",
     "baseUrl": ".", 
     "paths": {
-      "@project/core": ["../../packages/core/src/index"],
-      "@project/core/*": ["../../packages/core/src/*"],
+      "@project/core": ["../core/src/index", "../core/dist/index"],
+      "@project/core/*": ["../core/src/*", "../core/dist/*"],
       "@prisma/client": ["./node_modules/@prisma/client"],
-      "@prisma/client/*": ["./node_modules/@prisma/client/*"],
       "src/*": ["src/*"]
-    }
+    },
+    "module": "CommonJS",
+    "target": "ES2021",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
-  "include": [
-    "src/**/*",
-    "../../packages/core/src/**/*" 
-  ],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }
