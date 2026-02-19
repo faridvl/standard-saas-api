@@ -8,10 +8,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     const pool = new Pool({
       connectionString: process.env.IDENTITY_DB_URL,
-      // Configuraciones recomendadas para Serverless:
-      max: 1, // Limita a 1 conexión por instancia de función
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      ssl: {
+        rejectUnauthorized: false, // CLAVE: Esto permite la conexión segura con Neon
+      },
+      max: 1,
+      connectionTimeoutMillis: 5000,
     });
     const adapter = new PrismaPg(pool);
     super({ adapter });
