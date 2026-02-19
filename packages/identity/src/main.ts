@@ -4,13 +4,10 @@ import { GlobalExceptionFilter, env } from '@project/core';
 import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
-  // Creamos la aplicación de NestJS de forma normal
   const app = await NestFactory.create(IdentityModule, {
-    logger: ['log', 'error', 'warn', 'debug'], // Habilitamos logs para ver el arranque en Railway
+    logger: ['log', 'error', 'warn', 'debug'],
   });
 
-  // Configuración global
-  app.setGlobalPrefix('api/v1');
   app.enableCors({
     origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
@@ -20,13 +17,13 @@ async function bootstrap() {
 
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  // Railway inyecta automáticamente la variable PORT.
-  // Es vital escuchar en '0.0.0.0' para que sea accesible externamente.
   const port = process.env.PORT || 7170;
 
+  const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
   await app.listen(port, '0.0.0.0');
 
-  Logger.log(`🚀 Identity Service running on port ${port}`, 'Bootstrap');
+  const displayUrl = host === 'localhost' ? `http://localhost:${port}` : `Puerto ${port}`;
+  Logger.log(`🚀 Identity Service running on ${displayUrl}`, 'Bootstrap');
 }
 
 bootstrap();
