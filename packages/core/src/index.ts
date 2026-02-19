@@ -2,7 +2,6 @@
 export * from './config/env';
 
 // Infraestructura y Repositorios
-export * from './adapters/repositories/dynamo/dynamo-base.repository';
 
 // Filtros y Validaciones (los que ya teníamos)
 export * from './adapters/filters/global-exception.filter';
