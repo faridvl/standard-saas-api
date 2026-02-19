@@ -25,7 +25,7 @@ async function createServer() {
   cachedHandler = app.getHttpAdapter().getInstance();
   return cachedHandler;
 }
-
+export const maxDuration = 60;
 export const handler = async (req: any, res: any) => {
   const server = await createServer();
 
