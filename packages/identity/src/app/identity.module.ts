@@ -46,14 +46,13 @@
 // })
 // export class IdentityModule {}
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { HealthController } from './controllers/healt.controller';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    // ConfigModule.forRoot({
+    //   isGlobal: true,
+    // }),
     // JWT y otros módulos pesados comentados para el test
   ],
   controllers: [HealthController],
