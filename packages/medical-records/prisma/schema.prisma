@@ -25,6 +25,10 @@ model Patient {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Relaciones 
+  appointments Appointment[]
+  medicalControls MedicalControl[]
+
   @@index([tenantId])
 }
 
@@ -34,7 +38,7 @@ model MedicalControl {
   patientUUID     String
   userUUID        String
   tenantUUID      String
-  appointmentUUID String?  
+  appointmentUUID String?  @unique 
   speciality      String
   findings        Json     
   diagnosis       String   @db.Text
@@ -42,6 +46,50 @@ model MedicalControl {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // Relaciones
+  patient         Patient      @relation(fields: [patientUUID], references: [uuid])
+  appointment     Appointment? @relation(fields: [appointmentUUID], references: [uuid])
+
   @@index([patientUUID])
   @@index([tenantUUID])
+}
+
+model AppointmentType {
+  id          Int      @id @default(autoincrement())
+  uuid        String   @unique @default(uuid())
+  name        String   
+  duration    Int?      
+  color       String?  
+  tenantUUID  String
+  
+  appointments Appointment[]
+
+  @@index([tenantUUID])
+}
+
+model Appointment {
+  id                Int             @id @default(autoincrement())
+  uuid              String          @unique @default(uuid())
+  patientUUID       String
+  userUUID          String          
+  tenantUUID        String
+  typeUUID          String
+  speciality        String
+  status            String          
+  date              DateTime        
+  startTime         DateTime        
+  endTime           DateTime        
+  notes             String?         
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relaciones 
+  patient           Patient         @relation(fields: [patientUUID], references: [uuid])
+  appointmentType   AppointmentType @relation(fields: [typeUUID], references: [uuid])
+  medicalControl    MedicalControl? 
+
+  @@index([patientUUID])
+  @@index([tenantUUID])
+  @@index([userUUID])
 }

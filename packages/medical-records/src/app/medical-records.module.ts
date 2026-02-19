@@ -12,6 +12,13 @@ import { CreateMedicalControlUseCase } from '@medical-records/domain/use-cases/m
 import { FindAllMedicalControlsUseCase } from '@medical-records/domain/use-cases/medical-control/find-all-medical-controls.use-case';
 import { FindOneMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/find-one-medical-control.use-case';
 import { MedicalControlController } from './controllers/medical-control.controller';
+import { AppointmentController } from './controllers/appointments.controllers';
+import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
+import { CreateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/create-appointment.use-case';
+import { UpdateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/update-appointment.use-case';
+import { FindOneAppointment } from '@medical-records/domain/use-cases/appointments/find-one-appointment.use-case';
+import { GetAppointmentsUseCase } from '@medical-records/domain/use-cases/appointments/find-all-appointment.use-case';
+import { GetAppointmentsByPatientUseCase } from '@medical-records/domain/use-cases/appointments/find-byPatient-appointment.use-case';
 
 @Module({
   imports: [
@@ -25,12 +32,13 @@ import { MedicalControlController } from './controllers/medical-control.controll
       }),
     }),
   ],
-  controllers: [PatientController, MedicalControlController],
+  controllers: [PatientController, MedicalControlController, AppointmentController],
   providers: [
     PrismaService,
 
     PatientStorage,
     MedicalControlStorage,
+    AppointmentStorage,
 
     CreatePatientUseCase,
     GetPatientsUseCase,
@@ -39,7 +47,13 @@ import { MedicalControlController } from './controllers/medical-control.controll
     CreateMedicalControlUseCase,
     FindAllMedicalControlsUseCase,
     FindOneMedicalControlUseCase,
+
+    CreateAppointmentUseCase,
+    UpdateAppointmentUseCase,
+    FindOneAppointment,
+    GetAppointmentsUseCase,
+    GetAppointmentsByPatientUseCase,
   ],
-  exports: [PrismaService, PatientStorage],
+  exports: [PrismaService, PatientStorage, AppointmentStorage],
 })
 export class MedicalRecordsModule {}
