@@ -3,16 +3,16 @@ import { IdentityModule } from './app/identity.module';
 import { GlobalExceptionFilter, env } from '@project/core';
 import { Logger } from '@nestjs/common';
 
-let cachedHandler: any;
-
-async function createServer() {
-  if (cachedHandler) return cachedHandler;
-
+async function bootstrap() {
+  // Creamos la aplicación de NestJS de forma normal
   const app = await NestFactory.create(IdentityModule, {
-    logger: ['error', 'warn'],
+    logger: ['log', 'error', 'warn', 'debug'], // Habilitamos logs para ver el arranque en Railway
   });
 
+  // Configuración global
+  app.setGlobalPrefix('api/v1');
   app.enableCors({
+    origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: 'Content-Type, Accept, Authorization',
     credentials: true,
@@ -20,35 +20,13 @@ async function createServer() {
 
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  await app.init();
+  // Railway inyecta automáticamente la variable PORT.
+  // Es vital escuchar en '0.0.0.0' para que sea accesible externamente.
+  const port = process.env.PORT || 7170;
 
-  cachedHandler = app.getHttpAdapter().getInstance();
-  return cachedHandler;
-}
-export const maxDuration = 60;
-export const handler = async (req: any, res: any) => {
-  const server = await createServer();
+  await app.listen(port, '0.0.0.0');
 
-  return new Promise((resolve, reject) => {
-    server(req, res, (err: any) => {
-      if (err) return reject(err);
-      resolve(true);
-    });
-  });
-};
-
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-  async function bootstrap() {
-    const app = await NestFactory.create(IdentityModule);
-
-    app.enableCors({ origin: '*' });
-    app.useGlobalFilters(new GlobalExceptionFilter());
-
-    const port = env.PORT || 7170;
-    await app.listen(port);
-    Logger.log(`🚀 Identity Service local on http://localhost:${port}`, 'Bootstrap');
-  }
-  bootstrap();
+  Logger.log(`🚀 Identity Service running on port ${port}`, 'Bootstrap');
 }
 
-export default createServer;
+bootstrap();
