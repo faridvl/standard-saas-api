@@ -45,4 +45,14 @@ export class AuthController {
       tenantUuid: user.tenantUuid,
     });
   }
+
+  @Get('health')
+  healthCheck() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      message: 'NestJS está respondiendo correctamente sin base de datos',
+    };
+  }
 }
