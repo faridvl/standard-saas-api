@@ -21,7 +21,6 @@
     "@prisma/adapter-pg": "^7.4.0",
     "@prisma/client": "7.4.0",
     "@project/core": "*",
-    "aws-sdk": "^2.1693.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.2.3",
     "passport-jwt": "^4.0.1",
