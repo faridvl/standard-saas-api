@@ -37,19 +37,24 @@ exports.env = void 0;
 const dotenv = __importStar(require("dotenv"));
 const path = __importStar(require("path"));
 const zod_1 = require("zod");
-const envPath = path.resolve(process.cwd(), '.env');
-dotenv.config({ path: envPath });
+if (!process.env.VERCEL) {
+    const envPath = path.resolve(process.cwd(), '.env');
+    dotenv.config({ path: envPath });
+}
 const envSchema = zod_1.z.object({
     NODE_ENV: zod_1.z.enum(['development', 'test', 'production']).default('development'),
-    PORT: zod_1.z.string().transform(Number).default(7170),
-    AWS_REGION: zod_1.z.string().min(1, 'AWS_REGION es requerida'),
-    DYNAMO_TABLE_OWNERS: zod_1.z.string().min(1, 'DYNAMO_TABLE_OWNERS es requerida'),
+    PORT: zod_1.z.coerce.number().default(7170),
     JWT_SECRET: zod_1.z.string().min(10),
 });
 const _env = envSchema.safeParse(process.env);
 if (!_env.success) {
-    console.error('❌ Error en el .env del servicio actual:', _env.error.format());
-    throw new Error('Variables de entorno inválidas');
+    if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error en el .env:', _env.error.format());
+        throw new Error('Variables de entorno inválidas');
+    }
+    else {
+        console.warn('⚠️ Faltan variables de entorno, pero intentando arrancar...');
+    }
 }
-exports.env = _env.data;
+exports.env = _env.success ? _env.data : process.env;
 //# sourceMappingURL=env.js.map

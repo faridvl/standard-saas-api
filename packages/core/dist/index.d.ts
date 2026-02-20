@@ -1,5 +1,4 @@
 export * from './config/env';
-export * from './adapters/repositories/dynamo/dynamo-base.repository';
 export * from './adapters/filters/global-exception.filter';
 export * from './adapters/pipes/zod-validation.pipe';
 export * from './adapters/pipes/zod-validation.pipe';

@@ -93,3 +93,28 @@ model Appointment {
   @@index([tenantUUID])
   @@index([userUUID])
 }
+
+model Product {
+  id           Int      @id @default(autoincrement())
+  uuid         String   @unique @default(uuid())
+  tenantUuid   String  
+  
+  sku          String   @unique
+  name         String
+  model        String?
+  description  String?  
+  
+  price        Decimal  @default(0.00) @db.Decimal(15, 2)
+  currentStock Int      @default(0) @map("current_stock")
+  minStock     Int      @default(5) @map("min_stock")
+  cabysCode    String?  @map("cabys_code")
+  
+  isActive     Boolean  @default(true) @map("is_active")
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  speciality   String? 
+
+  @@index([tenantUuid])
+  @@index([sku])
+}

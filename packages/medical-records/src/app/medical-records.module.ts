@@ -19,6 +19,9 @@ import { UpdateAppointmentUseCase } from '@medical-records/domain/use-cases/appo
 import { FindOneAppointment } from '@medical-records/domain/use-cases/appointments/find-one-appointment.use-case';
 import { GetAppointmentsUseCase } from '@medical-records/domain/use-cases/appointments/find-all-appointment.use-case';
 import { GetAppointmentsByPatientUseCase } from '@medical-records/domain/use-cases/appointments/find-byPatient-appointment.use-case';
+import { ProductController } from './controllers/inventory.controller';
+import { ProductStorage } from '@medical-records/infrastructure/adapters/inventoryRepository/inventory.storage';
+import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
 
 @Module({
   imports: [
@@ -32,13 +35,19 @@ import { GetAppointmentsByPatientUseCase } from '@medical-records/domain/use-cas
       }),
     }),
   ],
-  controllers: [PatientController, MedicalControlController, AppointmentController],
+  controllers: [
+    PatientController,
+    MedicalControlController,
+    AppointmentController,
+    ProductController,
+  ],
   providers: [
     PrismaService,
 
     PatientStorage,
     MedicalControlStorage,
     AppointmentStorage,
+    ProductStorage,
 
     CreatePatientUseCase,
     GetPatientsUseCase,
@@ -53,6 +62,8 @@ import { GetAppointmentsByPatientUseCase } from '@medical-records/domain/use-cas
     FindOneAppointment,
     GetAppointmentsUseCase,
     GetAppointmentsByPatientUseCase,
+
+    ProductManagerUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })

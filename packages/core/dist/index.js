@@ -15,7 +15,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./config/env"), exports);
-__exportStar(require("./adapters/repositories/dynamo/dynamo-base.repository"), exports);
 __exportStar(require("./adapters/filters/global-exception.filter"), exports);
 __exportStar(require("./adapters/pipes/zod-validation.pipe"), exports);
 __exportStar(require("./adapters/pipes/zod-validation.pipe"), exports);
