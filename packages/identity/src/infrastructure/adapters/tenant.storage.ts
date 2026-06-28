@@ -22,6 +22,7 @@ export class TenantStorage {
     return {
       uuid: record.uuid,
       businessName: record.businessName,
+      businessType: record.businessType ?? undefined,
       plan: TenantPlan.PREMIUM,
       createdAt: record.createdAt,
     };
