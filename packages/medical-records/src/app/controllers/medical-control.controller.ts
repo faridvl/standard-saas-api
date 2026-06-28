@@ -47,7 +47,7 @@ export class MedicalControlController {
       userUuid: user.sub,
     });
 
-    if (user.specialty && control.speciality !== user.specialty) {
+    if (user.specialty && control.header.speciality !== user.specialty) {
       throw new ForbiddenException('No tienes permiso para ver controles de esta especialidad');
     }
 
