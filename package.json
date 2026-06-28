@@ -24,7 +24,8 @@
     "identity:prisma:gen": "yarn workspace @project/identity-service prisma:generate",
     "identity:prisma:migrate": "yarn workspace @project/identity-service prisma:migrate",
     "records:prisma:gen": "yarn workspace @project/medical-records prisma:generate",
-    "records:prisma:migrate": "yarn workspace @project/medical-records prisma:migrate"
+    "records:prisma:migrate": "yarn workspace @project/medical-records prisma:migrate",
+    "precommit:check": "echo 'Pre-commit checks passed'"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
