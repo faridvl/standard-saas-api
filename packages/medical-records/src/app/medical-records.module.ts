@@ -23,6 +23,10 @@ import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appo
 import { ProductController } from './controllers/inventory.controller';
 import { ProductStorage } from '@medical-records/infrastructure/adapters/inventoryRepository/inventory.storage';
 import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
+import { AppointmentTypeController } from './controllers/appointment-type.controller';
+import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
+import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
+import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
 
 @Module({
   imports: [
@@ -41,6 +45,7 @@ import { ProductManagerUseCase } from '@medical-records/domain/use-cases/invento
     MedicalControlController,
     AppointmentController,
     ProductController,
+    AppointmentTypeController,
   ],
   providers: [
     PrismaService,
@@ -66,6 +71,10 @@ import { ProductManagerUseCase } from '@medical-records/domain/use-cases/invento
     DeleteAppointmentUseCase,
 
     ProductManagerUseCase,
+
+    AppointmentTypeStorage,
+    FindAllAppointmentTypesUseCase,
+    CreateAppointmentTypeUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })
