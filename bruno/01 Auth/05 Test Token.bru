@@ -1,0 +1,15 @@
+meta {
+  name: Test Token
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{identityUrl}}/auth/test
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

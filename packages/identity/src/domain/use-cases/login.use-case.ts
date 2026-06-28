@@ -29,6 +29,7 @@ export class LoginUseCase {
       role: user.role,
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
+      specialty: user.specialty,
     };
 
     return {

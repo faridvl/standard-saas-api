@@ -1,0 +1,26 @@
+meta {
+  name: Update Appointment
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{recordsUrl}}/appointments/{{appointmentUuid}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "CONFIRMED",
+    "notes": "Confirmado por llamada"
+  }
+}

@@ -4,4 +4,5 @@ export interface JwtPayload {
   role?: string | null;
   tenantId: number;
   tenantUuid: string;
+  specialty?: string | null;
 }

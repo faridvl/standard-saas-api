@@ -1,9 +1,11 @@
-import { Controller, Post, Body, UseGuards, UsePipes, Query, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, UsePipes, Query, Get, Param, Patch } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
 import { GetPatientsUseCase } from '@medical-records/domain/use-cases/get-patients.use-case';
 import { GetPatientByUuidUseCase } from '@medical-records/domain/use-cases/get-patient-by-uuid.use-case';
+import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-patient.use-case';
+import { UpdatePatientDto, UpdatePatientSchema } from '../dtos/update-patient.dto';
 
 @Controller('patients')
 @UseGuards(AuthGuard)
@@ -12,6 +14,7 @@ export class PatientController {
     private readonly createUseCase: CreatePatientUseCase,
     private readonly getPatientsUseCase: GetPatientsUseCase,
     private readonly getPatientByUuidUseCase: GetPatientByUuidUseCase,
+    private readonly updatePatientUseCase: UpdatePatientUseCase,
   ) {}
 
   @Post()
@@ -36,5 +39,15 @@ export class PatientController {
   @Get(':uuid')
   async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
     return await this.getPatientByUuidUseCase.execute(uuid, user.tenantUuid);
+  }
+
+  @Patch(':uuid')
+  @UsePipes(new ZodValidationPipe(UpdatePatientSchema))
+  async update(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpdatePatientDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto);
   }
 }

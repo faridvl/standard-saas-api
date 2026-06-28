@@ -1,5 +1,5 @@
 import { CreateMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/create-medical-control.use-case';
-import { Controller, Post, Get, Body, Query, Param, UseGuards, UsePipes } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Param, UseGuards, UsePipes, ForbiddenException } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import {
   CreateMedicalControlDto,
@@ -42,9 +42,15 @@ export class MedicalControlController {
 
   @Get(':uuid')
   async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
-    return await this.findOneUseCase.execute(uuid, {
+    const control = await this.findOneUseCase.execute(uuid, {
       tenantUuid: user.tenantUuid,
       userUuid: user.sub,
     });
+
+    if (user.specialty && control.speciality !== user.specialty) {
+      throw new ForbiddenException('No tienes permiso para ver controles de esta especialidad');
+    }
+
+    return control;
   }
 }

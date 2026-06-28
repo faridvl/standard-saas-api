@@ -16,6 +16,7 @@ import { FindOneUserUseCase } from '../domain/use-cases/users/find-one-user.use-
 import { UpdateUserUseCase } from '../domain/use-cases/users/update-user.use-case';
 import { TenantController } from './controllers/tenant.controller';
 import { UpdateTenantUseCase } from '../domain/use-cases/tenants/update-tenant.use-case';
+import { DeleteUserUseCase } from '../domain/use-cases/users/delete-user.use-case';
 
 const CONTROLLERS = [AuthController, UserController, TenantController];
 const USE_CASES = [
@@ -26,6 +27,7 @@ const USE_CASES = [
   GetUsersUseCase,
   FindOneUserUseCase,
   UpdateUserUseCase,
+  DeleteUserUseCase,
   UpdateTenantUseCase,
 ];
 const STORAGES = [TenantStorage, UserStorage, PrismaService];

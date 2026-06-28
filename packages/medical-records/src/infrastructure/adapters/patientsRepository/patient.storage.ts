@@ -39,6 +39,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, Patient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
+import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 
 @Injectable()
 export class PatientStorage {
@@ -55,6 +56,21 @@ export class PatientStorage {
       where: {
         uuid: uuid,
         tenantUuid: tenantUuid,
+      },
+    });
+  }
+
+  async update(uuid: string, tenantUuid: string, dto: UpdatePatientDto): Promise<Patient> {
+    return await this.prisma.patient.update({
+      where: { uuid },
+      data: {
+        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+        ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...(dto.address !== undefined && { address: dto.address }),
+        ...(dto.email !== undefined && { email: dto.email }),
+        ...(dto.gender !== undefined && { gender: dto.gender }),
+        ...(dto.bloodType !== undefined && { bloodType: dto.bloodType }),
       },
     });
   }

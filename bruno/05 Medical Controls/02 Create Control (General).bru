@@ -1,0 +1,39 @@
+meta {
+  name: Create Control (General)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{recordsUrl}}/medical-controls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "header": {
+      "patientUUID": "{{patientUuid}}",
+      "appointmentUUID": null,
+      "speciality": "GENERAL",
+      "schemaVersion": 1
+    },
+    "clinicalData": {
+      "findings": {
+        "notes": "Consulta general de seguimiento"
+      },
+      "diagnosis": "Paciente en buen estado general"
+    },
+    "followUp": {
+      "hasFollowUp": false
+    }
+  }
+}

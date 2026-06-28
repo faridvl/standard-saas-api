@@ -28,6 +28,14 @@ import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
 import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/initialize-appointment-types.use-case';
+import { ClinicalTemplateController } from './controllers/clinical-template.controller';
+import { ClinicalTemplateStorage } from '@medical-records/infrastructure/adapters/clinicalTemplateRepository/clinical-template.storage';
+import { CreateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/create-clinical-template.use-case';
+import { FindAllClinicalTemplatesUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-all-clinical-templates.use-case';
+import { FindClinicalTemplateBySpecialityUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-clinical-template-by-speciality.use-case';
+import { UpdateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/update-clinical-template.use-case';
+import { DeleteClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/delete-clinical-template.use-case';
+import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-patient.use-case';
 
 @Module({
   imports: [
@@ -47,6 +55,7 @@ import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-c
     AppointmentController,
     ProductController,
     AppointmentTypeController,
+    ClinicalTemplateController,
   ],
   providers: [
     PrismaService,
@@ -77,6 +86,15 @@ import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-c
     FindAllAppointmentTypesUseCase,
     CreateAppointmentTypeUseCase,
     InitializeAppointmentTypesUseCase,
+
+    ClinicalTemplateStorage,
+    CreateClinicalTemplateUseCase,
+    FindAllClinicalTemplatesUseCase,
+    FindClinicalTemplateBySpecialityUseCase,
+    UpdateClinicalTemplateUseCase,
+    DeleteClinicalTemplateUseCase,
+
+    UpdatePatientUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })

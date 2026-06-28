@@ -96,6 +96,17 @@ model Appointment {
   @@index([userUUID])
 }
 
+model ClinicalTemplate {
+  id          Int      @id @default(autoincrement())
+  uuid        String   @unique @default(uuid())
+  tenantUuid  String
+  name        String
+  speciality  String
+  fields      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Product {
   id           Int      @id @default(autoincrement())
   uuid         String   @unique @default(uuid())

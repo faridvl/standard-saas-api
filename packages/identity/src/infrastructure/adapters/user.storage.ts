@@ -5,19 +5,6 @@ import { User } from '../../domain/entities/user.entity';
 import { UserDomain, UserRole } from '../../domain/types/user.types';
 import { PaginatedResponse } from '../..//domain/types/pagination.types';
 
-//TODO(!): mover esto
-export type CreateUserPersistence = {
-  email: string;
-  name: string;
-  password: string;
-  role: UserRole;
-  tenantId: number;
-  tenantUUID: string;
-  specialty?: string | null;
-  phoneNumber?: string | null;
-  avatarUrl?: string | null;
-};
-
 export type CreateUserParams = Omit<UserDomain, 'uuid' | 'createdAt'> & {
   password: string;
 };
@@ -50,6 +37,7 @@ export class UserStorage {
       role: user.role,
       tenantId: user.tenantId,
       tenantUuid: user.tenant.uuid,
+      specialty: user.specialty,
     };
 
     return entity;
@@ -155,6 +143,13 @@ export class UserStorage {
       createdAt: record.createdAt,
       status: record.status,
     };
+  }
+
+  async softDelete(uuid: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { uuid },
+      data: { status: 'INACTIVE' },
+    });
   }
 
   async findAllByTenant(

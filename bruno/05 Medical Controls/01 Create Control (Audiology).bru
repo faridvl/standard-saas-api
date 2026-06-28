@@ -1,0 +1,51 @@
+meta {
+  name: Create Control (Audiology)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{recordsUrl}}/medical-controls
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "header": {
+      "patientUUID": "{{patientUuid}}",
+      "appointmentUUID": "{{appointmentUuid}}",
+      "speciality": "AUDIOLOGY",
+      "schemaVersion": 1
+    },
+    "clinicalData": {
+      "findings": {
+        "otoscopyRight": "Conducto auditivo externo permeable, tímpano íntegro",
+        "otoscopyLeft": "Conducto auditivo externo permeable, tímpano íntegro",
+        "cleaningPerformed": false,
+        "usesAuxiliaries": false,
+        "tinnitus": false
+      },
+      "diagnosis": "Pérdida auditiva leve bilateral de tipo sensorioneural"
+    },
+    "followUp": {
+      "hasFollowUp": true,
+      "tentativeDate": "2026-08-01T09:00:00.000Z",
+      "notes": "Control en 1 mes para evaluar evolución"
+    }
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("controlUuid", res.body.uuid);
+  }
+}

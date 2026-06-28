@@ -1,0 +1,30 @@
+meta {
+  name: Create User
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{identityUrl}}/users
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "doctor@clinica-demo.com",
+    "fullName": "Dra. María López",
+    "password": "Password1",
+    "role": "DOCTOR",
+    "specialty": "Audiología",
+    "phoneNumber": "+50688001234"
+  }
+}

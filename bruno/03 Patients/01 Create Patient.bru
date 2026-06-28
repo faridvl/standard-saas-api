@@ -1,0 +1,35 @@
+meta {
+  name: Create Patient
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{recordsUrl}}/patients
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "firstName": "Carlos",
+    "lastName": "Rodríguez",
+    "phone": "+50688005678",
+    "birthDate": "1985-03-15",
+    "address": "San José, Costa Rica"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("patientUuid", res.body.uuid);
+  }
+}

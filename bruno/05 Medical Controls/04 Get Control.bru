@@ -1,0 +1,15 @@
+meta {
+  name: Get Control
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{recordsUrl}}/medical-controls/{{controlUuid}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

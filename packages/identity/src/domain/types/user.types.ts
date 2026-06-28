@@ -1,3 +1,15 @@
+export type CreateUserPersistence = {
+  email: string;
+  name: string;
+  password: string;
+  role: UserRole;
+  tenantId: number;
+  tenantUUID: string;
+  specialty?: string | null;
+  phoneNumber?: string | null;
+  avatarUrl?: string | null;
+};
+
 export enum UserRole {
   OWNER = 'OWNER',
   ADMIN = 'ADMIN',

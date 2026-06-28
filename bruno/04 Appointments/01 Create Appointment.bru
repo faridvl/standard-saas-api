@@ -1,0 +1,38 @@
+meta {
+  name: Create Appointment
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{recordsUrl}}/appointments
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "patientUUID": "{{patientUuid}}",
+    "typeUUID": null,
+    "speciality": "AUDIOLOGY",
+    "status": "TENTATIVE",
+    "date": "2026-07-01T00:00:00.000Z",
+    "startTime": "2026-07-01T09:00:00.000Z",
+    "endTime": "2026-07-01T09:30:00.000Z",
+    "notes": "Primera consulta"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("appointmentUuid", res.body.uuid);
+  }
+}

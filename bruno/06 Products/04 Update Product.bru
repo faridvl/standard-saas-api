@@ -1,0 +1,29 @@
+meta {
+  name: Update Product
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{recordsUrl}}/products/{{productUuid}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "price": 1150000,
+    "stock": {
+      "current": 4,
+      "min": 2
+    }
+  }
+}

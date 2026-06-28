@@ -1,0 +1,41 @@
+meta {
+  name: Create Product
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{recordsUrl}}/products
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sku": "AUD-001",
+    "name": "Audífono Oticon More 1",
+    "model": "More 1 miniRITE R",
+    "description": "Audífono recargable con IA integrada",
+    "price": 1200000,
+    "stock": {
+      "current": 5,
+      "min": 2
+    },
+    "cabysCode": "4618202000",
+    "isActive": true
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("productUuid", res.body.uuid);
+  }
+}

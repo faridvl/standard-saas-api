@@ -1,0 +1,22 @@
+meta {
+  name: List Appointments
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{recordsUrl}}/appointments
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+params:query {
+  ~page: 1
+  ~limit: 10
+  ~date: 2026-07-01
+  ~patientId:
+}
