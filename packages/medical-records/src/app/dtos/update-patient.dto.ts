@@ -8,6 +8,7 @@ export const UpdatePatientSchema = z.object({
   email: z.string().email().optional(),
   gender: z.string().optional(),
   bloodType: z.string().optional(),
+  linkedProductUuid: z.string().uuid().nullable().optional(),
 });
 
 export type UpdatePatientDto = z.infer<typeof UpdatePatientSchema>;

@@ -16,8 +16,9 @@ model Patient {
   address      String?
   birthDate    DateTime
   email        String?
-  gender       String?
-  bloodType    String?
+  gender              String?
+  bloodType           String?
+  linkedProductUuid   String?
 
   tenantId     Int      
   tenantUuid   String   
