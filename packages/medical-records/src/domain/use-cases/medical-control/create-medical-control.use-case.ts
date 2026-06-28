@@ -19,20 +19,10 @@ export class CreateMedicalControlUseCase {
         diagnosis: dto.clinicalData.diagnosis,
         version: dto.header.schemaVersion,
         doctorUuid: context.userUuid,
+        followUp: dto.followUp ?? null,
       },
       context.tenantUuid,
     );
-
-    // if (dto.followUp?.hasFollowUp) {
-    //   await this.followUpStorage.save(
-    //     {
-    //       medicalControlUuid: control.uuid,
-    //       tentativeDate: dto.followUp.tentativeDate,
-    //       notes: dto.followUp.notes,
-    //     },
-    //     context.tenantUuid,
-    //   );
-    // }
 
     return control;
   }

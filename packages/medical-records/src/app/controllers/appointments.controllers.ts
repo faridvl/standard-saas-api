@@ -17,6 +17,7 @@ import { CreateAppointmentUseCase } from '@medical-records/domain/use-cases/appo
 import { GetAppointmentsUseCase } from '@medical-records/domain/use-cases/appointments/find-all-appointment.use-case';
 import { FindOneAppointment } from '@medical-records/domain/use-cases/appointments/find-one-appointment.use-case';
 import { UpdateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/update-appointment.use-case';
+import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/delete-appointment.use-case';
 
 // DTOs
 import {
@@ -36,7 +37,7 @@ export class AppointmentController {
     private readonly getOneUseCase: FindOneAppointment,
     private readonly updateUseCase: UpdateAppointmentUseCase,
     private readonly getAppointmentsByPatientUseCase: GetAppointmentsByPatientUseCase,
-    // private readonly deleteUseCase: DeleteAppointmentUseCase,
+    private readonly deleteUseCase: DeleteAppointmentUseCase,
   ) {}
 
   @Post()
@@ -84,8 +85,8 @@ export class AppointmentController {
     return await this.getAppointmentsByPatientUseCase.execute(patientUUID, user.tenantUuid);
   }
 
-  //   @Delete(':uuid')
-  //   async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
-  //     return await this.deleteUseCase.execute(uuid, user.tenantUuid);
-  //   }
+  @Delete(':uuid')
+  async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+    return await this.deleteUseCase.execute(uuid, user.tenantUuid);
+  }
 }

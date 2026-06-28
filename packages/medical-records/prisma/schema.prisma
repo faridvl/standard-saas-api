@@ -40,8 +40,9 @@ model MedicalControl {
   tenantUUID      String
   appointmentUUID String?  @unique 
   speciality      String
-  findings        Json     
+  findings        Json
   diagnosis       String   @db.Text
+  followUp        Json?
   schemaVersion   Int      @default(1)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
