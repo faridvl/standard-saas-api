@@ -10,13 +10,18 @@ export class CreatePatientUseCase {
     data: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
     userContext: { tenantId: number; tenantUuid: string; sub: string },
   ) {
-    const newPatient: PatientEntity = {
-      ...data,
+    return await this.storage.save({
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      address: data.address,
+      birthDate: data.birthDate,
+      email: data.email,
+      gender: data.gender,
+      bloodType: data.bloodType,
       tenantId: userContext.tenantId,
       tenantUuid: userContext.tenantUuid,
       createdBy: userContext.sub,
-    };
-
-    return await this.storage.save(newPatient);
+    });
   }
 }

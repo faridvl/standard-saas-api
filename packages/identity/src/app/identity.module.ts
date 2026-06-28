@@ -12,14 +12,21 @@ import { GetMeUseCase } from '../domain/use-cases/auth/get-me.use-case';
 import { CreateUserUseCase } from '../domain/use-cases/user.use-case';
 import { UserController } from './controllers/user.controller';
 import { GetUsersUseCase } from '../domain/use-cases/users/get-users.use-case';
+import { FindOneUserUseCase } from '../domain/use-cases/users/find-one-user.use-case';
+import { UpdateUserUseCase } from '../domain/use-cases/users/update-user.use-case';
+import { TenantController } from './controllers/tenant.controller';
+import { UpdateTenantUseCase } from '../domain/use-cases/tenants/update-tenant.use-case';
 
-const CONTROLLERS = [AuthController, UserController];
+const CONTROLLERS = [AuthController, UserController, TenantController];
 const USE_CASES = [
   RegisterTenantUseCase,
   LoginUseCase,
   GetMeUseCase,
   CreateUserUseCase,
   GetUsersUseCase,
+  FindOneUserUseCase,
+  UpdateUserUseCase,
+  UpdateTenantUseCase,
 ];
 const STORAGES = [TenantStorage, UserStorage, PrismaService];
 const SERVICES = [BcryptService];

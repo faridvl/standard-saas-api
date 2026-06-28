@@ -7,6 +7,7 @@ import { UserStorage } from '../../infrastructure/adapters/user.storage';
 import { RegisterTenantDto } from '../dtos/register-tenant.dto';
 import { IRegistrationResult } from '../dtos/registration-result.interface';
 import { BcryptService } from '../../infrastructure/security/bcrypt.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RegisterTenantUseCase {
@@ -17,6 +18,7 @@ export class RegisterTenantUseCase {
     private readonly tenantStorage: TenantStorage,
     private readonly userStorage: UserStorage,
     private readonly bcryptService: BcryptService,
+    private readonly configService: ConfigService,
   ) {}
 
   async execute(dto: RegisterTenantDto): Promise<IRegistrationResult> {
@@ -52,6 +54,8 @@ export class RegisterTenantUseCase {
         return { tenant, user };
       });
 
+      void this.initializeTenantData(result.tenant.uuid);
+
       return {
         tenantUuid: result.tenant.uuid,
         userUuid: result.user.uuid,
@@ -64,6 +68,35 @@ export class RegisterTenantUseCase {
         error instanceof Error ? error.stack : undefined,
       );
       throw error;
+    }
+  }
+
+  private async initializeTenantData(tenantUuid: string): Promise<void> {
+    const medicalRecordsUrl =
+      this.configService.get<string>('MEDICAL_RECORDS_API_URL') ?? 'http://localhost:7071';
+
+    try {
+      const response = await fetch(`${medicalRecordsUrl}/appointment-types/initialize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Call': 'true',
+        },
+        body: JSON.stringify({ tenantUuid }),
+      });
+
+      if (!response.ok) {
+        this.logger.error(
+          `Error al inicializar datos del tenant ${tenantUuid}: HTTP ${response.status}`,
+        );
+      } else {
+        this.logger.log(`Datos del tenant ${tenantUuid} inicializados correctamente`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Fallo al inicializar datos del tenant ${tenantUuid}`,
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 }

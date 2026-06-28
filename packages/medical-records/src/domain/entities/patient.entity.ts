@@ -5,6 +5,9 @@ export type PatientEntity = {
   phone?: string;
   address?: string;
   birthDate: Date;
+  email?: string;
+  gender?: string;
+  bloodType?: string;
   tenantId: number;
   tenantUuid: string;
   createdBy: string;

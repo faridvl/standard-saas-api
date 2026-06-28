@@ -6,6 +6,9 @@ export const CreatePatientSchema = z.object({
   phone: z.string().optional(),
   birthDate: z.string().transform((str) => new Date(str)), // Convierte string ISO a Date
   address: z.string().optional(),
+  email: z.string().email().optional(),
+  gender: z.string().optional(),
+  bloodType: z.string().optional(),
 });
 
 export type CreatePatientDto = z.infer<typeof CreatePatientSchema>;

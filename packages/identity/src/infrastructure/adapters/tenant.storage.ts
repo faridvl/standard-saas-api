@@ -12,6 +12,27 @@ export class TenantStorage {
     return client.tenant.create({ data });
   }
 
+  async update(
+    uuid: string,
+    data: { businessName?: string; businessType?: string },
+  ): Promise<TenantDomain> {
+    const record = await this.prisma.tenant.update({
+      where: { uuid },
+      data: {
+        ...(data.businessName !== undefined && { businessName: data.businessName }),
+        ...(data.businessType !== undefined && { businessType: data.businessType }),
+      },
+    });
+
+    return {
+      uuid: record.uuid,
+      businessName: record.businessName,
+      businessType: record.businessType ?? undefined,
+      plan: (record.plan as TenantPlan) ?? TenantPlan.FREE,
+      createdAt: record.createdAt,
+    };
+  }
+
   async findByUuid(uuid: string): Promise<TenantDomain | null> {
     const record = await this.prisma.tenant.findUnique({
       where: { uuid },
@@ -23,7 +44,7 @@ export class TenantStorage {
       uuid: record.uuid,
       businessName: record.businessName,
       businessType: record.businessType ?? undefined,
-      plan: TenantPlan.PREMIUM,
+      plan: (record.plan as TenantPlan) ?? TenantPlan.FREE,
       createdAt: record.createdAt,
     };
   }

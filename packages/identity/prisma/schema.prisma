@@ -16,7 +16,8 @@ model Tenant {
   id           Int      @id @default(autoincrement())
   uuid         String   @unique @default(uuid())
   businessName String
-  businessType String?  
+  businessType String?
+  plan         String?  @default("FREE")
   status       Status   @default(ACTIVE)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

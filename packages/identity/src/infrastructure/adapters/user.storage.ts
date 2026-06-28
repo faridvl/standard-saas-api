@@ -76,6 +76,56 @@ export class UserStorage {
     };
   }
 
+  async findByUuidAndTenant(uuid: string, tenantUUID: string): Promise<UserDomain | null> {
+    const record = await this.prisma.user.findFirst({
+      where: { uuid, tenantUUID },
+    });
+
+    if (!record) return null;
+
+    return {
+      uuid: record.uuid,
+      email: record.email,
+      fullName: record.name,
+      role: record.role as UserRole,
+      tenantId: record.tenantId,
+      tenantUUID: record.tenantUUID,
+      specialty: record.specialty,
+      avatarUrl: record.avatarUrl,
+      phoneNumber: record.phoneNumber,
+      createdAt: record.createdAt,
+      status: record.status,
+    };
+  }
+
+  async update(
+    uuid: string,
+    data: { fullName?: string; phoneNumber?: string; specialty?: string },
+  ): Promise<UserDomain> {
+    const record = await this.prisma.user.update({
+      where: { uuid },
+      data: {
+        ...(data.fullName !== undefined && { name: data.fullName }),
+        ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
+        ...(data.specialty !== undefined && { specialty: data.specialty }),
+      },
+    });
+
+    return {
+      uuid: record.uuid,
+      email: record.email,
+      fullName: record.name,
+      role: record.role as UserRole,
+      tenantId: record.tenantId,
+      tenantUUID: record.tenantUUID,
+      specialty: record.specialty,
+      avatarUrl: record.avatarUrl,
+      phoneNumber: record.phoneNumber,
+      createdAt: record.createdAt,
+      status: record.status,
+    };
+  }
+
   async save(data: CreateUserParams): Promise<UserDomain> {
     const record = await this.prisma.user.create({
       data: {

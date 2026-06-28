@@ -27,6 +27,7 @@ import { AppointmentTypeController } from './controllers/appointment-type.contro
 import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
+import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/initialize-appointment-types.use-case';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/
     AppointmentTypeStorage,
     FindAllAppointmentTypesUseCase,
     CreateAppointmentTypeUseCase,
+    InitializeAppointmentTypesUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })
