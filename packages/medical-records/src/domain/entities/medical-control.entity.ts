@@ -15,4 +15,9 @@ export type MedicalControlEntity<T extends MedicalSpeciality = MedicalSpeciality
     findings: MedicalFindingsMap[T];
     diagnosis: string;
   };
+  followUp?: {
+    hasFollowUp: boolean;
+    tentativeDate?: string | null;
+    notes?: string;
+  } | null;
 };

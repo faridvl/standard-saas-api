@@ -36,6 +36,7 @@ export class MedicalControlStorage {
         findings: migratedFindings,
         diagnosis: record.diagnosis,
       },
+      followUp: record.followUp as MedicalControlEntity['followUp'],
     };
   }
 
@@ -82,6 +83,7 @@ export class MedicalControlStorage {
       findings: any;
       diagnosis: string;
       version: number;
+      followUp?: { hasFollowUp: boolean; tentativeDate?: string | null; notes?: string } | null;
     },
     tenantUuid: string,
   ): Promise<MedicalControlEntity> {
@@ -95,6 +97,7 @@ export class MedicalControlStorage {
         findings: data.findings as Prisma.InputJsonValue,
         diagnosis: data.diagnosis,
         schemaVersion: data.version,
+        followUp: data.followUp ? (data.followUp as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
     });
 

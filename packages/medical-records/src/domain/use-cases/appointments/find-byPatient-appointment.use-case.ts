@@ -10,30 +10,22 @@ export class GetAppointmentsByPatientUseCase {
   ) {}
 
   async execute(patientUUID: string, tenantUUID: string): Promise<any> {
-    const appointments = await this.appointmentStorage.findByPatient(patientUUID, tenantUUID);
-
-    if (appointments.length > 0) {
-      return {
-        patient: {
-          uuid: patientUUID,
-          name: appointments[0].patientName,
-        },
-        appointments,
-      };
-    }
-
     const patient = await this.patientStorage.findByUuid(patientUUID, tenantUUID);
 
     if (!patient) {
       throw new NotFoundException('Paciente no encontrado');
     }
 
+    const appointments = await this.appointmentStorage.findByPatient(patientUUID, tenantUUID);
+
     return {
       patient: {
         uuid: patient.uuid,
         name: `${patient.firstName} ${patient.lastName}`,
+        phone: patient.phone ?? null,
+        email: patient.email ?? null,
       },
-      appointments: [],
+      appointments,
     };
   }
 }
