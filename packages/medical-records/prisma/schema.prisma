@@ -60,11 +60,12 @@ model MedicalControl {
 model AppointmentType {
   id          Int      @id @default(autoincrement())
   uuid        String   @unique @default(uuid())
-  name        String   
-  duration    Int?      
-  color       String?  
+  name        String
+  duration    Int?
+  color       String?
+  speciality  String?
   tenantUUID  String
-  
+
   appointments Appointment[]
 
   @@index([tenantUUID])

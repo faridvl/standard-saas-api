@@ -12,6 +12,7 @@ export class AppointmentTypeStorage {
     name: string;
     duration: number | null;
     color: string | null;
+    speciality: string | null;
     tenantUUID: string;
   }): AppointmentTypeEntity {
     return {
@@ -19,6 +20,7 @@ export class AppointmentTypeStorage {
       name: row.name,
       duration: row.duration,
       color: row.color,
+      speciality: row.speciality,
       tenantUUID: row.tenantUUID,
     };
   }
@@ -37,6 +39,7 @@ export class AppointmentTypeStorage {
         name: dto.name,
         duration: dto.duration ?? null,
         color: dto.color ?? null,
+        speciality: dto.speciality ?? null,
         tenantUUID,
       },
     });
