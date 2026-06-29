@@ -4,12 +4,25 @@ export enum MedicalSpeciality {
   GENERAL = 'GENERAL',
 }
 
+export interface AudiogramPoint {
+  hz: number;
+  db: number;
+  x: number;
+  y: number;
+}
+
+export interface AudiogramData {
+  OD: Record<string, string>;
+  OI: Record<string, string>;
+}
+
 export interface AudiologyFindings {
   otoscopyLeft: string;
   otoscopyRight: string;
   cleaningPerformed: boolean;
   usesAuxiliaries: boolean;
   tinnitus?: boolean;
+  audiogram?: AudiogramData;
 }
 
 export interface DentalFindings {
