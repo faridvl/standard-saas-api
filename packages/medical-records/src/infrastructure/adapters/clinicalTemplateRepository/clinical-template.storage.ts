@@ -70,6 +70,14 @@ export class ClinicalTemplateStorage {
     return this.mapToDomain(row);
   }
 
+  async findAllBySpeciality(tenantUuid: string, speciality: string): Promise<ClinicalTemplateEntity[]> {
+    const rows = await this.prisma.clinicalTemplate.findMany({
+      where: { tenantUuid, speciality },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row) => this.mapToDomain(row));
+  }
+
   async update(uuid: string, tenantUuid: string, dto: UpdateClinicalTemplateDto): Promise<ClinicalTemplateEntity> {
     const existing = await this.findByUuid(uuid, tenantUuid);
     if (!existing) {

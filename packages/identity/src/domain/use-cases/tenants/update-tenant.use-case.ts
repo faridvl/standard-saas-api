@@ -5,6 +5,7 @@ import { TenantDomain } from '../../types/auth.types';
 export type UpdateTenantData = {
   businessName?: string;
   businessType?: string;
+  logoUrl?: string | null;
 };
 
 @Injectable()

@@ -58,6 +58,7 @@ export class UserStorage {
       tenantUUID: record.tenantUUID,
       specialty: record.specialty,
       avatarUrl: record.avatarUrl,
+      signatureUrl: record.signatureUrl,
       phoneNumber: record.phoneNumber,
       createdAt: record.createdAt,
       status: record.status,
@@ -80,6 +81,7 @@ export class UserStorage {
       tenantUUID: record.tenantUUID,
       specialty: record.specialty,
       avatarUrl: record.avatarUrl,
+      signatureUrl: record.signatureUrl,
       phoneNumber: record.phoneNumber,
       createdAt: record.createdAt,
       status: record.status,
@@ -88,7 +90,7 @@ export class UserStorage {
 
   async update(
     uuid: string,
-    data: { fullName?: string; phoneNumber?: string; specialty?: string },
+    data: { fullName?: string; phoneNumber?: string; specialty?: string; signatureUrl?: string | null },
   ): Promise<UserDomain> {
     const record = await this.prisma.user.update({
       where: { uuid },
@@ -96,6 +98,7 @@ export class UserStorage {
         ...(data.fullName !== undefined && { name: data.fullName }),
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
         ...(data.specialty !== undefined && { specialty: data.specialty }),
+        ...(data.signatureUrl !== undefined && { signatureUrl: data.signatureUrl }),
       },
     });
 
@@ -108,6 +111,7 @@ export class UserStorage {
       tenantUUID: record.tenantUUID,
       specialty: record.specialty,
       avatarUrl: record.avatarUrl,
+      signatureUrl: record.signatureUrl,
       phoneNumber: record.phoneNumber,
       createdAt: record.createdAt,
       status: record.status,
@@ -139,6 +143,7 @@ export class UserStorage {
       tenantUUID: record.tenantUUID,
       specialty: record.specialty,
       avatarUrl: record.avatarUrl,
+      signatureUrl: record.signatureUrl,
       phoneNumber: record.phoneNumber,
       createdAt: record.createdAt,
       status: record.status,

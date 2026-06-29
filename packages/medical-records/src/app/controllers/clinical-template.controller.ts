@@ -15,6 +15,7 @@ import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/
 import { CreateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/create-clinical-template.use-case';
 import { FindAllClinicalTemplatesUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-all-clinical-templates.use-case';
 import { FindClinicalTemplateBySpecialityUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-clinical-template-by-speciality.use-case';
+import { FindAllClinicalTemplatesBySpecialityUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-all-clinical-templates-by-speciality.use-case';
 import { UpdateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/update-clinical-template.use-case';
 import { DeleteClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/delete-clinical-template.use-case';
 import {
@@ -31,6 +32,7 @@ export class ClinicalTemplateController {
     private readonly createUseCase: CreateClinicalTemplateUseCase,
     private readonly findAllUseCase: FindAllClinicalTemplatesUseCase,
     private readonly findBySpecialityUseCase: FindClinicalTemplateBySpecialityUseCase,
+    private readonly findAllBySpecialityUseCase: FindAllClinicalTemplatesBySpecialityUseCase,
     private readonly updateUseCase: UpdateClinicalTemplateUseCase,
     private readonly deleteUseCase: DeleteClinicalTemplateUseCase,
   ) {}
@@ -38,6 +40,14 @@ export class ClinicalTemplateController {
   @Get()
   async findAll(@CurrentUser() user: JwtPayload) {
     return await this.findAllUseCase.execute(user.tenantUuid);
+  }
+
+  @Get('speciality/:speciality/all')
+  async findAllBySpeciality(
+    @Param('speciality') speciality: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return await this.findAllBySpecialityUseCase.execute(user.tenantUuid, speciality);
   }
 
   @Get('speciality/:speciality')

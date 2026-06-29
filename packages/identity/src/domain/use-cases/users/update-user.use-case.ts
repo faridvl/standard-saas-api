@@ -6,6 +6,7 @@ export type UpdateUserData = {
   fullName?: string;
   phoneNumber?: string;
   specialty?: string;
+  signatureUrl?: string | null;
 };
 
 @Injectable()

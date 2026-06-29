@@ -1,5 +1,6 @@
 import { MedicalControlEntity } from '@medical-records/domain/entities/medical-control.entity';
 import { MedicalControlStorage } from '@medical-records/infrastructure/adapters/controlRepository/medical-control.storage';
+import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { Injectable } from '@nestjs/common';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 
@@ -9,7 +10,7 @@ export class FindAllMedicalControlsUseCase {
 
   async execute(
     patientUuid: string,
-    context: { tenantUuid: string },
+    context: { tenantUuid: string; speciality?: MedicalSpeciality },
     pagination: { page: number; limit: number },
   ): Promise<PaginatedResponse<MedicalControlEntity>> {
     // Aquí  verificar
@@ -20,6 +21,7 @@ export class FindAllMedicalControlsUseCase {
       context.tenantUuid,
       pagination.page,
       pagination.limit,
+      context.speciality,
     );
   }
 }

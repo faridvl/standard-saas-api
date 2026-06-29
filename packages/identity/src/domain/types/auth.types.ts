@@ -8,6 +8,7 @@ export type TenantDomain = {
   uuid: string;
   businessName: string;
   businessType?: string;
+  logoUrl?: string;
   plan?: TenantPlan;
   createdAt: Date;
 };

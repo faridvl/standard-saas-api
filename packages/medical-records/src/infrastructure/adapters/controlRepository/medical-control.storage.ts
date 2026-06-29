@@ -45,22 +45,23 @@ export class MedicalControlStorage {
     tenantUUID: string,
     page: number,
     limit: number,
+    speciality?: MedicalSpeciality,
   ): Promise<PaginatedResponse<MedicalControlEntity>> {
     const skip = (page - 1) * limit;
+    const where = {
+      patientUUID,
+      tenantUUID,
+      ...(speciality ? { speciality } : {}),
+    };
 
     const [records, total] = await Promise.all([
       this.prisma.medicalControl.findMany({
-        where: {
-          patientUUID,
-          tenantUUID,
-        },
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.medicalControl.count({
-        where: { patientUUID, tenantUUID },
-      }),
+      this.prisma.medicalControl.count({ where }),
     ]);
 
     return {

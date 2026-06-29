@@ -28,6 +28,7 @@ export type UserDomain = {
   tenantUUID?: string | null;
   specialty?: string | null;
   avatarUrl?: string | null;
+  signatureUrl?: string | null;
   phoneNumber?: string | null;
   status: string;
   createdAt: Date;

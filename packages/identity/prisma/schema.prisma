@@ -18,6 +18,7 @@ model Tenant {
   businessName String
   businessType String?
   plan         String?  @default("FREE")
+  logoUrl      String?
   status       Status   @default(ACTIVE)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -34,9 +35,10 @@ model User {
   role        String?     @default("OWNER")
   status      Status   @default(ACTIVE)
   
-  specialty   String?  
-  avatarUrl   String?  
-  phoneNumber String?  
+  specialty     String?
+  avatarUrl     String?
+  signatureUrl  String?
+  phoneNumber   String?
 
   tenantId    Int
   tenantUUID  String?   

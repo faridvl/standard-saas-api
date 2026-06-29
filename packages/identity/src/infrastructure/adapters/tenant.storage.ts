@@ -14,13 +14,14 @@ export class TenantStorage {
 
   async update(
     uuid: string,
-    data: { businessName?: string; businessType?: string },
+    data: { businessName?: string; businessType?: string; logoUrl?: string | null },
   ): Promise<TenantDomain> {
     const record = await this.prisma.tenant.update({
       where: { uuid },
       data: {
         ...(data.businessName !== undefined && { businessName: data.businessName }),
         ...(data.businessType !== undefined && { businessType: data.businessType }),
+        ...(data.logoUrl !== undefined && { logoUrl: data.logoUrl }),
       },
     });
 
@@ -28,6 +29,7 @@ export class TenantStorage {
       uuid: record.uuid,
       businessName: record.businessName,
       businessType: record.businessType ?? undefined,
+      logoUrl: record.logoUrl ?? undefined,
       plan: (record.plan as TenantPlan) ?? TenantPlan.FREE,
       createdAt: record.createdAt,
     };
@@ -44,6 +46,7 @@ export class TenantStorage {
       uuid: record.uuid,
       businessName: record.businessName,
       businessType: record.businessType ?? undefined,
+      logoUrl: record.logoUrl ?? undefined,
       plan: (record.plan as TenantPlan) ?? TenantPlan.FREE,
       createdAt: record.createdAt,
     };

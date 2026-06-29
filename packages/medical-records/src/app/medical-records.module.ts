@@ -33,6 +33,7 @@ import { ClinicalTemplateStorage } from '@medical-records/infrastructure/adapter
 import { CreateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/create-clinical-template.use-case';
 import { FindAllClinicalTemplatesUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-all-clinical-templates.use-case';
 import { FindClinicalTemplateBySpecialityUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-clinical-template-by-speciality.use-case';
+import { FindAllClinicalTemplatesBySpecialityUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-all-clinical-templates-by-speciality.use-case';
 import { UpdateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/update-clinical-template.use-case';
 import { DeleteClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/delete-clinical-template.use-case';
 import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-patient.use-case';
@@ -100,6 +101,7 @@ import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-case
     CreateClinicalTemplateUseCase,
     FindAllClinicalTemplatesUseCase,
     FindClinicalTemplateBySpecialityUseCase,
+    FindAllClinicalTemplatesBySpecialityUseCase,
     UpdateClinicalTemplateUseCase,
     DeleteClinicalTemplateUseCase,
 

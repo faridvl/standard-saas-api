@@ -7,6 +7,7 @@ import {
 } from '../dtos/create-medical-control.dto';
 import { FindAllMedicalControlsUseCase } from '@medical-records/domain/use-cases/medical-control/find-all-medical-controls.use-case';
 import { FindOneMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/find-one-medical-control.use-case';
+import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 
 @Controller('medical-controls')
 @UseGuards(AuthGuard)
@@ -35,7 +36,10 @@ export class MedicalControlController {
   ) {
     return await this.findAllUseCase.execute(
       patientUUID,
-      { tenantUuid: user.tenantUuid },
+      {
+        tenantUuid: user.tenantUuid,
+        speciality: user.specialty ? (user.specialty as MedicalSpeciality) : undefined,
+      },
       { page: Number(page), limit: Number(limit) },
     );
   }
