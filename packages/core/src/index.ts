@@ -19,3 +19,4 @@ export * from './interfaces/auth.interface';
 export * from './decorators/current-user.decorator';
 export * from './guards/auth.guard';
 export * from './guards/roles.guard';
+export * from './storage';

@@ -45,10 +45,20 @@ import { FindUpcomingMaintenanceUseCase } from '@medical-records/domain/use-case
 import { PatientBackgroundStorage } from '@medical-records/infrastructure/adapters/patientBackgroundRepository/patient-background.storage';
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
+import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
+import { AddCorrectionNoteUseCase } from '@medical-records/domain/use-cases/medical-control/add-correction-note.use-case';
+import { PatientDeviceStorage } from '@medical-records/infrastructure/adapters/patientDeviceRepository/patient-device.storage';
+import { CreatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/create-patient-device.use-case';
+import { FindPatientDevicesUseCase } from '@medical-records/domain/use-cases/patient-device/find-patient-devices.use-case';
+import { DeactivatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/deactivate-patient-device.use-case';
+import { PatientDeviceController } from './controllers/patient-device.controller';
+import { StorageModule } from '@project/core';
+import { UploadController } from './controllers/upload.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    StorageModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -60,12 +70,14 @@ import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-case
   ],
   controllers: [
     PatientController,
+    UploadController,
     MedicalControlController,
     AppointmentController,
     ProductController,
     AppointmentTypeController,
     ClinicalTemplateController,
     MaintenanceController,
+    PatientDeviceController,
   ],
   providers: [
     PrismaService,
@@ -115,6 +127,14 @@ import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-case
     PatientBackgroundStorage,
     FindPatientBackgroundUseCase,
     UpsertPatientBackgroundUseCase,
+
+    SoftDeletePatientUseCase,
+    AddCorrectionNoteUseCase,
+
+    PatientDeviceStorage,
+    CreatePatientDeviceUseCase,
+    FindPatientDevicesUseCase,
+    DeactivatePatientDeviceUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })

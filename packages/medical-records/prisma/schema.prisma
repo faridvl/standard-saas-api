@@ -27,6 +27,9 @@ model Patient {
   tenantUuid   String
   createdBy    String
 
+  isActive     Boolean  @default(true)
+  deletedAt    DateTime?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -34,8 +37,10 @@ model Patient {
   medicalControls MedicalControl[]
   background      PatientBackground?
   maintenances    Maintenance[]
+  devices         PatientDevice[]
 
   @@index([tenantId])
+  @@index([isActive])
 }
 
 model PatientBackground {
@@ -59,6 +64,29 @@ model PatientBackground {
   updatedAt     DateTime @updatedAt
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+}
+
+model PatientDevice {
+  id            Int       @id @default(autoincrement())
+  uuid          String    @unique @default(uuid())
+  patientUuid   String
+  tenantUuid    String
+  side          String    // 'OD' | 'OI' | 'AMBOS'
+  productUuid   String?   // referencia al producto en inventario
+  brand         String?
+  model         String?
+  serialNumber  String?
+  purchaseDate  DateTime?
+  warrantyUntil DateTime?
+  isActive      Boolean   @default(true)
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient       Patient   @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
 }
 
 model Maintenance {
@@ -89,9 +117,11 @@ model MedicalControl {
   tenantUUID      String
   appointmentUUID String?  @unique 
   speciality      String
-  findings        Json
-  diagnosis       String   @db.Text
-  followUp        Json?
+  findings          Json
+  diagnosis         String   @db.Text
+  followUp          Json?
+  correctionNotes   String?  @db.Text
+  templateSnapshot  Json?
   schemaVersion   Int      @default(1)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

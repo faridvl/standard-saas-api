@@ -20,4 +20,5 @@ export type MedicalControlEntity<T extends MedicalSpeciality = MedicalSpeciality
     tentativeDate?: string | null;
     notes?: string;
   } | null;
+  correctionNotes?: string | null;
 };

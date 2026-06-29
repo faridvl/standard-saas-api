@@ -17,8 +17,10 @@ import { UpdateUserUseCase } from '../domain/use-cases/users/update-user.use-cas
 import { TenantController } from './controllers/tenant.controller';
 import { UpdateTenantUseCase } from '../domain/use-cases/tenants/update-tenant.use-case';
 import { DeleteUserUseCase } from '../domain/use-cases/users/delete-user.use-case';
+import { UploadController } from './controllers/upload.controller';
+import { StorageModule } from '@project/core';
 
-const CONTROLLERS = [AuthController, UserController, TenantController];
+const CONTROLLERS = [AuthController, UserController, TenantController, UploadController];
 const USE_CASES = [
   RegisterTenantUseCase,
   LoginUseCase,
@@ -38,6 +40,7 @@ const SERVICES = [BcryptService];
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    StorageModule,
 
     JwtModule.registerAsync({
       global: true,

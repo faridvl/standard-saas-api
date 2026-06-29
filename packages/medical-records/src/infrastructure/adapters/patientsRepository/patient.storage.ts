@@ -76,25 +76,33 @@ export class PatientStorage {
     });
   }
 
+  async softDelete(uuid: string, tenantUuid: string): Promise<Patient> {
+    return await this.prisma.patient.update({
+      where: { uuid },
+      data: { isActive: false, deletedAt: new Date() },
+    });
+  }
+
   async findAllByTenant(
     tenantUUID: string,
     page: number = 1,
     limit: number = 10,
+    includeInactive = false,
   ): Promise<PaginatedResponse<Patient>> {
     const skip = (page - 1) * limit;
+    const where: Prisma.PatientWhereInput = {
+      tenantUuid: tenantUUID,
+      ...(includeInactive ? {} : { isActive: true }),
+    };
 
     const [records, total] = await Promise.all([
       this.prisma.patient.findMany({
-        where: {
-          tenantUuid: tenantUUID,
-        },
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.patient.count({
-        where: { tenantUuid: tenantUUID },
-      }),
+      this.prisma.patient.count({ where }),
     ]);
 
     return {

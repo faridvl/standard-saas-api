@@ -1,5 +1,5 @@
 import { CreateMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/create-medical-control.use-case';
-import { Controller, Post, Get, Body, Query, Param, UseGuards, UsePipes, ForbiddenException } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, Query, Param, UseGuards, UsePipes, ForbiddenException } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import {
   CreateMedicalControlDto,
@@ -8,6 +8,11 @@ import {
 import { FindAllMedicalControlsUseCase } from '@medical-records/domain/use-cases/medical-control/find-all-medical-controls.use-case';
 import { FindOneMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/find-one-medical-control.use-case';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
+import { AddCorrectionNoteUseCase } from '@medical-records/domain/use-cases/medical-control/add-correction-note.use-case';
+import { z } from 'zod';
+
+const CorrectionNoteSchema = z.object({ correctionNotes: z.string().min(1) });
+type CorrectionNoteDto = z.infer<typeof CorrectionNoteSchema>;
 
 @Controller('medical-controls')
 @UseGuards(AuthGuard)
@@ -16,6 +21,7 @@ export class MedicalControlController {
     private readonly createUseCase: CreateMedicalControlUseCase,
     private readonly findAllUseCase: FindAllMedicalControlsUseCase,
     private readonly findOneUseCase: FindOneMedicalControlUseCase,
+    private readonly addCorrectionNoteUseCase: AddCorrectionNoteUseCase,
   ) {}
 
   @Post()
@@ -56,5 +62,15 @@ export class MedicalControlController {
     }
 
     return control;
+  }
+
+  @Patch(':uuid/correction-note')
+  @UsePipes(new ZodValidationPipe(CorrectionNoteSchema))
+  async addCorrectionNote(
+    @Param('uuid') uuid: string,
+    @Body() dto: CorrectionNoteDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return await this.addCorrectionNoteUseCase.execute(uuid, user.tenantUuid, dto.correctionNotes);
   }
 }

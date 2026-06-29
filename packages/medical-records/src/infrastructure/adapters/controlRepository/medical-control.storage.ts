@@ -37,6 +37,7 @@ export class MedicalControlStorage {
         diagnosis: record.diagnosis,
       },
       followUp: record.followUp as MedicalControlEntity['followUp'],
+      correctionNotes: record.correctionNotes ?? null,
     };
   }
 
@@ -102,6 +103,14 @@ export class MedicalControlStorage {
       },
     });
 
+    return this.mapToEntity(record);
+  }
+
+  async addCorrectionNote(uuid: string, tenantUuid: string, correctionNotes: string): Promise<MedicalControlEntity> {
+    const record = await this.prisma.medicalControl.update({
+      where: { uuid },
+      data: { correctionNotes },
+    });
     return this.mapToEntity(record);
   }
 
