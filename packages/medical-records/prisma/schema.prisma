@@ -19,19 +19,66 @@ model Patient {
   gender              String?
   bloodType           String?
   linkedProductUuid   String?
+  documentId          String?
+  occupation          String?
+  sede                String?
 
-  tenantId     Int      
-  tenantUuid   String   
-  createdBy    String   
+  tenantId     Int
+  tenantUuid   String
+  createdBy    String
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Relaciones 
-  appointments Appointment[]
+  appointments    Appointment[]
   medicalControls MedicalControl[]
+  background      PatientBackground?
+  maintenances    Maintenance[]
 
   @@index([tenantId])
+}
+
+model PatientBackground {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  patientUuid   String   @unique
+  earInfections Boolean  @default(false)
+  nasalSurgery  Boolean  @default(false)
+  throatSurgery Boolean  @default(false)
+  earSurgery    Boolean  @default(false)
+  diabetes      Boolean  @default(false)
+  cholesterol   Boolean  @default(false)
+  highPressure  Boolean  @default(false)
+  allergies     Boolean  @default(false)
+  rhinitis      Boolean  @default(false)
+  vertigo       Boolean  @default(false)
+  tinnitus      Boolean  @default(false)
+  headacheNoise Boolean  @default(false)
+  cloggedEar    Boolean  @default(false)
+  notes         String?
+  updatedAt     DateTime @updatedAt
+
+  patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+}
+
+model Maintenance {
+  id                Int       @id @default(autoincrement())
+  uuid              String    @unique @default(uuid())
+  patientUuid       String
+  tenantUuid        String
+  performedBy       String
+  performedAt       DateTime  @default(now())
+  description       String    @db.Text
+  nextMaintenanceAt DateTime?
+  deviceUuid        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  patient           Patient   @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
+  @@index([nextMaintenanceAt])
 }
 
 model MedicalControl {

@@ -36,6 +36,14 @@ import { FindClinicalTemplateBySpecialityUseCase } from '@medical-records/domain
 import { UpdateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/update-clinical-template.use-case';
 import { DeleteClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/delete-clinical-template.use-case';
 import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-patient.use-case';
+import { MaintenanceController } from './controllers/maintenance.controller';
+import { MaintenanceStorage } from '@medical-records/infrastructure/adapters/maintenanceRepository/maintenance.storage';
+import { CreateMaintenanceUseCase } from '@medical-records/domain/use-cases/maintenance/create-maintenance.use-case';
+import { FindByPatientMaintenanceUseCase } from '@medical-records/domain/use-cases/maintenance/find-by-patient-maintenance.use-case';
+import { FindUpcomingMaintenanceUseCase } from '@medical-records/domain/use-cases/maintenance/find-upcoming-maintenance.use-case';
+import { PatientBackgroundStorage } from '@medical-records/infrastructure/adapters/patientBackgroundRepository/patient-background.storage';
+import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
+import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
 
 @Module({
   imports: [
@@ -56,6 +64,7 @@ import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-p
     ProductController,
     AppointmentTypeController,
     ClinicalTemplateController,
+    MaintenanceController,
   ],
   providers: [
     PrismaService,
@@ -95,6 +104,15 @@ import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-p
     DeleteClinicalTemplateUseCase,
 
     UpdatePatientUseCase,
+
+    MaintenanceStorage,
+    CreateMaintenanceUseCase,
+    FindByPatientMaintenanceUseCase,
+    FindUpcomingMaintenanceUseCase,
+
+    PatientBackgroundStorage,
+    FindPatientBackgroundUseCase,
+    UpsertPatientBackgroundUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })

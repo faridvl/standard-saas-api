@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, UsePipes, Query, Get, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, UsePipes, Query, Get, Param, Patch, Put } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
@@ -6,6 +6,9 @@ import { GetPatientsUseCase } from '@medical-records/domain/use-cases/get-patien
 import { GetPatientByUuidUseCase } from '@medical-records/domain/use-cases/get-patient-by-uuid.use-case';
 import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-patient.use-case';
 import { UpdatePatientDto, UpdatePatientSchema } from '../dtos/update-patient.dto';
+import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
+import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
+import { UpsertPatientBackgroundDto, UpsertPatientBackgroundSchema } from '../dtos/patient-background.dto';
 
 @Controller('patients')
 @UseGuards(AuthGuard)
@@ -15,6 +18,8 @@ export class PatientController {
     private readonly getPatientsUseCase: GetPatientsUseCase,
     private readonly getPatientByUuidUseCase: GetPatientByUuidUseCase,
     private readonly updatePatientUseCase: UpdatePatientUseCase,
+    private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
+    private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
   ) {}
 
   @Post()
@@ -49,5 +54,19 @@ export class PatientController {
     @CurrentUser() user: JwtPayload,
   ) {
     return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto);
+  }
+
+  @Get(':uuid/background')
+  async getBackground(@Param('uuid') uuid: string) {
+    return await this.findBackgroundUseCase.execute(uuid);
+  }
+
+  @Put(':uuid/background')
+  @UsePipes(new ZodValidationPipe(UpsertPatientBackgroundSchema))
+  async upsertBackground(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpsertPatientBackgroundDto,
+  ) {
+    return await this.upsertBackgroundUseCase.execute(uuid, dto);
   }
 }
