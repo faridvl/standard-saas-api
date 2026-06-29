@@ -47,6 +47,9 @@ export class RegisterTenantUseCase {
             role: 'OWNER',
             status: 'ACTIVE',
             tenant: { connect: { id: tenant.id } },
+            tenantUUID: tenant.uuid,
+            ...(dto.phone && { phoneNumber: dto.phone }),
+            ...(dto.isSpecialist && dto.specialty && { specialty: dto.specialty }),
           },
           tx,
         );

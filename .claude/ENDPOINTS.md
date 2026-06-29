@@ -130,6 +130,35 @@
 
 ---
 
+### GET /users/:uuid
+**Auth:** Required  
+**Response 200:** `UserDetail` — `{ uuid, fullName, email, role, specialty?, phoneNumber?, tenantId, createdAt }`  
+**Status:** Implemented. Scoped to caller's tenant.
+
+---
+
+### PATCH /users/:uuid
+**Auth:** Required  
+**Body (all optional):**
+```json
+{
+  "fullName": "string",
+  "phoneNumber": "string",
+  "specialty": "string"
+}
+```
+**Response 200:** Updated user domain object.  
+**Status:** Implemented. Email and role are not editable via this endpoint.
+
+---
+
+### DELETE /users/:uuid
+**Auth:** Required  
+**Response 204:** No content.  
+**Status:** Implemented. Scoped to caller's tenant.
+
+---
+
 ## Medical Records Service (port 7071)
 
 ### POST /patients
@@ -161,6 +190,26 @@
 **Auth:** Required  
 **Response 200:** Single patient object.  
 **Status:** Implemented. Scoped to tenant.
+
+---
+
+### PATCH /patients/:uuid
+**Auth:** Required  
+**Body (all optional):**
+```json
+{
+  "firstName": "string",
+  "lastName": "string",
+  "phone": "string",
+  "address": "string",
+  "email": "string",
+  "gender": "string",
+  "bloodType": "string",
+  "linkedProductUuid": "uuid | null"
+}
+```
+**Response 200:** Updated patient object.  
+**Status:** Implemented.
 
 ---
 
@@ -332,4 +381,51 @@
 ### DELETE /products/:uuid
 **Auth:** Required  
 **Response 200:** Soft-deletes (sets `isActive = false`).  
+**Status:** Implemented.
+
+---
+
+## Clinical Templates (Medical Records Service, port 7071)
+
+### GET /clinical-templates
+**Auth:** Required  
+**Response 200:** Array of clinical templates for the tenant.  
+**Status:** Implemented.
+
+---
+
+### GET /clinical-templates/speciality/:speciality
+**Auth:** Required  
+**Param:** `speciality` — `AUDIOLOGY | DENTAL | GENERAL`  
+**Response 200:** Array of templates filtered by speciality.  
+**Status:** Implemented.
+
+---
+
+### POST /clinical-templates
+**Auth:** Required  
+**Body:**
+```json
+{
+  "name": "string",
+  "speciality": "AUDIOLOGY | DENTAL | GENERAL",
+  "fields": [ { "key": "string", "label": "string", "type": "string" } ]
+}
+```
+**Response 201:** Created clinical template.  
+**Status:** Implemented.
+
+---
+
+### PATCH /clinical-templates/:uuid
+**Auth:** Required  
+**Body:** Partial — same fields as POST, all optional.  
+**Response 200:** Updated clinical template.  
+**Status:** Implemented.
+
+---
+
+### DELETE /clinical-templates/:uuid
+**Auth:** Required  
+**Response 204:** No content.  
 **Status:** Implemented.

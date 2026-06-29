@@ -8,10 +8,19 @@ async function bootstrap() {
     logger: ['log', 'error', 'warn', 'debug'],
   });
 
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+    : ['https://next-audiology-files.vercel.app'];
+
   app.enableCors({
-    origin:
-      process.env.NODE_ENV === 'development' ? '*' : ['https://next-audiology-files.vercel.app'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS not allowed for origin: ${origin}`));
+      }
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Accept, Authorization',
     credentials: true,
   });
