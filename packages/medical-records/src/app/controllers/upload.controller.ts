@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Param,
   Post,
@@ -9,17 +10,40 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthGuard, CurrentUser, JwtPayload, StorageService, imageAndPdfFilter } from '@project/core';
+import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 
 const UPLOAD_OPTIONS = {
   storage: memoryStorage(),
   fileFilter: imageAndPdfFilter,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  limits: { fileSize: 20 * 1024 * 1024 },
 };
 
 @Controller('upload')
 @UseGuards(AuthGuard)
 export class UploadController {
-  constructor(private readonly storageService: StorageService) {}
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly createDocumentUseCase: CreatePatientDocumentUseCase,
+  ) {}
+
+  private async uploadAndPersist(
+    patientUuid: string,
+    tenantUuid: string,
+    tipo: string,
+    category: string,
+    file: Express.Multer.File,
+  ) {
+    const url = await this.storageService.upload('medical_records', tenantUuid, tipo, file, patientUuid);
+    const document = await this.createDocumentUseCase.execute({
+      patientUuid,
+      tenantUuid,
+      originalName: file.originalname,
+      url,
+      category,
+      size: file.size,
+    });
+    return document;
+  }
 
   @Post('patients/:uuid/audiometrias')
   @UseInterceptors(FileInterceptor('file', UPLOAD_OPTIONS))
@@ -27,15 +51,9 @@ export class UploadController {
     @Param('uuid') patientUuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
+    @Body('category') category: string = 'EXTERNAL_TEST',
   ) {
-    const url = await this.storageService.upload(
-      'medical_records',
-      currentUser.tenantUuid,
-      'audiometrias',
-      file,
-      patientUuid,
-    );
-    return { url };
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'audiometrias', category || 'EXTERNAL_TEST', file);
   }
 
   @Post('patients/:uuid/imagenes')
@@ -44,15 +62,9 @@ export class UploadController {
     @Param('uuid') patientUuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
+    @Body('category') category: string = 'OTHER',
   ) {
-    const url = await this.storageService.upload(
-      'medical_records',
-      currentUser.tenantUuid,
-      'imagenes',
-      file,
-      patientUuid,
-    );
-    return { url };
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'imagenes', category || 'OTHER', file);
   }
 
   @Post('patients/:uuid/informes')
@@ -61,14 +73,8 @@ export class UploadController {
     @Param('uuid') patientUuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
+    @Body('category') category: string = 'OTHER',
   ) {
-    const url = await this.storageService.upload(
-      'medical_records',
-      currentUser.tenantUuid,
-      'informes',
-      file,
-      patientUuid,
-    );
-    return { url };
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'informes', category || 'OTHER', file);
   }
 }

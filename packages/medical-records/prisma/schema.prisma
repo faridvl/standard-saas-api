@@ -38,6 +38,7 @@ model Patient {
   background      PatientBackground?
   maintenances    Maintenance[]
   devices         PatientDevice[]
+  documents       PatientDocument[]
 
   @@index([tenantId])
   @@index([isActive])
@@ -84,6 +85,23 @@ model PatientDevice {
   updatedAt     DateTime  @updatedAt
 
   patient       Patient   @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
+}
+
+model PatientDocument {
+  id           Int      @id @default(autoincrement())
+  uuid         String   @unique @default(uuid())
+  patientUuid  String
+  tenantUuid   String
+  originalName String
+  url          String
+  category     String   @default("OTHER") // RECEIPT | WARRANTY | EXTERNAL_TEST | OTHER
+  size         Int      @default(0)
+  uploadedAt   DateTime @default(now())
+
+  patient      Patient  @relation(fields: [patientUuid], references: [uuid])
 
   @@index([patientUuid])
   @@index([tenantUuid])

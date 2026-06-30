@@ -54,6 +54,11 @@ import { DeactivatePatientDeviceUseCase } from '@medical-records/domain/use-case
 import { PatientDeviceController } from './controllers/patient-device.controller';
 import { StorageModule } from '@project/core';
 import { UploadController } from './controllers/upload.controller';
+import { PatientDocumentController } from './controllers/patient-document.controller';
+import { PatientDocumentStorage } from '@medical-records/infrastructure/adapters/patientDocumentRepository/patient-document.storage';
+import { FindPatientDocumentsUseCase } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
+import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
+import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/delete-patient-document.use-case';
 
 @Module({
   imports: [
@@ -78,6 +83,7 @@ import { UploadController } from './controllers/upload.controller';
     ClinicalTemplateController,
     MaintenanceController,
     PatientDeviceController,
+    PatientDocumentController,
   ],
   providers: [
     PrismaService,
@@ -135,6 +141,11 @@ import { UploadController } from './controllers/upload.controller';
     CreatePatientDeviceUseCase,
     FindPatientDevicesUseCase,
     DeactivatePatientDeviceUseCase,
+
+    PatientDocumentStorage,
+    FindPatientDocumentsUseCase,
+    CreatePatientDocumentUseCase,
+    DeletePatientDocumentUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })
