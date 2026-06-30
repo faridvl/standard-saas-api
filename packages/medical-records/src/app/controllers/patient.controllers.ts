@@ -10,6 +10,8 @@ import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
 import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
 import { UpsertPatientBackgroundDto, UpsertPatientBackgroundSchema } from '../dtos/patient-background.dto';
+import { BulkImportPatientsUseCase } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
+import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
 
 @Controller('patients')
 @UseGuards(AuthGuard)
@@ -22,7 +24,18 @@ export class PatientController {
     private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
     private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
     private readonly softDeletePatientUseCase: SoftDeletePatientUseCase,
+    private readonly bulkImportUseCase: BulkImportPatientsUseCase,
   ) {}
+
+  @Post('bulk')
+  @UsePipes(new ZodValidationPipe(BulkImportPatientsSchema))
+  async bulkImport(@Body() body: BulkImportPatientsDto, @CurrentUser() user: JwtPayload) {
+    return await this.bulkImportUseCase.execute(body.patients, {
+      tenantId: user.tenantId,
+      tenantUuid: user.tenantUuid,
+      sub: user.sub,
+    });
+  }
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreatePatientSchema))

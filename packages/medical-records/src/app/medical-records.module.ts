@@ -46,6 +46,7 @@ import { PatientBackgroundStorage } from '@medical-records/infrastructure/adapte
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
+import { BulkImportPatientsUseCase } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { AddCorrectionNoteUseCase } from '@medical-records/domain/use-cases/medical-control/add-correction-note.use-case';
 import { PatientDeviceStorage } from '@medical-records/infrastructure/adapters/patientDeviceRepository/patient-device.storage';
 import { CreatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/create-patient-device.use-case';
@@ -135,6 +136,7 @@ import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/
     UpsertPatientBackgroundUseCase,
 
     SoftDeletePatientUseCase,
+    BulkImportPatientsUseCase,
     AddCorrectionNoteUseCase,
 
     PatientDeviceStorage,
