@@ -71,7 +71,7 @@ export class UploadController {
       file,
       uuid,
     );
-    await this.updateUserUseCase.execute(uuid, currentUser.tenantUuid, { signatureUrl: url });
+    await this.updateUserUseCase.execute(uuid, currentUser.tenantUuid, { avatarUrl: url });
     return { url };
   }
 }
