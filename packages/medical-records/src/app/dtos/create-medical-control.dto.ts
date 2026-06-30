@@ -1,15 +1,14 @@
 import { z } from 'zod';
 import { MedicalSpeciality } from '../../domain/types/medical-control-content.types';
 
-const AudiologyFindingsSchema = z
-  .object({
-    otoscopyRight: z.string(),
-    otoscopyLeft: z.string(),
-    cleaningPerformed: z.boolean(),
-    usesAuxiliaries: z.boolean(),
-    tinnitus: z.boolean().optional(),
-  })
-  .strict();
+const AudiologyFindingsSchema = z.object({
+  otoscopyRight: z.string(),
+  otoscopyLeft: z.string(),
+  cleaningPerformed: z.boolean(),
+  usesAuxiliaries: z.boolean(),
+  tinnitus: z.boolean().optional(),
+  audiogram: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
+});
 const GeneralFindingsSchema = z.record(z.string(), z.unknown());
 
 const FollowUpSchema = z

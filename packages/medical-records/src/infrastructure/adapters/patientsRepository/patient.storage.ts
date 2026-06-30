@@ -72,6 +72,9 @@ export class PatientStorage {
         ...(dto.gender !== undefined && { gender: dto.gender }),
         ...(dto.bloodType !== undefined && { bloodType: dto.bloodType }),
         ...(dto.linkedProductUuid !== undefined && { linkedProductUuid: dto.linkedProductUuid }),
+        ...(dto.documentId !== undefined && { documentId: dto.documentId }),
+        ...(dto.occupation !== undefined && { occupation: dto.occupation }),
+        ...(dto.sede !== undefined && { sede: dto.sede }),
       },
     });
   }

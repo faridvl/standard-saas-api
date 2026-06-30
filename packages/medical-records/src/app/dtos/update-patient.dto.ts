@@ -9,6 +9,9 @@ export const UpdatePatientSchema = z.object({
   gender: z.string().optional(),
   bloodType: z.string().optional(),
   linkedProductUuid: z.string().uuid().nullable().optional(),
+  documentId: z.string().optional(),
+  occupation: z.string().optional(),
+  sede: z.string().optional(),
 });
 
 export type UpdatePatientDto = z.infer<typeof UpdatePatientSchema>;
