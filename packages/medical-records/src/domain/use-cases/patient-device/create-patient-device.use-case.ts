@@ -1,36 +1,43 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PatientDeviceStorage } from '@medical-records/infrastructure/adapters/patientDeviceRepository/patient-device.storage';
+import { ProductUnitStorage } from '@medical-records/infrastructure/adapters/productUnitRepository/product-unit.storage';
 
 export interface CreatePatientDeviceData {
   patientUuid: string;
   tenantUuid: string;
   side: string;
-  productUuid?: string;
-  brand?: string;
-  model?: string;
-  serialNumber?: string;
-  purchaseDate?: Date;
-  warrantyUntil?: Date;
+  productUnitUuid: string;
   notes?: string;
 }
 
 @Injectable()
 export class CreatePatientDeviceUseCase {
-  constructor(private readonly storage: PatientDeviceStorage) {}
+  constructor(
+    private readonly storage: PatientDeviceStorage,
+    private readonly unitStorage: ProductUnitStorage,
+  ) {}
 
   async execute(data: CreatePatientDeviceData) {
-    return await this.storage.create({
-      uuid: undefined as any,
-      patient: { connect: { uuid: data.patientUuid } },
+    const unit = await this.unitStorage.findOne(data.productUnitUuid);
+    if (!unit) throw new NotFoundException('Unidad de producto no encontrada');
+    if (unit.status !== 'AVAILABLE') {
+      throw new ConflictException(
+        `La unidad con serial "${unit.serialNumber}" no está disponible (estado: ${unit.status})`,
+      );
+    }
+
+    const unitId = await this.unitStorage.findRawId(data.productUnitUuid);
+
+    const device = await this.storage.create({
+      patientUuid: data.patientUuid,
       tenantUuid: data.tenantUuid,
       side: data.side,
-      productUuid: data.productUuid,
-      brand: data.brand,
-      model: data.model,
-      serialNumber: data.serialNumber,
-      purchaseDate: data.purchaseDate,
-      warrantyUntil: data.warrantyUntil,
+      productUnitId: unitId!,
       notes: data.notes,
     });
+
+    await this.unitStorage.assign(data.productUnitUuid, data.patientUuid);
+
+    return device;
   }
 }

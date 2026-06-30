@@ -69,26 +69,24 @@ model PatientBackground {
 }
 
 model PatientDevice {
-  id            Int       @id @default(autoincrement())
-  uuid          String    @unique @default(uuid())
-  patientUuid   String
-  tenantUuid    String
-  side          String    // 'OD' | 'OI' | 'AMBOS'
-  productUuid   String?   // referencia al producto en inventario
-  brand         String?
-  model         String?
-  serialNumber  String?
-  purchaseDate  DateTime?
-  warrantyUntil DateTime?
-  isActive      Boolean   @default(true)
-  notes         String?   @db.Text
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              Int          @id @default(autoincrement())
+  uuid            String       @unique @default(uuid())
+  patientUuid     String
+  tenantUuid      String
+  side            String       // 'OD' | 'OI' | 'AMBOS'
+  isActive        Boolean      @default(true)
+  notes           String?      @db.Text
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
-  patient       Patient   @relation(fields: [patientUuid], references: [uuid])
+  productUnit     ProductUnit? @relation(fields: [productUnitId], references: [id])
+  productUnitId   Int?         @map("product_unit_id")
+
+  patient         Patient      @relation(fields: [patientUuid], references: [uuid])
 
   @@index([patientUuid])
   @@index([tenantUuid])
+  @@index([productUnitId])
 }
 
 model PatientDocument {
@@ -208,24 +206,50 @@ model ClinicalTemplate {
 model Product {
   id           Int      @id @default(autoincrement())
   uuid         String   @unique @default(uuid())
-  tenantUuid   String  
-  
+  tenantUuid   String
+
   sku          String   @unique
   name         String
+  brand        String?
   model        String?
-  description  String?  
-  
+  description  String?
+
   price        Decimal  @default(0.00) @db.Decimal(15, 2)
-  currentStock Int      @default(0) @map("current_stock")
   minStock     Int      @default(5) @map("min_stock")
   cabysCode    String?  @map("cabys_code")
-  
+
   isActive     Boolean  @default(true) @map("is_active")
-  
+
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
-  speciality   String? 
+  speciality   String?
+
+  units        ProductUnit[]
 
   @@index([tenantUuid])
   @@index([sku])
+}
+
+model ProductUnit {
+  id                    Int       @id @default(autoincrement())
+  uuid                  String    @unique @default(uuid())
+  serialNumber          String    @unique
+  status                String    @default("AVAILABLE") // AVAILABLE | ASSIGNED | DAMAGED | RETIRED
+  purchaseDate          DateTime?
+  warrantyUntil         DateTime?
+  photoUrl              String?
+  notes                 String?   @db.Text
+  assignedToPatientUuid String?
+  assignedAt            DateTime?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  product               Product   @relation(fields: [productId], references: [id])
+  productId             Int       @map("product_id")
+
+  patientDevices        PatientDevice[]
+
+  @@index([productId])
+  @@index([status])
+  @@index([serialNumber])
 }

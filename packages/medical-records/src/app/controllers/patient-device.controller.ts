@@ -26,7 +26,13 @@ export class PatientDeviceController {
     @Body() dto: CreatePatientDeviceDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return await this.createUseCase.execute({ ...dto, patientUuid, tenantUuid: user.tenantUuid });
+    return await this.createUseCase.execute({
+      patientUuid,
+      tenantUuid: user.tenantUuid,
+      side: dto.side,
+      productUnitUuid: dto.productUnitUuid,
+      notes: dto.notes,
+    });
   }
 
   @Delete(':deviceUuid')

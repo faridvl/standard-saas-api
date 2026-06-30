@@ -54,6 +54,13 @@ import { CreatePatientDeviceUseCase } from '@medical-records/domain/use-cases/pa
 import { FindPatientDevicesUseCase } from '@medical-records/domain/use-cases/patient-device/find-patient-devices.use-case';
 import { DeactivatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/deactivate-patient-device.use-case';
 import { PatientDeviceController } from './controllers/patient-device.controller';
+import { ProductUnitStorage } from '@medical-records/infrastructure/adapters/productUnitRepository/product-unit.storage';
+import { CreateProductUnitUseCase } from '@medical-records/domain/use-cases/product-unit/create-product-unit.use-case';
+import { CreateProductUnitsBulkUseCase } from '@medical-records/domain/use-cases/product-unit/create-product-units-bulk.use-case';
+import { FindProductUnitsUseCase } from '@medical-records/domain/use-cases/product-unit/find-product-units.use-case';
+import { FindOneProductUnitUseCase } from '@medical-records/domain/use-cases/product-unit/find-one-product-unit.use-case';
+import { UpdateProductUnitUseCase } from '@medical-records/domain/use-cases/product-unit/update-product-unit.use-case';
+import { ProductUnitController } from './controllers/product-unit.controller';
 import { StorageModule } from '@project/core';
 import { UploadController } from './controllers/upload.controller';
 import { PatientDocumentController } from './controllers/patient-document.controller';
@@ -86,6 +93,7 @@ import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/
     MaintenanceController,
     PatientDeviceController,
     PatientDocumentController,
+    ProductUnitController,
   ],
   providers: [
     PrismaService,
@@ -145,6 +153,13 @@ import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/
     CreatePatientDeviceUseCase,
     FindPatientDevicesUseCase,
     DeactivatePatientDeviceUseCase,
+
+    ProductUnitStorage,
+    CreateProductUnitUseCase,
+    CreateProductUnitsBulkUseCase,
+    FindProductUnitsUseCase,
+    FindOneProductUnitUseCase,
+    UpdateProductUnitUseCase,
 
     PatientDocumentStorage,
     FindPatientDocumentsUseCase,

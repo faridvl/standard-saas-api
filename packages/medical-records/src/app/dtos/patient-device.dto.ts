@@ -1,13 +1,8 @@
 import { z } from 'zod';
 
 export const CreatePatientDeviceSchema = z.object({
+  productUnitUuid: z.string().uuid('UUID de unidad inválido'),
   side: z.enum(['OD', 'OI', 'AMBOS']),
-  productUuid: z.string().uuid().optional(),
-  brand: z.string().optional(),
-  model: z.string().optional(),
-  serialNumber: z.string().optional(),
-  purchaseDate: z.coerce.date().optional(),
-  warrantyUntil: z.coerce.date().optional(),
   notes: z.string().optional(),
 });
 
