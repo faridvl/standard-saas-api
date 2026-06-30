@@ -28,6 +28,7 @@ import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
 import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/initialize-appointment-types.use-case';
+import { DeleteAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/delete-appointment-type.use-case';
 import { ClinicalTemplateController } from './controllers/clinical-template.controller';
 import { ClinicalTemplateStorage } from '@medical-records/infrastructure/adapters/clinicalTemplateRepository/clinical-template.storage';
 import { CreateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/create-clinical-template.use-case';
@@ -115,6 +116,7 @@ import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/
     FindAllAppointmentTypesUseCase,
     CreateAppointmentTypeUseCase,
     InitializeAppointmentTypesUseCase,
+    DeleteAppointmentTypeUseCase,
 
     ClinicalTemplateStorage,
     CreateClinicalTemplateUseCase,

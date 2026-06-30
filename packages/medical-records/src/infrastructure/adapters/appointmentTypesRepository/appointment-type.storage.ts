@@ -45,4 +45,10 @@ export class AppointmentTypeStorage {
     });
     return this.mapToDomain(row);
   }
+
+  async delete(tenantUUID: string, uuid: string): Promise<void> {
+    await this.prisma.appointmentType.deleteMany({
+      where: { uuid, tenantUUID },
+    });
+  }
 }

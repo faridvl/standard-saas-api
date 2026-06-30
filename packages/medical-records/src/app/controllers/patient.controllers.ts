@@ -53,12 +53,14 @@ export class PatientController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
     @Query('includeInactive') includeInactive: string = 'false',
+    @Query('search') search?: string,
   ) {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
       Number(page),
       Number(limit),
       includeInactive === 'true',
+      search,
     );
   }
 

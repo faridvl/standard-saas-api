@@ -8,6 +8,7 @@ export type PatientEntity = {
   email?: string;
   gender?: string;
   bloodType?: string;
+  documentId?: string;
   tenantId: number;
   tenantUuid: string;
   createdBy: string;

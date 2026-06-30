@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, UseGuards, UsePipes, Headers, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, UsePipes, Headers, ForbiddenException, Delete, Param, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
 import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/initialize-appointment-types.use-case';
+import { DeleteAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/delete-appointment-type.use-case';
 import {
   CreateAppointmentTypeDto,
   CreateAppointmentTypeSchema,
@@ -21,6 +22,7 @@ export class AppointmentTypeController {
     private readonly findAllUseCase: FindAllAppointmentTypesUseCase,
     private readonly createUseCase: CreateAppointmentTypeUseCase,
     private readonly initializeUseCase: InitializeAppointmentTypesUseCase,
+    private readonly deleteUseCase: DeleteAppointmentTypeUseCase,
   ) {}
 
   @Get()
@@ -34,6 +36,13 @@ export class AppointmentTypeController {
   @UsePipes(new ZodValidationPipe(CreateAppointmentTypeSchema))
   async create(@Body() dto: CreateAppointmentTypeDto, @CurrentUser() user: JwtPayload) {
     return await this.createUseCase.execute(user.tenantUuid, dto);
+  }
+
+  @Delete(':uuid')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+    await this.deleteUseCase.execute(user.tenantUuid, uuid);
   }
 
   @Post('initialize')

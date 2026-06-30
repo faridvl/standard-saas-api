@@ -91,11 +91,21 @@ export class PatientStorage {
     page: number = 1,
     limit: number = 10,
     includeInactive = false,
+    search?: string,
   ): Promise<PaginatedResponse<Patient>> {
     const skip = (page - 1) * limit;
     const where: Prisma.PatientWhereInput = {
       tenantUuid: tenantUUID,
       ...(includeInactive ? {} : { isActive: true }),
+      ...(search && {
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { documentId: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      }),
     };
 
     const [records, total] = await Promise.all([

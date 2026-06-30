@@ -19,6 +19,7 @@ export class CreatePatientUseCase {
       email: data.email,
       gender: data.gender,
       bloodType: data.bloodType,
+      documentId: data.documentId,
       tenantId: userContext.tenantId,
       tenantUuid: userContext.tenantUuid,
       createdBy: userContext.sub,
