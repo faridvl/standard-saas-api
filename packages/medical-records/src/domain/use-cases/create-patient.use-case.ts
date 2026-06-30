@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { PatientStorage } from '../../infrastructure/adapters/patientsRepository/patient.storage';
 import { PatientEntity } from '../entities/patient.entity';
 
@@ -10,6 +10,15 @@ export class CreatePatientUseCase {
     data: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
     userContext: { tenantId: number; tenantUuid: string; sub: string },
   ) {
+    if (data.documentId) {
+      const existing = await this.storage.findByDocumentId(data.documentId, userContext.tenantUuid);
+      if (existing) {
+        throw new ConflictException(
+          `La cédula ${data.documentId} ya está registrada (paciente: ${existing.firstName} ${existing.lastName})`,
+        );
+      }
+    }
+
     return await this.storage.save({
       firstName: data.firstName,
       lastName: data.lastName,

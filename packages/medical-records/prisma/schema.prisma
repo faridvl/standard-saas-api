@@ -42,6 +42,7 @@ model Patient {
 
   @@index([tenantId])
   @@index([isActive])
+  @@index([tenantUuid, documentId])
 }
 
 model PatientBackground {

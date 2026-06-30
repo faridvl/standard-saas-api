@@ -79,6 +79,21 @@ export class PatientStorage {
     });
   }
 
+  async findByDocumentId(
+    documentId: string,
+    tenantUuid: string,
+    excludeUuid?: string,
+  ): Promise<Patient | null> {
+    return await this.prisma.patient.findFirst({
+      where: {
+        documentId,
+        tenantUuid,
+        isActive: true,
+        ...(excludeUuid ? { uuid: { not: excludeUuid } } : {}),
+      },
+    });
+  }
+
   async softDelete(uuid: string, tenantUuid: string): Promise<Patient> {
     return await this.prisma.patient.update({
       where: { uuid },

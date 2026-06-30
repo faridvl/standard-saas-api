@@ -23,7 +23,23 @@ export class BulkImportPatientsUseCase {
     for (let index = 0; index < rows.length; index++) {
       const row = rows[index];
       const rowNumber = index + 2; // +2: 1-based + header row
+
       try {
+        if (row.documentId) {
+          const existing = await this.storage.findByDocumentId(
+            row.documentId,
+            userContext.tenantUuid,
+          );
+          if (existing) {
+            skipped++;
+            errors.push({
+              row: rowNumber,
+              reason: `La cédula ${row.documentId} ya está registrada (paciente: ${existing.firstName} ${existing.lastName})`,
+            });
+            continue;
+          }
+        }
+
         await this.storage.save({
           firstName: row.firstName,
           lastName: row.lastName,
@@ -32,6 +48,7 @@ export class BulkImportPatientsUseCase {
           birthDate: row.birthDate as unknown as Date,
           email: row.email,
           gender: row.gender,
+          documentId: row.documentId,
           tenantId: userContext.tenantId,
           tenantUuid: userContext.tenantUuid,
           createdBy: userContext.sub,
