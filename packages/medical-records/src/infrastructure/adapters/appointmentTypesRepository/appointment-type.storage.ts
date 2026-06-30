@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentTypeEntity } from '@medical-records/domain/entities/appointment-type.entity';
 import { CreateAppointmentTypeDto } from '@medical-records/app/dtos/appointment-type.dto';
@@ -47,6 +47,17 @@ export class AppointmentTypeStorage {
   }
 
   async delete(tenantUUID: string, uuid: string): Promise<void> {
+    const appointmentCount = await this.prisma.appointment.count({
+      where: { typeUUID: uuid },
+    });
+
+    if (appointmentCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar el tipo de cita porque tiene ${appointmentCount} ${appointmentCount === 1 ? 'cita registrada' : 'citas registradas'}.`,
+        JSON.stringify({ appointmentCount }),
+      );
+    }
+
     await this.prisma.appointmentType.deleteMany({
       where: { uuid, tenantUUID },
     });
