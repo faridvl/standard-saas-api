@@ -90,7 +90,7 @@ export class UserStorage {
 
   async update(
     uuid: string,
-    data: { fullName?: string; phoneNumber?: string; specialty?: string; signatureUrl?: string | null },
+    data: { fullName?: string; phoneNumber?: string; specialty?: string; signatureUrl?: string | null; avatarUrl?: string | null },
   ): Promise<UserDomain> {
     const record = await this.prisma.user.update({
       where: { uuid },
@@ -99,6 +99,7 @@ export class UserStorage {
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
         ...(data.specialty !== undefined && { specialty: data.specialty }),
         ...(data.signatureUrl !== undefined && { signatureUrl: data.signatureUrl }),
+        ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
       },
     });
 
