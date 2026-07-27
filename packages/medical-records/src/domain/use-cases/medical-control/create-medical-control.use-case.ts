@@ -14,6 +14,7 @@ export class CreateMedicalControlUseCase {
       {
         patientUuid: dto.header.patientUUID,
         appointmentUuid: dto.header.appointmentUUID,
+        encounterUuid: dto.header.encounterUuid,
         speciality: dto.header.speciality,
         findings: dto.clinicalData.findings,
         diagnosis: dto.clinicalData.diagnosis,

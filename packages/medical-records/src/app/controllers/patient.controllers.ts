@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, UsePipes, Query, Get, Param, Patch, Put, Delete, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, UsePipes, Query, Get, Param, Patch, Put, Delete, HttpCode, HttpStatus, ForbiddenException } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
@@ -12,6 +12,10 @@ import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-case
 import { UpsertPatientBackgroundDto, UpsertPatientBackgroundSchema } from '../dtos/patient-background.dto';
 import { BulkImportPatientsUseCase } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
+
+// STAFF (recepción) no tiene acceso a antecedentes: son datos de salud
+// sensibles (Ley 8968), no información administrativa.
+const STAFF_ROLE = 'STAFF';
 
 @Controller('patients')
 @UseGuards(AuthGuard)
@@ -86,7 +90,10 @@ export class PatientController {
   }
 
   @Get(':uuid/background')
-  async getBackground(@Param('uuid') uuid: string) {
+  async getBackground(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+    if (user.role === STAFF_ROLE) {
+      throw new ForbiddenException('El personal administrativo no tiene acceso a antecedentes clínicos');
+    }
     return await this.findBackgroundUseCase.execute(uuid);
   }
 
@@ -95,7 +102,11 @@ export class PatientController {
   async upsertBackground(
     @Param('uuid') uuid: string,
     @Body() dto: UpsertPatientBackgroundDto,
+    @CurrentUser() user: JwtPayload,
   ) {
+    if (user.role === STAFF_ROLE) {
+      throw new ForbiddenException('El personal administrativo no tiene acceso a antecedentes clínicos');
+    }
     return await this.upsertBackgroundUseCase.execute(uuid, dto);
   }
 }

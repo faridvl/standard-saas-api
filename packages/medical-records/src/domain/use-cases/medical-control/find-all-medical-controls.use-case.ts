@@ -1,6 +1,5 @@
 import { MedicalControlEntity } from '@medical-records/domain/entities/medical-control.entity';
 import { MedicalControlStorage } from '@medical-records/infrastructure/adapters/controlRepository/medical-control.storage';
-import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { Injectable } from '@nestjs/common';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 
@@ -8,9 +7,11 @@ import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 export class FindAllMedicalControlsUseCase {
   constructor(private readonly storage: MedicalControlStorage) {}
 
+  // El expediente es del paciente, no del médico (NOM-004 5.14): un solo
+  // expediente con todos los registros, sin importar la especialidad de quien lee.
   async execute(
     patientUuid: string,
-    context: { tenantUuid: string; speciality?: MedicalSpeciality },
+    context: { tenantUuid: string },
     pagination: { page: number; limit: number },
   ): Promise<PaginatedResponse<MedicalControlEntity>> {
     // Aquí  verificar
@@ -21,7 +22,6 @@ export class FindAllMedicalControlsUseCase {
       context.tenantUuid,
       pagination.page,
       pagination.limit,
-      context.speciality,
     );
   }
 }

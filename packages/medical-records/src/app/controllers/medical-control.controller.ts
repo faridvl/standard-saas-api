@@ -7,12 +7,16 @@ import {
 } from '../dtos/create-medical-control.dto';
 import { FindAllMedicalControlsUseCase } from '@medical-records/domain/use-cases/medical-control/find-all-medical-controls.use-case';
 import { FindOneMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/find-one-medical-control.use-case';
-import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { AddCorrectionNoteUseCase } from '@medical-records/domain/use-cases/medical-control/add-correction-note.use-case';
 import { z } from 'zod';
 
 const CorrectionNoteSchema = z.object({ correctionNotes: z.string().min(1) });
 type CorrectionNoteDto = z.infer<typeof CorrectionNoteSchema>;
+
+// STAFF (recepción) no tiene acceso a notas clínicas: Ley 8968 clasifica los
+// datos de salud como sensibles. El control de acceso debe vivir en la API,
+// no solo ocultarse en el cliente sobre datos ya descargados.
+const STAFF_ROLE = 'STAFF';
 
 @Controller('medical-controls')
 @UseGuards(AuthGuard)
@@ -40,28 +44,29 @@ export class MedicalControlController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
   ) {
+    if (user.role === STAFF_ROLE) {
+      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
+    }
+
+    // La especialidad determina qué se puede crear, nunca qué se puede ver
+    // (NOM-004 5.14): un solo expediente con todos los registros del paciente.
     return await this.findAllUseCase.execute(
       patientUUID,
-      {
-        tenantUuid: user.tenantUuid,
-        speciality: user.specialty ? (user.specialty as MedicalSpeciality) : undefined,
-      },
+      { tenantUuid: user.tenantUuid },
       { page: Number(page), limit: Number(limit) },
     );
   }
 
   @Get(':uuid')
   async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
-    const control = await this.findOneUseCase.execute(uuid, {
+    if (user.role === STAFF_ROLE) {
+      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
+    }
+
+    return await this.findOneUseCase.execute(uuid, {
       tenantUuid: user.tenantUuid,
       userUuid: user.sub,
     });
-
-    if (user.specialty && control.header.speciality !== user.specialty) {
-      throw new ForbiddenException('No tienes permiso para ver controles de esta especialidad');
-    }
-
-    return control;
   }
 
   @Patch(':uuid/correction-note')

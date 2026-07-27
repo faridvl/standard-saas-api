@@ -15,6 +15,7 @@ export class MaintenanceStorage {
     description: string;
     nextMaintenanceAt: Date | null;
     deviceUuid: string | null;
+    encounterUuid: string | null;
     createdAt: Date;
   }): MaintenanceEntity {
     return {
@@ -26,6 +27,7 @@ export class MaintenanceStorage {
       description: record.description,
       nextMaintenanceAt: record.nextMaintenanceAt?.toISOString() ?? null,
       deviceUuid: record.deviceUuid,
+      encounterUuid: record.encounterUuid,
       createdAt: record.createdAt.toISOString(),
     };
   }
@@ -37,6 +39,7 @@ export class MaintenanceStorage {
     description: string;
     nextMaintenanceAt?: string | null;
     deviceUuid?: string | null;
+    encounterUuid?: string | null;
   }): Promise<MaintenanceEntity> {
     const record = await this.prisma.maintenance.create({
       data: {
@@ -46,6 +49,7 @@ export class MaintenanceStorage {
         description: data.description,
         nextMaintenanceAt: data.nextMaintenanceAt ? new Date(data.nextMaintenanceAt) : null,
         deviceUuid: data.deviceUuid ?? null,
+        encounterUuid: data.encounterUuid ?? null,
       },
     });
     return this.mapToEntity(record);

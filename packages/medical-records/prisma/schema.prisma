@@ -39,6 +39,8 @@ model Patient {
   maintenances    Maintenance[]
   devices         PatientDevice[]
   documents       PatientDocument[]
+  encounters      Encounter[]
+  studies         Study[]
 
   @@index([tenantId])
   @@index([isActive])
@@ -116,14 +118,17 @@ model Maintenance {
   description       String    @db.Text
   nextMaintenanceAt DateTime?
   deviceUuid        String?
+  encounterUuid     String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   patient           Patient   @relation(fields: [patientUuid], references: [uuid])
+  encounter         Encounter? @relation(fields: [encounterUuid], references: [uuid])
 
   @@index([patientUuid])
   @@index([tenantUuid])
   @@index([nextMaintenanceAt])
+  @@index([encounterUuid])
 }
 
 model MedicalControl {
@@ -132,7 +137,8 @@ model MedicalControl {
   patientUUID     String
   userUUID        String
   tenantUUID      String
-  appointmentUUID String?  @unique 
+  appointmentUUID String?  @unique
+  encounterUuid   String?
   speciality      String
   findings          Json
   diagnosis         String   @db.Text
@@ -146,9 +152,61 @@ model MedicalControl {
   // Relaciones
   patient         Patient      @relation(fields: [patientUUID], references: [uuid])
   appointment     Appointment? @relation(fields: [appointmentUUID], references: [uuid])
+  encounter       Encounter?   @relation(fields: [encounterUuid], references: [uuid])
 
   @@index([patientUUID])
   @@index([tenantUUID])
+  @@index([encounterUuid])
+}
+
+// Encuentro = la visita como unidad persistente (reemplaza consulta-session.ts
+// en sessionStorage). Cita != Encuentro: la cita es una intención, el encuentro
+// es la atención que ocurrió. appointmentUuid es NULLABLE porque hay encuentros
+// sin cita (walk-in) y citas sin encuentro (no asistió).
+model Encounter {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  patientUuid     String
+  tenantUuid      String
+  autorUuid       String // NOM-004 5.10: toda nota lleva autor
+  especialidad    String
+  appointmentUuid String?   @unique
+  startedAt       DateTime  @default(now())
+  closedAt        DateTime?
+  status          String    @default("OPEN") // OPEN | CLOSED
+
+  patient         Patient          @relation(fields: [patientUuid], references: [uuid])
+  appointment     Appointment?     @relation(fields: [appointmentUuid], references: [uuid])
+  medicalControls MedicalControl[]
+  maintenances    Maintenance[]
+  studies         Study[]
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
+}
+
+// Estudio = una medición estructurada (audiometría, test psicométrico...).
+// No es una nota de evolución: es repetible y se compara en el tiempo
+// (DOMAIN_ANALYSIS.md §1, §2.2). Inmutable — repetir la medición crea un
+// Study nuevo, nunca se sobrescribe el existente (append-only, NOM-004 5.11).
+model Study {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  encounterUuid String
+  patientUuid   String
+  tenantUuid    String
+  autorUuid     String
+  tipo          String   // AUDIOMETRIA_TONAL | TEST_PSICOMETRICO
+  payload       Json
+  documentUuid  String?
+  createdAt     DateTime @default(now())
+
+  encounter     Encounter @relation(fields: [encounterUuid], references: [uuid])
+  patient       Patient   @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([encounterUuid])
+  @@index([patientUuid])
+  @@index([tenantUuid])
 }
 
 model AppointmentType {
@@ -182,10 +240,11 @@ model Appointment {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
-  // Relaciones 
+  // Relaciones
   patient           Patient         @relation(fields: [patientUUID], references: [uuid])
   appointmentType   AppointmentType @relation(fields: [typeUUID], references: [uuid])
-  medicalControl    MedicalControl? 
+  medicalControl    MedicalControl?
+  encounter         Encounter?
 
   @@index([patientUUID])
   @@index([tenantUUID])

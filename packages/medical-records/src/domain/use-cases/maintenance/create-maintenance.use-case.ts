@@ -18,6 +18,7 @@ export class CreateMaintenanceUseCase {
       description: dto.description,
       nextMaintenanceAt: dto.nextMaintenanceAt ?? null,
       deviceUuid: dto.deviceUuid ?? null,
+      encounterUuid: dto.encounterUuid ?? null,
     });
   }
 }

@@ -23,6 +23,7 @@ const AudiologyControlSchema = z.object({
   header: z.object({
     patientUUID: z.string().uuid({ message: 'patientUUID debe ser un UUID válido' }),
     appointmentUUID: z.string().uuid().optional().nullable(),
+    encounterUuid: z.string().uuid().optional().nullable(),
     speciality: z.literal(MedicalSpeciality.AUDIOLOGY),
     schemaVersion: z.number().int().default(1),
   }),
@@ -37,6 +38,7 @@ const GeneralControlSchema = z.object({
   header: z.object({
     patientUUID: z.string().uuid({ message: 'patientUUID debe ser un UUID válido' }),
     appointmentUUID: z.string().uuid().optional().nullable(),
+    encounterUuid: z.string().uuid().optional().nullable(),
     speciality: z.literal(MedicalSpeciality.GENERAL),
     schemaVersion: z.number().int().default(1),
   }),

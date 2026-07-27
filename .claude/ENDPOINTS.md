@@ -291,6 +291,7 @@
   "header": {
     "patientUUID": "uuid",
     "appointmentUUID": "uuid (optional)",
+    "encounterUuid": "uuid (optional, nullable)",
     "speciality": "AUDIOLOGY",
     "schemaVersion": 1
   },
@@ -312,8 +313,8 @@
 }
 ```
 **Body (GENERAL speciality):** Same structure but `findings` is free-form `Record<string, unknown>`.  
-**Response 201:** Created medical control.  
-**Status:** Implemented. Note: `followUp` storage is commented out — `followUp` data is accepted but not persisted.
+**Response 201:** Created medical control. `header.encounterUuid` echoes back what was sent (`null` if omitted).  
+**Status:** Implemented. `encounterUuid` added 2026-07-27 — links this control to an `Encounter` (see Encounters section). Note: `followUp` storage is commented out — `followUp` data is accepted but not persisted.
 
 ---
 
@@ -381,6 +382,151 @@
 ### DELETE /products/:uuid
 **Auth:** Required  
 **Response 200:** Soft-deletes (sets `isActive = false`).  
+**Status:** Implemented.
+
+---
+
+## Encounters (Medical Records Service, port 7071)
+
+Modela el `Encuentro` (visita del paciente) como entidad persistente — reemplaza
+`consulta-session.ts` en `sessionStorage` del site. Ver `.claude/DOMAIN_ANALYSIS.md`
+(site repo) §4.1. Cita ≠ Encuentro: `appointmentUuid` es nullable porque hay
+encuentros sin cita (walk-in) y citas sin encuentro (no asistió).
+
+`MedicalControl` y `Maintenance` ahora tienen `encounterUuid` nullable (transición
+gradual, no rompe registros existentes). Ninguno de los dos storages expone un
+`update` destructivo sobre datos clínicos: `MedicalControlStorage.addCorrectionNote`
+solo añade al campo `correctionNotes` (nunca reescribe `findings`/`diagnosis`), y
+`MaintenanceStorage` es create-only. El patrón append-only (NOM-004 5.11) ya se
+cumple sin cambios adicionales.
+
+**2026-07-27 — `encounterUuid` expuesto en creación:** `POST /medical-controls`
+acepta `header.encounterUuid` (uuid, opcional/nullable — ver ejemplo de body más
+arriba). `POST /maintenance` acepta `encounterUuid` (uuid, opcional/nullable) como
+campo de nivel superior del body, junto a `patientUuid`/`description`/
+`nextMaintenanceAt`/`deviceUuid`. Antes de este cambio la columna existía en DB
+pero ningún DTO/use-case/storage la aceptaba en create — quedaba siempre `null`.
+
+**Acceso:** igual que `medical-controls` — rol `STAFF` recibe 403 en todas las rutas
+(datos de salud sensibles, Ley 8968). La especialidad determina qué se puede crear,
+nunca qué se puede ver (NOM-004 5.14).
+
+### POST /encounters
+**Auth:** Required (403 si `role === STAFF`)
+**Body:**
+```json
+{
+  "patientUuid": "uuid",
+  "especialidad": "string (min 1)",
+  "appointmentUuid": "uuid (optional, nullable)"
+}
+```
+**Response 201:**
+```json
+{
+  "uuid": "uuid",
+  "patientUuid": "uuid",
+  "tenantUuid": "uuid",
+  "autorUuid": "uuid",
+  "especialidad": "string",
+  "appointmentUuid": "uuid | null",
+  "startedAt": "ISO datetime",
+  "closedAt": null,
+  "status": "OPEN"
+}
+```
+**Status:** Implemented. `autorUuid` se toma del JWT (`user.sub`), no del body.
+
+---
+
+### GET /encounters/patient/:uuid
+**Auth:** Required (403 si `role === STAFF`)
+**Response 200:** Array de `EncounterEntity`, ordenado por `startedAt desc`. Sin
+paginar (para el timeline del expediente). Sin filtro por especialidad — expediente
+único por paciente (NOM-004 5.14).
+**Status:** Implemented.
+
+---
+
+### GET /encounters/:uuid
+**Auth:** Required (403 si `role === STAFF`)
+**Response 200:** `EncounterEntity` + `medicalControls: MedicalControl[]` +
+`maintenances: Maintenance[]` + `studies: Study[]` (los registros clínicos colgados
+de este encuentro).
+**Response 404:** Si el UUID no existe o no pertenece al tenant.
+**Status:** Implemented. `studies` agregado 2026-07-27 (ver sección Studies).
+
+---
+
+### PATCH /encounters/:uuid/close
+**Auth:** Required (403 si `role === STAFF`)
+**Body:** Ninguno.
+**Response 200:** `EncounterEntity` con `status: "CLOSED"` y `closedAt` seteado.
+**Status:** Implemented. Append-only: si el encuentro ya está `CLOSED`, devuelve el
+registro sin modificarlo (no hay update posterior a un encuentro cerrado). Reabrir
+un encuentro significa crear uno nuevo vinculado — no existe endpoint para reabrir.
+
+---
+
+## Studies (Medical Records Service, port 7071)
+
+**Concepto:** un `Study` es una MEDICIÓN estructurada (audiometría, test
+psicométrico...), no una nota de evolución. Antes se guardaba disfrazado de
+`MedicalControl` (`diagnosis: "Audiograma"`, `findings.audiogram`). Ahora es su
+propia entidad: repetible y comparable en el tiempo, colgada de un `Encounter`.
+
+`Study` es **inmutable** (append-only, NOM-004 5.11) — no existe `PATCH`/`PUT`.
+Repetir una medición crea un `Study` nuevo; el anterior no se toca ni se borra.
+
+### POST /studies
+**Auth:** Required (403 si `role === STAFF`)
+**Body:**
+```json
+{
+  "encounterUuid": "uuid",
+  "patientUuid": "uuid",
+  "tipo": "AUDIOMETRIA_TONAL | TEST_PSICOMETRICO",
+  "payload": { "...": "estructura libre según tipo, ver nota abajo" },
+  "documentUuid": "uuid (optional, nullable) — archivo del equipo adjunto, si lo hay"
+}
+```
+**Payload para `AUDIOMETRIA_TONAL`** (forma que persiste el site):
+```json
+{ "OD": { "125": "20", "250": "15" }, "OI": { "125": "25" } }
+```
+Anidado por oído, claves = frecuencia en Hz (string), valores = umbral en dB HL
+(string). Misma forma que antes vivía en `MedicalControl.findings.audiogram`.
+**Response 201:**
+```json
+{
+  "uuid": "uuid",
+  "encounterUuid": "uuid",
+  "patientUuid": "uuid",
+  "tenantUuid": "uuid",
+  "autorUuid": "uuid",
+  "tipo": "AUDIOMETRIA_TONAL",
+  "payload": { "...": "..." },
+  "documentUuid": "uuid | null",
+  "createdAt": "ISO datetime"
+}
+```
+**Status:** Implemented. `autorUuid` se toma del JWT (`user.sub`), no del body.
+
+---
+
+### GET /studies/patient/:uuid
+**Auth:** Required (403 si `role === STAFF`)
+**Response 200:** Array de `StudyEntity`, ordenado por `createdAt desc`. Sin
+paginar. Sin filtro por especialidad — expediente único por paciente (NOM-004
+5.14).
+**Status:** Implemented.
+
+---
+
+### GET /studies/:uuid
+**Auth:** Required (403 si `role === STAFF`)
+**Response 200:** `StudyEntity`.
+**Response 404:** Si el UUID no existe o no pertenece al tenant.
 **Status:** Implemented.
 
 ---

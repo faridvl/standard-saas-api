@@ -29,6 +29,7 @@ export class MedicalControlStorage {
       header: {
         patientUUID: record.patientUUID,
         appointmentUUID: record.appointmentUUID,
+        encounterUuid: record.encounterUuid,
         speciality: speciality,
         schemaVersion: record.schemaVersion,
       },
@@ -46,13 +47,11 @@ export class MedicalControlStorage {
     tenantUUID: string,
     page: number,
     limit: number,
-    speciality?: MedicalSpeciality,
   ): Promise<PaginatedResponse<MedicalControlEntity>> {
     const skip = (page - 1) * limit;
     const where = {
       patientUUID,
       tenantUUID,
-      ...(speciality ? { speciality } : {}),
     };
 
     const [records, total] = await Promise.all([
@@ -81,6 +80,7 @@ export class MedicalControlStorage {
       patientUuid: string;
       doctorUuid: string;
       appointmentUuid?: string | null;
+      encounterUuid?: string | null;
       speciality: MedicalSpeciality;
       findings: any;
       diagnosis: string;
@@ -95,6 +95,7 @@ export class MedicalControlStorage {
         userUUID: data.doctorUuid,
         tenantUUID: tenantUuid,
         appointmentUUID: data.appointmentUuid,
+        encounterUuid: data.encounterUuid ?? null,
         speciality: data.speciality,
         findings: data.findings as Prisma.InputJsonValue,
         diagnosis: data.diagnosis,

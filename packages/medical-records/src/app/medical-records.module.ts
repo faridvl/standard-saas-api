@@ -68,6 +68,17 @@ import { PatientDocumentStorage } from '@medical-records/infrastructure/adapters
 import { FindPatientDocumentsUseCase } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/delete-patient-document.use-case';
+import { EncounterController } from './controllers/encounter.controller';
+import { EncounterStorage } from '@medical-records/infrastructure/adapters/encounterRepository/encounter.storage';
+import { CreateEncounterUseCase } from '@medical-records/domain/use-cases/encounters/create-encounter.use-case';
+import { FindByPatientEncounterUseCase } from '@medical-records/domain/use-cases/encounters/find-by-patient-encounter.use-case';
+import { FindOneEncounterUseCase } from '@medical-records/domain/use-cases/encounters/find-one-encounter.use-case';
+import { CloseEncounterUseCase } from '@medical-records/domain/use-cases/encounters/close-encounter.use-case';
+import { StudyController } from './controllers/study.controller';
+import { StudyStorage } from '@medical-records/infrastructure/adapters/studyRepository/study.storage';
+import { CreateStudyUseCase } from '@medical-records/domain/use-cases/studies/create-study.use-case';
+import { FindByPatientStudyUseCase } from '@medical-records/domain/use-cases/studies/find-by-patient-study.use-case';
+import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/find-one-study.use-case';
 
 @Module({
   imports: [
@@ -94,6 +105,8 @@ import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/
     PatientDeviceController,
     PatientDocumentController,
     ProductUnitController,
+    EncounterController,
+    StudyController,
   ],
   providers: [
     PrismaService,
@@ -165,6 +178,17 @@ import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/
     FindPatientDocumentsUseCase,
     CreatePatientDocumentUseCase,
     DeletePatientDocumentUseCase,
+
+    EncounterStorage,
+    CreateEncounterUseCase,
+    FindByPatientEncounterUseCase,
+    FindOneEncounterUseCase,
+    CloseEncounterUseCase,
+
+    StudyStorage,
+    CreateStudyUseCase,
+    FindByPatientStudyUseCase,
+    FindOneStudyUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })

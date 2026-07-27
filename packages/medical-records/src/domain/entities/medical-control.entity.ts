@@ -8,6 +8,7 @@ export type MedicalControlEntity<T extends MedicalSpeciality = MedicalSpeciality
   header: {
     patientUUID: string;
     appointmentUUID?: string | null;
+    encounterUuid?: string | null;
     speciality: T;
     schemaVersion: number;
   };
