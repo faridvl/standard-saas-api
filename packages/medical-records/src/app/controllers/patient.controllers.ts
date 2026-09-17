@@ -58,6 +58,7 @@ export class PatientController {
     @Query('limit') limit: string = '10',
     @Query('includeInactive') includeInactive: string = 'false',
     @Query('search') search?: string,
+    @Query('nextAppointmentMonth') nextAppointmentMonth?: string,
   ) {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
@@ -65,6 +66,7 @@ export class PatientController {
       Number(limit),
       includeInactive === 'true',
       search,
+      nextAppointmentMonth,
     );
   }
 

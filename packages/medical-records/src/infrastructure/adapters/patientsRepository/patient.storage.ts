@@ -101,13 +101,61 @@ export class PatientStorage {
     });
   }
 
+  /** Próxima cita CONFIRMED y futura de cada paciente (una fila por patientUUID, la más cercana). */
+  private async findNextAppointmentsByPatient(
+    tenantUUID: string,
+    patientUUIDs: string[],
+  ): Promise<Map<string, Date>> {
+    if (patientUUIDs.length === 0) return new Map();
+
+    const rows = await this.prisma.appointment.findMany({
+      where: {
+        tenantUUID,
+        patientUUID: { in: patientUUIDs },
+        status: 'CONFIRMED',
+        startTime: { gte: new Date() },
+      },
+      distinct: ['patientUUID'],
+      orderBy: [{ patientUUID: 'asc' }, { startTime: 'asc' }],
+      select: { patientUUID: true, startTime: true },
+    });
+
+    return new Map(rows.map((row) => [row.patientUUID, row.startTime]));
+  }
+
+  /** UUIDs de pacientes cuya próxima cita CONFIRMED cae dentro del mes dado (YYYY-MM). */
+  private async findPatientUuidsWithNextAppointmentInMonth(
+    tenantUUID: string,
+    month: string,
+  ): Promise<string[]> {
+    const monthStart = new Date(`${month}-01T00:00:00.000Z`);
+    const monthEnd = new Date(monthStart);
+    monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
+
+    const rows = await this.prisma.appointment.findMany({
+      where: {
+        tenantUUID,
+        status: 'CONFIRMED',
+        startTime: { gte: new Date() },
+      },
+      distinct: ['patientUUID'],
+      orderBy: [{ patientUUID: 'asc' }, { startTime: 'asc' }],
+      select: { patientUUID: true, startTime: true },
+    });
+
+    return rows
+      .filter((row) => row.startTime >= monthStart && row.startTime < monthEnd)
+      .map((row) => row.patientUUID);
+  }
+
   async findAllByTenant(
     tenantUUID: string,
     page: number = 1,
     limit: number = 10,
     includeInactive = false,
     search?: string,
-  ): Promise<PaginatedResponse<Patient>> {
+    nextAppointmentMonth?: string,
+  ): Promise<PaginatedResponse<Patient & { nextAppointmentAt: Date | null }>> {
     const skip = (page - 1) * limit;
     const where: Prisma.PatientWhereInput = {
       tenantUuid: tenantUUID,
@@ -123,6 +171,33 @@ export class PatientStorage {
       }),
     };
 
+    if (nextAppointmentMonth) {
+      const matchingUuids = await this.findPatientUuidsWithNextAppointmentInMonth(
+        tenantUUID,
+        nextAppointmentMonth,
+      );
+
+      const records = await this.prisma.patient.findMany({
+        where: { ...where, uuid: { in: matchingUuids } },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const nextAppointments = await this.findNextAppointmentsByPatient(
+        tenantUUID,
+        records.map((record) => record.uuid),
+      );
+
+      const data = records.map((record) => ({
+        ...record,
+        nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
+      }));
+
+      return {
+        data,
+        meta: { total: data.length, page: 1, limit: data.length, totalPages: 1 },
+      };
+    }
+
     const [records, total] = await Promise.all([
       this.prisma.patient.findMany({
         where,
@@ -133,8 +208,18 @@ export class PatientStorage {
       this.prisma.patient.count({ where }),
     ]);
 
+    const nextAppointments = await this.findNextAppointmentsByPatient(
+      tenantUUID,
+      records.map((record) => record.uuid),
+    );
+
+    const data = records.map((record) => ({
+      ...record,
+      nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
+    }));
+
     return {
-      data: records,
+      data,
       meta: {
         total,
         page,
