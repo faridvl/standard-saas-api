@@ -187,10 +187,14 @@ export class PatientStorage {
         records.map((record) => record.uuid),
       );
 
-      const data = records.map((record) => ({
-        ...record,
-        nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
-      }));
+      const data = records
+        .map((record) => ({
+          ...record,
+          nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
+        }))
+        // Con el filtro de mes activo se ordena por próxima cita (la más
+        // cercana primero); sin filtro se mantiene el orden por createdAt.
+        .sort((a, b) => (a.nextAppointmentAt?.getTime() ?? 0) - (b.nextAppointmentAt?.getTime() ?? 0));
 
       return {
         data,
