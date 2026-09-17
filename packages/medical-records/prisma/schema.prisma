@@ -63,6 +63,7 @@ model Patient {
   documents       PatientDocument[]
   encounters      Encounter[]
   studies         Study[]
+  contacts        PatientContact[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
 
   @@index([tenantId])
@@ -92,6 +93,21 @@ model PatientBackground {
   updatedAt     DateTime @updatedAt
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+}
+
+model PatientContact {
+  id          Int      @id @default(autoincrement())
+  uuid        String   @unique @default(uuid())
+  patientUuid String
+  tenantUuid  String
+  name        String
+  phone       String
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
 }
 
 model PatientDevice {

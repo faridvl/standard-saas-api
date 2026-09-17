@@ -23,6 +23,11 @@ import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appo
 import { ProductController } from './controllers/inventory.controller';
 import { ProductStorage } from '@medical-records/infrastructure/adapters/inventoryRepository/inventory.storage';
 import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
+import { PatientContactController } from './controllers/patient-contact.controller';
+import { PatientContactStorage } from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
+import { CreatePatientContactUseCase } from '@medical-records/domain/use-cases/patient-contacts/create-patient-contact.use-case';
+import { FindPatientContactsUseCase } from '@medical-records/domain/use-cases/patient-contacts/find-patient-contacts.use-case';
+import { DeletePatientContactUseCase } from '@medical-records/domain/use-cases/patient-contacts/delete-patient-contact.use-case';
 import { BranchController } from './controllers/branch.controller';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import { FindAllBranchesUseCase } from '@medical-records/domain/use-cases/branches/find-all-branches.use-case';
@@ -111,6 +116,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     EncounterController,
     StudyController,
     BranchController,
+    PatientContactController,
   ],
   providers: [
     PrismaService,
@@ -145,6 +151,11 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
 
     BranchStorage,
     FindAllBranchesUseCase,
+
+    PatientContactStorage,
+    CreatePatientContactUseCase,
+    FindPatientContactsUseCase,
+    DeletePatientContactUseCase,
 
     ClinicalTemplateStorage,
     CreateClinicalTemplateUseCase,
