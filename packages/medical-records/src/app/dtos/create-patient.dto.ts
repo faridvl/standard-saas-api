@@ -6,7 +6,7 @@ export const CreatePatientSchema = z.object({
   phone: z.string().optional(),
   birthDate: z.string().transform((str) => new Date(str)),
   address: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.literal('').optional().or(z.string().email()),
   gender: z.string().optional(),
   bloodType: z.string().optional(),
   documentId: z.string().optional(),

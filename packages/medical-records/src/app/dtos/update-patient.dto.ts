@@ -5,7 +5,7 @@ export const UpdatePatientSchema = z.object({
   lastName: z.string().min(2, 'El apellido es muy corto').optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
-  email: z.string().email().optional(),
+  email: z.literal('').optional().or(z.string().email()),
   gender: z.string().optional(),
   bloodType: z.string().optional(),
   linkedProductUuid: z.string().uuid().nullable().optional(),
