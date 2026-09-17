@@ -45,7 +45,7 @@ import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 export class PatientStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  async save(data: Prisma.PatientCreateInput, tx?: Prisma.TransactionClient): Promise<Patient> {
+  async save(data: Prisma.PatientUncheckedCreateInput, tx?: Prisma.TransactionClient): Promise<Patient> {
     const client = tx || (this.prisma as any);
 
     return client.patient.create({ data });
@@ -74,7 +74,7 @@ export class PatientStorage {
         ...(dto.linkedProductUuid !== undefined && { linkedProductUuid: dto.linkedProductUuid }),
         ...(dto.documentId !== undefined && { documentId: dto.documentId }),
         ...(dto.occupation !== undefined && { occupation: dto.occupation }),
-        ...(dto.sede !== undefined && { sede: dto.sede }),
+        ...(dto.branchUuid !== undefined && { branchUuid: dto.branchUuid }),
       },
     });
   }

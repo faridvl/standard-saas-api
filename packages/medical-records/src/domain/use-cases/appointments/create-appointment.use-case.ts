@@ -15,6 +15,7 @@ export class CreateAppointmentUseCase {
       patientUUID: dto.patientUUID,
       userUUID: dto.userUUID,
       typeUUID: dto.typeUUID,
+      branchUUID: dto.branchUUID,
       speciality: dto.speciality,
       status: dto.status || AppointmentStatus.PENDING,
       schedule: {

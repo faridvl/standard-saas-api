@@ -9,6 +9,7 @@ export type PatientEntity = {
   gender?: string;
   bloodType?: string;
   documentId?: string;
+  branchUuid?: string;
   tenantId: number;
   tenantUuid: string;
   createdBy: string;

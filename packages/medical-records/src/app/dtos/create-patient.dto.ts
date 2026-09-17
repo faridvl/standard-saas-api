@@ -10,6 +10,7 @@ export const CreatePatientSchema = z.object({
   gender: z.string().optional(),
   bloodType: z.string().optional(),
   documentId: z.string().optional(),
+  branchUuid: z.string().uuid().optional(),
 });
 
 export type CreatePatientDto = z.infer<typeof CreatePatientSchema>;

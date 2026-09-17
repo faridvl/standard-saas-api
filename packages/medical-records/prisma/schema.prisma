@@ -15,6 +15,20 @@ enum DocumentCategory {
   OTHER
 }
 
+model Branch {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  tenantUuid String
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  patients     Patient[]
+  appointments Appointment[]
+
+  @@index([tenantUuid])
+}
+
 model Patient {
   id           Int      @id @default(autoincrement())
   uuid         String   @unique @default(uuid())
@@ -29,7 +43,7 @@ model Patient {
   linkedProductUuid   String?
   documentId          String?
   occupation          String?
-  sede                String?
+  branchUuid          String?
 
   tenantId     Int
   tenantUuid   String
@@ -49,10 +63,12 @@ model Patient {
   documents       PatientDocument[]
   encounters      Encounter[]
   studies         Study[]
+  branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
 
   @@index([tenantId])
   @@index([isActive])
   @@index([tenantUuid, documentId])
+  @@index([branchUuid])
 }
 
 model PatientBackground {
@@ -238,25 +254,28 @@ model Appointment {
   userUUID          String          
   tenantUUID        String
   typeUUID          String
+  branchUUID        String?
   speciality        String
-  status            String          
-  date              DateTime        
-  startTime         DateTime        
-  endTime           DateTime        
-  notes             String?         
-  
+  status            String
+  date              DateTime
+  startTime         DateTime
+  endTime           DateTime
+  notes             String?
+
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
   // Relaciones
   patient           Patient         @relation(fields: [patientUUID], references: [uuid])
   appointmentType   AppointmentType @relation(fields: [typeUUID], references: [uuid])
+  branch            Branch?         @relation(fields: [branchUUID], references: [uuid])
   medicalControl    MedicalControl?
   encounter         Encounter?
 
   @@index([patientUUID])
   @@index([tenantUUID])
   @@index([userUUID])
+  @@index([branchUUID])
 }
 
 model ClinicalTemplate {

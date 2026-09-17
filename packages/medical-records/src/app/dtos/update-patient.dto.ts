@@ -11,7 +11,7 @@ export const UpdatePatientSchema = z.object({
   linkedProductUuid: z.string().uuid().nullable().optional(),
   documentId: z.string().optional(),
   occupation: z.string().optional(),
-  sede: z.string().optional(),
+  branchUuid: z.string().uuid().nullable().optional(),
 });
 
 export type UpdatePatientDto = z.infer<typeof UpdatePatientSchema>;

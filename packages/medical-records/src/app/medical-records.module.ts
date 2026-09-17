@@ -23,6 +23,9 @@ import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appo
 import { ProductController } from './controllers/inventory.controller';
 import { ProductStorage } from '@medical-records/infrastructure/adapters/inventoryRepository/inventory.storage';
 import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
+import { BranchController } from './controllers/branch.controller';
+import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
+import { FindAllBranchesUseCase } from '@medical-records/domain/use-cases/branches/find-all-branches.use-case';
 import { AppointmentTypeController } from './controllers/appointment-type.controller';
 import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
@@ -107,6 +110,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     ProductUnitController,
     EncounterController,
     StudyController,
+    BranchController,
   ],
   providers: [
     PrismaService,
@@ -138,6 +142,9 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     CreateAppointmentTypeUseCase,
     InitializeAppointmentTypesUseCase,
     DeleteAppointmentTypeUseCase,
+
+    BranchStorage,
+    FindAllBranchesUseCase,
 
     ClinicalTemplateStorage,
     CreateClinicalTemplateUseCase,

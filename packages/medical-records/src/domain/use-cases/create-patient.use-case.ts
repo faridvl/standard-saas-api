@@ -29,6 +29,7 @@ export class CreatePatientUseCase {
       gender: data.gender,
       bloodType: data.bloodType,
       documentId: data.documentId,
+      branchUuid: data.branchUuid,
       tenantId: userContext.tenantId,
       tenantUuid: userContext.tenantUuid,
       createdBy: userContext.sub,
