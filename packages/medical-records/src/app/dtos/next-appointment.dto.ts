@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const ScheduleNextAppointmentSchema = z.object({
-  startTime: z.string().datetime({ message: 'Fecha y hora inválida (ISO 8601)' }),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Fecha inválida (YYYY-MM-DD)' }),
   branchUUID: z.string().uuid({ message: 'ID de sede inválido' }).optional().nullable(),
 });
 

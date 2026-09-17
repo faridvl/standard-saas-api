@@ -7,6 +7,14 @@ import { AppointmentStorage } from '@medical-records/infrastructure/adapters/app
 const APPOINTMENT_DURATION_MINUTES = 30;
 
 /**
+ * El modal de agendar rápido solo pide el día: no tiene sentido pedirle al
+ * usuario una hora exacta cuando ni siquiera elige tipo de cita. startTime
+ * es obligatorio en el schema (compartido con Zynka), así que se fija
+ * internamente a esta hora en vez de exponerla en el formulario.
+ */
+const DEFAULT_APPOINTMENT_HOUR = 8;
+
+/**
  * Tipo de cita genérico usado por el modal "agendar próxima cita" del
  * detalle del paciente, donde el usuario no elige tipo/especialidad. Es
  * configuración propia de este tenant (AudioColors); habrá que revisar
@@ -26,7 +34,8 @@ export class ScheduleNextAppointmentUseCase {
   ): Promise<Appointment> {
     await this.storage.completeConfirmedFutureByPatient(patientUUID, tenantUUID);
 
-    const startTime = new Date(dto.startTime);
+    const startTime = new Date(`${dto.date}T00:00:00.000Z`);
+    startTime.setUTCHours(DEFAULT_APPOINTMENT_HOUR, 0, 0, 0);
     const endTime = new Date(startTime.getTime() + APPOINTMENT_DURATION_MINUTES * 60_000);
 
     return await this.storage.create(
