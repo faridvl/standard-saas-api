@@ -150,6 +150,19 @@ export class AppointmentStorage {
     return { success: true };
   }
 
+  /** Reemplaza las citas CONFIRMED futuras de un paciente (previo a agendar una nueva). */
+  async completeConfirmedFutureByPatient(patientUUID: string, tenantUUID: string): Promise<void> {
+    await this.prisma.appointment.updateMany({
+      where: {
+        patientUUID,
+        tenantUUID,
+        status: AppointmentStatus.CONFIRMED,
+        startTime: { gte: new Date() },
+      },
+      data: { status: AppointmentStatus.COMPLETED },
+    });
+  }
+
   async findByPatient(patientUUID: string, tenantUUID: string): Promise<Appointment[]> {
     const rows = await this.prisma.appointment.findMany({
       where: {

@@ -13,6 +13,8 @@ import { FindAllMedicalControlsUseCase } from '@medical-records/domain/use-cases
 import { FindOneMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/find-one-medical-control.use-case';
 import { MedicalControlController } from './controllers/medical-control.controller';
 import { AppointmentController } from './controllers/appointments.controllers';
+import { NextAppointmentController } from './controllers/next-appointment.controller';
+import { ScheduleNextAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/schedule-next-appointment.use-case';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { CreateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/create-appointment.use-case';
 import { UpdateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/update-appointment.use-case';
@@ -111,6 +113,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     UploadController,
     MedicalControlController,
     AppointmentController,
+    NextAppointmentController,
     ProductController,
     AppointmentTypeController,
     ClinicalTemplateController,
@@ -146,6 +149,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     GetAppointmentsUseCase,
     GetAppointmentsByPatientUseCase,
     DeleteAppointmentUseCase,
+    ScheduleNextAppointmentUseCase,
 
     ProductManagerUseCase,
 
