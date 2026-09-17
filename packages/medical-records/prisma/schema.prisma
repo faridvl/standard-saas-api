@@ -64,6 +64,7 @@ model Patient {
   encounters      Encounter[]
   studies         Study[]
   contacts        PatientContact[]
+  notes           PatientNote[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
 
   @@index([tenantId])
@@ -105,6 +106,26 @@ model PatientContact {
   createdAt   DateTime @default(now())
 
   patient     Patient  @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
+}
+
+// Bitacora libre del paciente: que hizo el medico en una consulta, sin
+// necesidad de una cita/encounter formal asociada. Append-only (NOM-004
+// 5.10/5.11: toda nota lleva autor, no se edita ni se borra -- para
+// corregir algo se agrega una nota nueva).
+model PatientNote {
+  id          Int              @id @default(autoincrement())
+  uuid        String           @unique @default(uuid())
+  patientUuid String
+  tenantUuid  String
+  authorUuid  String
+  category    DocumentCategory @default(EVOLUTION_CONTROL)
+  text        String           @db.VarChar(500)
+  createdAt   DateTime         @default(now())
+
+  patient     Patient          @relation(fields: [patientUuid], references: [uuid])
 
   @@index([patientUuid])
   @@index([tenantUuid])
