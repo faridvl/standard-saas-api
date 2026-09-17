@@ -28,6 +28,7 @@ import { PatientContactStorage } from '@medical-records/infrastructure/adapters/
 import { CreatePatientContactUseCase } from '@medical-records/domain/use-cases/patient-contacts/create-patient-contact.use-case';
 import { FindPatientContactsUseCase } from '@medical-records/domain/use-cases/patient-contacts/find-patient-contacts.use-case';
 import { DeletePatientContactUseCase } from '@medical-records/domain/use-cases/patient-contacts/delete-patient-contact.use-case';
+import { SyncPatientContactsUseCase } from '@medical-records/domain/use-cases/patient-contacts/sync-patient-contacts.use-case';
 import { BranchController } from './controllers/branch.controller';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import { FindAllBranchesUseCase } from '@medical-records/domain/use-cases/branches/find-all-branches.use-case';
@@ -156,6 +157,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     CreatePatientContactUseCase,
     FindPatientContactsUseCase,
     DeletePatientContactUseCase,
+    SyncPatientContactsUseCase,
 
     ClinicalTemplateStorage,
     CreateClinicalTemplateUseCase,

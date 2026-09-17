@@ -1,10 +1,14 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { PatientStorage } from '../../infrastructure/adapters/patientsRepository/patient.storage';
+import { PatientContactStorage } from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
 import { PatientEntity } from '../entities/patient.entity';
 
 @Injectable()
 export class CreatePatientUseCase {
-  constructor(private readonly storage: PatientStorage) {}
+  constructor(
+    private readonly storage: PatientStorage,
+    private readonly contactStorage: PatientContactStorage,
+  ) {}
 
   async execute(
     data: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
@@ -19,7 +23,7 @@ export class CreatePatientUseCase {
       }
     }
 
-    return await this.storage.save({
+    const patientData = {
       firstName: data.firstName,
       lastName: data.lastName,
       phone: data.phone,
@@ -33,6 +37,21 @@ export class CreatePatientUseCase {
       tenantId: userContext.tenantId,
       tenantUuid: userContext.tenantUuid,
       createdBy: userContext.sub,
-    });
+    };
+
+    const patient = await this.storage.save(patientData);
+
+    if (data.contacts && data.contacts.length > 0) {
+      await this.contactStorage.createMany(
+        data.contacts.map((contact) => ({
+          patientUuid: patient.uuid,
+          tenantUuid: userContext.tenantUuid,
+          name: contact.name,
+          phone: contact.phone,
+        })),
+      );
+    }
+
+    return patient;
   }
 }
