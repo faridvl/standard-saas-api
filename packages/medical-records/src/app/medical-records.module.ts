@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ExpireAppointmentsJob } from '@medical-records/infrastructure/jobs/expire-appointments.job';
 import { PrismaService } from '@medical-records/infrastructure/adapters/prisma/prisma.service';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { PatientController } from './controllers/patient.controllers';
@@ -98,6 +100,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     StorageModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -129,6 +132,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
   ],
   providers: [
     PrismaService,
+    ExpireAppointmentsJob,
 
     PatientStorage,
     MedicalControlStorage,
