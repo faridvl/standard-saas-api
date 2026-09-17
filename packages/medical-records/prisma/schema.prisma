@@ -4,7 +4,15 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["driverAdapters"] 
+  previewFeatures = ["driverAdapters"]
+}
+
+enum DocumentCategory {
+  EVOLUTION_CONTROL
+  WARRANTY
+  EXTERNAL_TEST
+  CLINICAL_HISTORY
+  OTHER
 }
 
 model Patient {
@@ -98,7 +106,7 @@ model PatientDocument {
   tenantUuid   String
   originalName String
   url          String
-  category     String   @default("OTHER") // RECEIPT | WARRANTY | EXTERNAL_TEST | OTHER
+  category     DocumentCategory @default(OTHER)
   size         Int      @default(0)
   uploadedAt   DateTime @default(now())
 

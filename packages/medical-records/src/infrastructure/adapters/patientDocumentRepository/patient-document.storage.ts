@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { DocumentCategory } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreatePatientDocumentData {
@@ -6,7 +7,7 @@ export interface CreatePatientDocumentData {
   tenantUuid: string;
   originalName: string;
   url: string;
-  category: string;
+  category: DocumentCategory;
   size: number;
 }
 
