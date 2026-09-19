@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, UseGuards, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import {
   CreatePatientContactDto,
@@ -23,7 +35,10 @@ export class PatientContactController {
   ) {}
 
   @Get()
-  async findAll(@Param('patientUuid') patientUuid: string, @CurrentUser() user: JwtPayload): Promise<PatientContact[]> {
+  async findAll(
+    @Param('patientUuid') patientUuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientContact[]> {
     return await this.findUseCase.execute(patientUuid, user.tenantUuid);
   }
 
@@ -54,7 +69,10 @@ export class PatientContactController {
 
   @Delete(':contactUuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('contactUuid') contactUuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
+  async delete(
+    @Param('contactUuid') contactUuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
     await this.deleteUseCase.execute(contactUuid, user.tenantUuid);
   }
 }

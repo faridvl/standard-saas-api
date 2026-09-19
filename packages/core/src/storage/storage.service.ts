@@ -44,9 +44,7 @@ export class StorageService {
     const baseName = file.originalname.replace(/\.[^.]+$/, '').replace(/[^a-z0-9]/gi, '-');
     const fileName = `${baseName}-${timestamp}${ext}`;
 
-    const folder = id
-      ? `${api}/${tenantId}/${id}/${tipo}`
-      : `${api}/${tenantId}/${tipo}`;
+    const folder = id ? `${api}/${tenantId}/${id}/${tipo}` : `${api}/${tenantId}/${tipo}`;
 
     const key = `${folder}/${fileName}`;
 

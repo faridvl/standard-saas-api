@@ -210,9 +210,7 @@ export class AppointmentStorage {
       select: { startTime: true },
     });
 
-    const months = new Set(
-      rows.map((row) => row.startTime.toISOString().slice(0, 7)),
-    );
+    const months = new Set(rows.map((row) => row.startTime.toISOString().slice(0, 7)));
 
     return Array.from(months).sort();
   }

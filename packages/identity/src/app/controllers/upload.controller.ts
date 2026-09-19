@@ -1,14 +1,13 @@
-import {
-  Controller,
-  Param,
-  Post,
-  UploadedFile,
-  UseGuards,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Controller, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { AuthGuard, CurrentUser, JwtPayload, StorageService, imageAndPdfFilter } from '@project/core';
+import {
+  AuthGuard,
+  CurrentUser,
+  JwtPayload,
+  StorageService,
+  imageAndPdfFilter,
+} from '@project/core';
 import { UpdateUserUseCase } from '../../domain/use-cases/users/update-user.use-case';
 import { UpdateTenantUseCase } from '../../domain/use-cases/tenants/update-tenant.use-case';
 

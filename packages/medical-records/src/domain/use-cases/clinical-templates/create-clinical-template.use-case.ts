@@ -7,7 +7,10 @@ import { ClinicalTemplateEntity } from '@medical-records/domain/entities/clinica
 export class CreateClinicalTemplateUseCase {
   constructor(private readonly storage: ClinicalTemplateStorage) {}
 
-  async execute(tenantUuid: string, dto: CreateClinicalTemplateDto): Promise<ClinicalTemplateEntity> {
+  async execute(
+    tenantUuid: string,
+    dto: CreateClinicalTemplateDto,
+  ): Promise<ClinicalTemplateEntity> {
     return await this.storage.create(tenantUuid, dto);
   }
 }

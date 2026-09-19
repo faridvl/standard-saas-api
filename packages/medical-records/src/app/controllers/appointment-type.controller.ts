@@ -1,4 +1,17 @@
-import { Controller, Get, Post, Body, UseGuards, UsePipes, Headers, ForbiddenException, Delete, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  UsePipes,
+  Headers,
+  ForbiddenException,
+  Delete,
+  Param,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
@@ -35,7 +48,10 @@ export class AppointmentTypeController {
   @Post()
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(CreateAppointmentTypeSchema))
-  async create(@Body() dto: CreateAppointmentTypeDto, @CurrentUser() user: JwtPayload): Promise<AppointmentTypeEntity> {
+  async create(
+    @Body() dto: CreateAppointmentTypeDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AppointmentTypeEntity> {
     return await this.createUseCase.execute(user.tenantUuid, dto);
   }
 

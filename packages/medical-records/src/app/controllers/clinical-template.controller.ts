@@ -61,7 +61,10 @@ export class ClinicalTemplateController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateClinicalTemplateSchema))
-  async create(@Body() dto: CreateClinicalTemplateDto, @CurrentUser() user: JwtPayload): Promise<ClinicalTemplateEntity> {
+  async create(
+    @Body() dto: CreateClinicalTemplateDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ClinicalTemplateEntity> {
     return await this.createUseCase.execute(user.tenantUuid, dto);
   }
 
@@ -77,7 +80,10 @@ export class ClinicalTemplateController {
 
   @Delete(':uuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<{ success: boolean }> {
+  async remove(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ success: boolean }> {
     return await this.deleteUseCase.execute(uuid, user.tenantUuid);
   }
 }

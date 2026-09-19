@@ -49,7 +49,10 @@ export class AppointmentController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateAppointmentSchema))
-  async create(@Body() dto: CreateAppointmentDto, @CurrentUser() user: JwtPayload): Promise<Appointment> {
+  async create(
+    @Body() dto: CreateAppointmentDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<Appointment> {
     return await this.createUseCase.execute(user.tenantUuid, {
       ...dto,
       userUUID: user.sub,
@@ -79,7 +82,10 @@ export class AppointmentController {
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<Appointment> {
+  async findOne(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<Appointment> {
     return await this.getOneUseCase.execute(uuid, user.tenantUuid);
   }
 
@@ -102,7 +108,10 @@ export class AppointmentController {
   }
 
   @Delete(':uuid')
-  async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<{ success: boolean }> {
+  async delete(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<{ success: boolean }> {
     return await this.deleteUseCase.execute(uuid, user.tenantUuid);
   }
 }

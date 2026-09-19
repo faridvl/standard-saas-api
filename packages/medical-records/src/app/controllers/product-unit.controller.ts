@@ -76,7 +76,10 @@ export class ProductUnitController {
 
   @Patch('product-units/:uuid')
   @UsePipes(new ZodValidationPipe(UpdateProductUnitSchema))
-  async update(@Param('uuid') uuid: string, @Body() dto: UpdateProductUnitDto): Promise<ProductUnit> {
+  async update(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpdateProductUnitDto,
+  ): Promise<ProductUnit> {
     return this.updateUseCase.execute(uuid, dto);
   }
 }

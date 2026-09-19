@@ -10,7 +10,11 @@ export class FindProductUnitsUseCase {
     private readonly productStorage: ProductStorage,
   ) {}
 
-  async execute(productUuid: string, tenantUuid: string, status?: ProductUnitStatus): Promise<ProductUnit[]> {
+  async execute(
+    productUuid: string,
+    tenantUuid: string,
+    status?: ProductUnitStatus,
+  ): Promise<ProductUnit[]> {
     const product = await this.productStorage.findOne(productUuid, tenantUuid);
     if (!product) throw new NotFoundException('Producto no encontrado');
 

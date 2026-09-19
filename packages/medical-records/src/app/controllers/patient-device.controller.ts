@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UseGuards, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/create-patient-device.use-case';
 import { FindPatientDevicesUseCase } from '@medical-records/domain/use-cases/patient-device/find-patient-devices.use-case';
@@ -41,7 +52,10 @@ export class PatientDeviceController {
 
   @Delete(':deviceUuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deactivate(@Param('deviceUuid') deviceUuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
+  async deactivate(
+    @Param('deviceUuid') deviceUuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<void> {
     await this.deactivateUseCase.execute(deviceUuid, user.tenantUuid);
   }
 }

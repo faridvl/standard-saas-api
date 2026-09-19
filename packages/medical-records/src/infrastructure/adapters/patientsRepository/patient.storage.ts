@@ -45,7 +45,10 @@ import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 export class PatientStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  async save(data: Prisma.PatientUncheckedCreateInput, tx?: Prisma.TransactionClient): Promise<Patient> {
+  async save(
+    data: Prisma.PatientUncheckedCreateInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<Patient> {
     const client: Prisma.TransactionClient | PrismaService = tx || this.prisma;
 
     return client.patient.create({ data });
@@ -194,7 +197,9 @@ export class PatientStorage {
         }))
         // Con el filtro de mes activo se ordena por próxima cita (la más
         // cercana primero); sin filtro se mantiene el orden por createdAt.
-        .sort((a, b) => (a.nextAppointmentAt?.getTime() ?? 0) - (b.nextAppointmentAt?.getTime() ?? 0));
+        .sort(
+          (a, b) => (a.nextAppointmentAt?.getTime() ?? 0) - (b.nextAppointmentAt?.getTime() ?? 0),
+        );
 
       return {
         data,

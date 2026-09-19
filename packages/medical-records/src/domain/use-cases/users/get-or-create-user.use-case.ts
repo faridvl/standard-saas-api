@@ -32,7 +32,11 @@ export class GetOrCreateUserUseCase {
       return null;
     }
 
-    const savedUser = await this.userStorage.upsert(identityUser.uuid, tenantUuid, identityUser.fullName);
+    const savedUser = await this.userStorage.upsert(
+      identityUser.uuid,
+      tenantUuid,
+      identityUser.fullName,
+    );
     return savedUser.fullName;
   }
 }

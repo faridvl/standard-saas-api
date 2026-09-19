@@ -1,9 +1,33 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UploadedFile, UseGuards, UseInterceptors, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+  UsePipes,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { DocumentCategory, PatientDocument } from '@prisma/client';
-import { AuthGuard, CurrentUser, JwtPayload, StorageService, ZodValidationPipe, imageAndPdfFilter } from '@project/core';
-import { RenamePatientDocumentDto, RenamePatientDocumentSchema } from '@medical-records/app/dtos/patient-document.dto';
+import {
+  AuthGuard,
+  CurrentUser,
+  JwtPayload,
+  StorageService,
+  ZodValidationPipe,
+  imageAndPdfFilter,
+} from '@project/core';
+import {
+  RenamePatientDocumentDto,
+  RenamePatientDocumentSchema,
+} from '@medical-records/app/dtos/patient-document.dto';
 import {
   FindPatientDocumentsUseCase,
   PatientDocumentWithUploader,
@@ -45,7 +69,13 @@ export class PatientDocumentController {
     @CurrentUser() user: JwtPayload,
     @Body('category') category: string = DocumentCategory.OTHER,
   ): Promise<PatientDocumentWithUploader> {
-    const url = await this.storageService.upload('medical_records', user.tenantUuid, 'documentos', file, patientUuid);
+    const url = await this.storageService.upload(
+      'medical_records',
+      user.tenantUuid,
+      'documentos',
+      file,
+      patientUuid,
+    );
     return await this.createUseCase.execute({
       patientUuid,
       tenantUuid: user.tenantUuid,

@@ -1,11 +1,15 @@
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
+  parserOptions: {
+    project: ['./packages/core/tsconfig.json', './packages/identity/tsconfig.json', './packages/medical-records/tsconfig.json'],
+    tsconfigRootDir: __dirname
+  },
   plugins: ['@typescript-eslint', 'jest'],
   extends: [
     'eslint:recommended',
-    'plugin:@typescript-eslint/eslint-recommended',
     'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
     'plugin:jest/recommended',
     'plugin:jest/style',
     'prettier'
@@ -22,6 +26,8 @@ module.exports = {
     '@typescript-eslint/ban-ts-comment': [
       2,
       { 'ts-ignore': 'allow-with-description' }
-    ]
+    ],
+    '@typescript-eslint/no-floating-promises': 2,
+    '@typescript-eslint/no-misused-promises': 2
   }
 }

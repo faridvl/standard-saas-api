@@ -60,34 +60,37 @@ const BaseControlSchema = z
 
 type BaseControlData = z.infer<typeof BaseControlSchema>;
 
-export const CreateMedicalControlSchema = BaseControlSchema.superRefine((data: BaseControlData, ctx) => {
-  const speciality = data.header?.speciality;
-  const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
-
-  if (!targeted) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['header', 'speciality'],
-      message: `Especialidad inválida: "${speciality}". Valores permitidos: ${Object.keys(schemaBySpeciality).join(', ')}`,
-    });
-    return;
-  }
-
-  const result = targeted.safeParse(data);
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      ctx.addIssue({
-        code: 'custom',
-        path: issue.path as string[],
-        message: issue.message,
-      });
-    }
-  }
-})
-  .transform((data: BaseControlData) => {
+export const CreateMedicalControlSchema = BaseControlSchema.superRefine(
+  (data: BaseControlData, ctx) => {
     const speciality = data.header?.speciality;
     const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
-    return targeted ? targeted.parse(data) : data;
-  }) as z.ZodType<CreateMedicalControlDto>;
 
-export type CreateMedicalControlDto = z.infer<typeof AudiologyControlSchema> | z.infer<typeof GeneralControlSchema>;
+    if (!targeted) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['header', 'speciality'],
+        message: `Especialidad inválida: "${speciality}". Valores permitidos: ${Object.keys(schemaBySpeciality).join(', ')}`,
+      });
+      return;
+    }
+
+    const result = targeted.safeParse(data);
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        ctx.addIssue({
+          code: 'custom',
+          path: issue.path as string[],
+          message: issue.message,
+        });
+      }
+    }
+  },
+).transform((data: BaseControlData) => {
+  const speciality = data.header?.speciality;
+  const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
+  return targeted ? targeted.parse(data) : data;
+}) as z.ZodType<CreateMedicalControlDto>;
+
+export type CreateMedicalControlDto =
+  | z.infer<typeof AudiologyControlSchema>
+  | z.infer<typeof GeneralControlSchema>;

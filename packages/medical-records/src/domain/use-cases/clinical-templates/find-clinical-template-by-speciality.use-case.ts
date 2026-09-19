@@ -9,7 +9,9 @@ export class FindClinicalTemplateBySpecialityUseCase {
   async execute(tenantUuid: string, speciality: string): Promise<ClinicalTemplateEntity> {
     const template = await this.storage.findBySpeciality(tenantUuid, speciality);
     if (!template) {
-      throw new NotFoundException(`No se encontró una plantilla para la especialidad "${speciality}"`);
+      throw new NotFoundException(
+        `No se encontró una plantilla para la especialidad "${speciality}"`,
+      );
     }
     return template;
   }

@@ -17,7 +17,10 @@ export class MaintenanceController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateMaintenanceSchema))
-  async create(@Body() dto: CreateMaintenanceDto, @CurrentUser() user: JwtPayload): Promise<MaintenanceEntity> {
+  async create(
+    @Body() dto: CreateMaintenanceDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MaintenanceEntity> {
     return this.createUseCase.execute(dto, {
       tenantUuid: user.tenantUuid,
       userUuid: user.sub,
@@ -25,12 +28,18 @@ export class MaintenanceController {
   }
 
   @Get('patient/:uuid')
-  async findByPatient(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<MaintenanceEntity[]> {
+  async findByPatient(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MaintenanceEntity[]> {
     return this.findByPatientUseCase.execute(uuid, user.tenantUuid);
   }
 
   @Get('upcoming')
-  async findUpcoming(@Query('month') month: string, @CurrentUser() user: JwtPayload): Promise<MaintenanceEntity[]> {
+  async findUpcoming(
+    @Query('month') month: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MaintenanceEntity[]> {
     const targetMonth = month ?? new Date().toISOString().slice(0, 7);
     return this.findUpcomingUseCase.execute(user.tenantUuid, targetMonth);
   }

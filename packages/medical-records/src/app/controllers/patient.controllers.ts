@@ -1,4 +1,19 @@
-import { Controller, Post, Body, UseGuards, UsePipes, Query, Get, Param, Patch, Put, Delete, HttpCode, HttpStatus, ForbiddenException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  UsePipes,
+  Query,
+  Get,
+  Param,
+  Patch,
+  Put,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  ForbiddenException,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
@@ -9,8 +24,14 @@ import { UpdatePatientDto, UpdatePatientSchema } from '../dtos/update-patient.dt
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
 import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
-import { UpsertPatientBackgroundDto, UpsertPatientBackgroundSchema } from '../dtos/patient-background.dto';
-import { BulkImportPatientsUseCase, BulkImportResult } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
+import {
+  UpsertPatientBackgroundDto,
+  UpsertPatientBackgroundSchema,
+} from '../dtos/patient-background.dto';
+import {
+  BulkImportPatientsUseCase,
+  BulkImportResult,
+} from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
 import { Patient } from '@prisma/client';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
@@ -36,7 +57,10 @@ export class PatientController {
 
   @Post('bulk')
   @UsePipes(new ZodValidationPipe(BulkImportPatientsSchema))
-  async bulkImport(@Body() body: BulkImportPatientsDto, @CurrentUser() user: JwtPayload): Promise<BulkImportResult> {
+  async bulkImport(
+    @Body() body: BulkImportPatientsDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<BulkImportResult> {
     return await this.bulkImportUseCase.execute(body.patients, {
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
@@ -100,7 +124,9 @@ export class PatientController {
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientBackgroundEntity | null> {
     if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a antecedentes clínicos');
+      throw new ForbiddenException(
+        'El personal administrativo no tiene acceso a antecedentes clínicos',
+      );
     }
     return await this.findBackgroundUseCase.execute(uuid);
   }
@@ -113,7 +139,9 @@ export class PatientController {
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientBackgroundEntity> {
     if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a antecedentes clínicos');
+      throw new ForbiddenException(
+        'El personal administrativo no tiene acceso a antecedentes clínicos',
+      );
     }
     return await this.upsertBackgroundUseCase.execute(uuid, dto);
   }

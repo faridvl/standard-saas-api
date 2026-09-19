@@ -95,7 +95,10 @@ export class ProductStorage {
   }
 
   async findById(id: number): Promise<{ id: number; uuid: string; tenantUuid: string } | null> {
-    return this.prisma.product.findUnique({ where: { id }, select: { id: true, uuid: true, tenantUuid: true } });
+    return this.prisma.product.findUnique({
+      where: { id },
+      select: { id: true, uuid: true, tenantUuid: true },
+    });
   }
 
   async findRawId(uuid: string): Promise<number | null> {

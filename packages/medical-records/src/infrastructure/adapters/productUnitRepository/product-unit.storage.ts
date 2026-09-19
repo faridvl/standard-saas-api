@@ -95,7 +95,10 @@ export class ProductUnitStorage {
     return row ? this.mapToDomain(row) : null;
   }
 
-  async update(uuid: string, data: Partial<Pick<ProductUnit, 'status' | 'warrantyUntil' | 'photoUrl' | 'notes'>>): Promise<ProductUnit> {
+  async update(
+    uuid: string,
+    data: Partial<Pick<ProductUnit, 'status' | 'warrantyUntil' | 'photoUrl' | 'notes'>>,
+  ): Promise<ProductUnit> {
     const row = await this.prisma.productUnit.update({
       where: { uuid },
       data: {

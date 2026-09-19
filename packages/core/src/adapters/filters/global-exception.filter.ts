@@ -21,18 +21,23 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // 1. Extraemos la respuesta completa de la excepción
     const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
 
-    const exceptionMessage = exception instanceof Error ? exception.message : 'Internal Server Error';
+    const exceptionMessage =
+      exception instanceof Error ? exception.message : 'Internal Server Error';
     const exceptionStack = exception instanceof Error ? exception.stack : undefined;
 
     // 2. Buscamos el mensaje y los detalles (si existen)
     // NestJS a veces pone el mensaje en .message, Zod lo pusimos en .message también.
     const message =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'message' in exceptionResponse
         ? (exceptionResponse as { message?: string }).message || exceptionMessage
         : exceptionMessage;
 
     const details =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null && 'details' in exceptionResponse
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'details' in exceptionResponse
         ? (exceptionResponse as { details?: unknown }).details || null // <--- AQUÍ CAPTURAMOS TUS DETALLES DE ZOD
         : null;
 

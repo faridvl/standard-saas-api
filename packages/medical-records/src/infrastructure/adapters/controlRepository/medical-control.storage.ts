@@ -107,7 +107,11 @@ export class MedicalControlStorage {
     return this.mapToEntity(record);
   }
 
-  async addCorrectionNote(uuid: string, tenantUuid: string, correctionNotes: string): Promise<MedicalControlEntity> {
+  async addCorrectionNote(
+    uuid: string,
+    tenantUuid: string,
+    correctionNotes: string,
+  ): Promise<MedicalControlEntity> {
     const record = await this.prisma.medicalControl.update({
       where: { uuid },
       data: { correctionNotes },

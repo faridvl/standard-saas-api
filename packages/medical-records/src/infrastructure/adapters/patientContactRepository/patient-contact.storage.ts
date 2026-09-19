@@ -46,7 +46,11 @@ export class PatientContactStorage {
    * formulario: actualiza los que traen uuid (ya existían), crea los que no
    * traen uuid, y elimina los que existían pero ya no vienen en la lista.
    */
-  async sync(patientUuid: string, tenantUuid: string, items: SyncPatientContactItem[]): Promise<PatientContact[]> {
+  async sync(
+    patientUuid: string,
+    tenantUuid: string,
+    items: SyncPatientContactItem[],
+  ): Promise<PatientContact[]> {
     const existing = await this.findAllByPatient(patientUuid, tenantUuid);
     const incomingUuids = new Set(items.filter((item) => item.uuid).map((item) => item.uuid));
 

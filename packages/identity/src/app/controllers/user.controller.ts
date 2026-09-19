@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreateUserUseCase } from '../../domain/use-cases/user.use-case';
 import { CreateUserDto, CreateUserSchema } from '../../domain/dtos/create-user.dto';
@@ -23,7 +36,10 @@ export class UserController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateUserSchema))
-  async create(@Body() dto: CreateUserDto, @CurrentUser() currentUser: JwtPayload): Promise<UserDomain> {
+  async create(
+    @Body() dto: CreateUserDto,
+    @CurrentUser() currentUser: JwtPayload,
+  ): Promise<UserDomain> {
     return await this.createUserUseCase.execute(dto, {
       tenantId: currentUser.tenantId,
       tenantUUID: currentUser.tenantUuid,
@@ -40,7 +56,10 @@ export class UserController {
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() currentUser: JwtPayload): Promise<UserDomain> {
+  async findOne(
+    @Param('uuid') uuid: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ): Promise<UserDomain> {
     return await this.findOneUserUseCase.execute(uuid, currentUser.tenantUuid);
   }
 
@@ -56,7 +75,10 @@ export class UserController {
 
   @Delete(':uuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('uuid') uuid: string, @CurrentUser() currentUser: JwtPayload): Promise<{ success: boolean }> {
+  async remove(
+    @Param('uuid') uuid: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ): Promise<{ success: boolean }> {
     return await this.deleteUserUseCase.execute(uuid, currentUser.tenantUuid);
   }
 }

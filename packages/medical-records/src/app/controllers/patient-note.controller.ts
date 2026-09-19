@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
-import { CreatePatientNoteDto, CreatePatientNoteSchema } from '@medical-records/app/dtos/patient-note.dto';
+import {
+  CreatePatientNoteDto,
+  CreatePatientNoteSchema,
+} from '@medical-records/app/dtos/patient-note.dto';
 import { CreatePatientNoteUseCase } from '@medical-records/domain/use-cases/patient-notes/create-patient-note.use-case';
 import {
   FindPatientNotesUseCase,

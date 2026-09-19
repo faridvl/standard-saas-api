@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PatientContact } from '@prisma/client';
-import { PatientContactStorage, CreatePatientContactData } from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
+import {
+  PatientContactStorage,
+  CreatePatientContactData,
+} from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
 
 @Injectable()
 export class CreatePatientContactUseCase {

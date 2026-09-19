@@ -37,7 +37,10 @@ export class PatientDeviceStorage {
     });
   }
 
-  async findAllByPatient(patientUuid: string, tenantUuid: string): Promise<PatientDeviceWithProductUnit[]> {
+  async findAllByPatient(
+    patientUuid: string,
+    tenantUuid: string,
+  ): Promise<PatientDeviceWithProductUnit[]> {
     return this.prisma.patientDevice.findMany({
       where: { patientUuid, tenantUuid, isActive: true },
       include: this.includeProductUnit(),

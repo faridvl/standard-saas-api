@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { PatientNoteStorage, CreatePatientNoteData } from '@medical-records/infrastructure/adapters/patientNoteRepository/patient-note.storage';
+import {
+  PatientNoteStorage,
+  CreatePatientNoteData,
+} from '@medical-records/infrastructure/adapters/patientNoteRepository/patient-note.storage';
 import { GetOrCreateUserUseCase } from '@medical-records/domain/use-cases/users/get-or-create-user.use-case';
 import { PatientNoteWithAuthor } from '@medical-records/domain/use-cases/patient-notes/find-patient-notes.use-case';
 
