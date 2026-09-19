@@ -5,6 +5,7 @@ import { MedicalSpeciality } from '../../domain/types/medical-control-content.ty
 export const CreateAppointmentSchema = z.object({
   patientUUID: z.string().uuid({ message: 'ID de paciente inválido' }),
   typeUUID: z.string().uuid({ message: 'ID de tipo de cita inválido' }).optional().nullable(),
+  branchUUID: z.string().uuid({ message: 'ID de sede inválido' }).optional().nullable(),
   speciality: z.nativeEnum(MedicalSpeciality),
   status: z.nativeEnum(AppointmentStatus).optional().default(AppointmentStatus.PENDING),
   date: z.string().datetime({ message: 'Fecha de cita inválida (ISO 8601)' }),
@@ -17,6 +18,7 @@ export type CreateAppointmentDto = z.infer<typeof CreateAppointmentSchema>;
 
 export const UpdateAppointmentSchema = z.object({
   status: z.nativeEnum(AppointmentStatus).optional(),
+  branchUUID: z.string().uuid().optional().nullable(),
   date: z.string().datetime().optional(),
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),

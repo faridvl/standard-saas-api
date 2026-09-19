@@ -1,3 +1,8 @@
+export type PatientContactInput = {
+  name: string;
+  phone: string;
+};
+
 export type PatientEntity = {
   uuid?: string;
   firstName: string;
@@ -9,6 +14,8 @@ export type PatientEntity = {
   gender?: string;
   bloodType?: string;
   documentId?: string;
+  branchUuid?: string;
+  contacts?: PatientContactInput[];
   tenantId: number;
   tenantUuid: string;
   createdBy: string;

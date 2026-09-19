@@ -22,6 +22,7 @@ export interface Appointment {
   patientUUID: string;
   userUUID: string;
   typeUUID?: string | null;
+  branchUUID?: string | null;
   tenantUUID: string;
   speciality: MedicalSpeciality;
   status: AppointmentStatus;

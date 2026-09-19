@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ExpireAppointmentsJob } from '@medical-records/infrastructure/jobs/expire-appointments.job';
 import { PrismaService } from '@medical-records/infrastructure/adapters/prisma/prisma.service';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { PatientController } from './controllers/patient.controllers';
@@ -13,6 +15,8 @@ import { FindAllMedicalControlsUseCase } from '@medical-records/domain/use-cases
 import { FindOneMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/find-one-medical-control.use-case';
 import { MedicalControlController } from './controllers/medical-control.controller';
 import { AppointmentController } from './controllers/appointments.controllers';
+import { NextAppointmentController } from './controllers/next-appointment.controller';
+import { ScheduleNextAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/schedule-next-appointment.use-case';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { CreateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/create-appointment.use-case';
 import { UpdateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/update-appointment.use-case';
@@ -23,6 +27,19 @@ import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appo
 import { ProductController } from './controllers/inventory.controller';
 import { ProductStorage } from '@medical-records/infrastructure/adapters/inventoryRepository/inventory.storage';
 import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
+import { PatientContactController } from './controllers/patient-contact.controller';
+import { PatientContactStorage } from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
+import { CreatePatientContactUseCase } from '@medical-records/domain/use-cases/patient-contacts/create-patient-contact.use-case';
+import { FindPatientContactsUseCase } from '@medical-records/domain/use-cases/patient-contacts/find-patient-contacts.use-case';
+import { DeletePatientContactUseCase } from '@medical-records/domain/use-cases/patient-contacts/delete-patient-contact.use-case';
+import { SyncPatientContactsUseCase } from '@medical-records/domain/use-cases/patient-contacts/sync-patient-contacts.use-case';
+import { PatientNoteController } from './controllers/patient-note.controller';
+import { PatientNoteStorage } from '@medical-records/infrastructure/adapters/patientNoteRepository/patient-note.storage';
+import { CreatePatientNoteUseCase } from '@medical-records/domain/use-cases/patient-notes/create-patient-note.use-case';
+import { FindPatientNotesUseCase } from '@medical-records/domain/use-cases/patient-notes/find-patient-notes.use-case';
+import { BranchController } from './controllers/branch.controller';
+import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
+import { FindAllBranchesUseCase } from '@medical-records/domain/use-cases/branches/find-all-branches.use-case';
 import { AppointmentTypeController } from './controllers/appointment-type.controller';
 import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
@@ -68,6 +85,7 @@ import { PatientDocumentStorage } from '@medical-records/infrastructure/adapters
 import { FindPatientDocumentsUseCase } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/delete-patient-document.use-case';
+import { RenamePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/rename-patient-document.use-case';
 import { EncounterController } from './controllers/encounter.controller';
 import { EncounterStorage } from '@medical-records/infrastructure/adapters/encounterRepository/encounter.storage';
 import { CreateEncounterUseCase } from '@medical-records/domain/use-cases/encounters/create-encounter.use-case';
@@ -83,6 +101,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     StorageModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -98,6 +117,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     UploadController,
     MedicalControlController,
     AppointmentController,
+    NextAppointmentController,
     ProductController,
     AppointmentTypeController,
     ClinicalTemplateController,
@@ -107,9 +127,13 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     ProductUnitController,
     EncounterController,
     StudyController,
+    BranchController,
+    PatientContactController,
+    PatientNoteController,
   ],
   providers: [
     PrismaService,
+    ExpireAppointmentsJob,
 
     PatientStorage,
     MedicalControlStorage,
@@ -130,6 +154,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     GetAppointmentsUseCase,
     GetAppointmentsByPatientUseCase,
     DeleteAppointmentUseCase,
+    ScheduleNextAppointmentUseCase,
 
     ProductManagerUseCase,
 
@@ -138,6 +163,19 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     CreateAppointmentTypeUseCase,
     InitializeAppointmentTypesUseCase,
     DeleteAppointmentTypeUseCase,
+
+    BranchStorage,
+    FindAllBranchesUseCase,
+
+    PatientContactStorage,
+    CreatePatientContactUseCase,
+    FindPatientContactsUseCase,
+    DeletePatientContactUseCase,
+    SyncPatientContactsUseCase,
+
+    PatientNoteStorage,
+    CreatePatientNoteUseCase,
+    FindPatientNotesUseCase,
 
     ClinicalTemplateStorage,
     CreateClinicalTemplateUseCase,
@@ -178,6 +216,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     FindPatientDocumentsUseCase,
     CreatePatientDocumentUseCase,
     DeletePatientDocumentUseCase,
+    RenamePatientDocumentUseCase,
 
     EncounterStorage,
     CreateEncounterUseCase,

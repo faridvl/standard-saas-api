@@ -13,6 +13,7 @@ export class AppointmentStorage {
       patientUUID: row.patientUUID,
       userUUID: row.userUUID,
       typeUUID: row.typeUUID,
+      branchUUID: row.branchUUID,
       tenantUUID: row.tenantUUID,
       speciality: row.speciality,
       status: row.status as AppointmentStatus,
@@ -50,6 +51,12 @@ export class AppointmentStorage {
     if (data.typeUUID) {
       createData.appointmentType = {
         connect: { uuid: data.typeUUID },
+      };
+    }
+
+    if (data.branchUUID) {
+      createData.branch = {
+        connect: { uuid: data.branchUUID },
       };
     }
 
@@ -125,6 +132,7 @@ export class AppointmentStorage {
       data: {
         status: data.status,
         notes: data.notes,
+        ...(data.branchUUID !== undefined && { branchUUID: data.branchUUID }),
         ...(data.schedule && {
           startTime: data.schedule.startTime,
           endTime: data.schedule.endTime,
@@ -140,6 +148,19 @@ export class AppointmentStorage {
       where: { uuid, tenantUUID },
     });
     return { success: true };
+  }
+
+  /** Reemplaza las citas CONFIRMED futuras de un paciente (previo a agendar una nueva). */
+  async completeConfirmedFutureByPatient(patientUUID: string, tenantUUID: string): Promise<void> {
+    await this.prisma.appointment.updateMany({
+      where: {
+        patientUUID,
+        tenantUUID,
+        status: AppointmentStatus.CONFIRMED,
+        startTime: { gte: new Date() },
+      },
+      data: { status: AppointmentStatus.COMPLETED },
+    });
   }
 
   async findByPatient(patientUUID: string, tenantUUID: string): Promise<Appointment[]> {

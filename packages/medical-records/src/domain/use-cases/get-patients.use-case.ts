@@ -5,7 +5,21 @@ import { Injectable } from '@nestjs/common';
 export class GetPatientsUseCase {
   constructor(private readonly patientStorage: PatientStorage) {}
 
-  async execute(tenantUUID: string, page: number, limit: number, includeInactive = false, search?: string) {
-    return await this.patientStorage.findAllByTenant(tenantUUID, page, limit, includeInactive, search);
+  async execute(
+    tenantUUID: string,
+    page: number,
+    limit: number,
+    includeInactive = false,
+    search?: string,
+    nextAppointmentMonth?: string,
+  ) {
+    return await this.patientStorage.findAllByTenant(
+      tenantUUID,
+      page,
+      limit,
+      includeInactive,
+      search,
+      nextAppointmentMonth,
+    );
   }
 }

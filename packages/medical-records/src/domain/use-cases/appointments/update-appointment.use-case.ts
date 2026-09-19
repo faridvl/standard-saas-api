@@ -13,6 +13,7 @@ export class UpdateAppointmentUseCase {
     const updateData: Partial<Appointment> = {
       status: dto.status,
       notes: dto.notes,
+      ...(dto.branchUUID !== undefined && { branchUUID: dto.branchUUID }),
       ...(dto.startTime &&
         dto.endTime && {
           schedule: {

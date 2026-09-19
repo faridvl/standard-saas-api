@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { DocumentCategory } from '@prisma/client';
 import { AuthGuard, CurrentUser, JwtPayload, StorageService, imageAndPdfFilter } from '@project/core';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 
@@ -29,6 +30,7 @@ export class UploadController {
   private async uploadAndPersist(
     patientUuid: string,
     tenantUuid: string,
+    uploadedByUuid: string,
     tipo: string,
     category: string,
     file: Express.Multer.File,
@@ -41,6 +43,7 @@ export class UploadController {
       url,
       category,
       size: file.size,
+      uploadedByUuid,
     });
     return document;
   }
@@ -51,9 +54,9 @@ export class UploadController {
     @Param('uuid') patientUuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
-    @Body('category') category: string = 'EXTERNAL_TEST',
+    @Body('category') category: string = DocumentCategory.EXTERNAL_TEST,
   ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'audiometrias', category || 'EXTERNAL_TEST', file);
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'audiometrias', category, file);
   }
 
   @Post('patients/:uuid/imagenes')
@@ -62,9 +65,9 @@ export class UploadController {
     @Param('uuid') patientUuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
-    @Body('category') category: string = 'OTHER',
+    @Body('category') category: string = DocumentCategory.OTHER,
   ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'imagenes', category || 'OTHER', file);
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'imagenes', category, file);
   }
 
   @Post('patients/:uuid/informes')
@@ -73,8 +76,8 @@ export class UploadController {
     @Param('uuid') patientUuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
-    @Body('category') category: string = 'OTHER',
+    @Body('category') category: string = DocumentCategory.OTHER,
   ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'informes', category || 'OTHER', file);
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'informes', category, file);
   }
 }

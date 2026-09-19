@@ -4,7 +4,29 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["driverAdapters"] 
+  previewFeatures = ["driverAdapters"]
+}
+
+enum DocumentCategory {
+  EVOLUTION_CONTROL
+  WARRANTY
+  EXTERNAL_TEST
+  CLINICAL_HISTORY
+  OTHER
+}
+
+model Branch {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  tenantUuid String
+  name       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  patients     Patient[]
+  appointments Appointment[]
+
+  @@index([tenantUuid])
 }
 
 model Patient {
@@ -21,7 +43,7 @@ model Patient {
   linkedProductUuid   String?
   documentId          String?
   occupation          String?
-  sede                String?
+  branchUuid          String?
 
   tenantId     Int
   tenantUuid   String
@@ -41,10 +63,14 @@ model Patient {
   documents       PatientDocument[]
   encounters      Encounter[]
   studies         Study[]
+  contacts        PatientContact[]
+  notes           PatientNote[]
+  branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
 
   @@index([tenantId])
   @@index([isActive])
   @@index([tenantUuid, documentId])
+  @@index([branchUuid])
 }
 
 model PatientBackground {
@@ -70,6 +96,41 @@ model PatientBackground {
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
 }
 
+model PatientContact {
+  id          Int      @id @default(autoincrement())
+  uuid        String   @unique @default(uuid())
+  patientUuid String
+  tenantUuid  String
+  name        String
+  phone       String
+  createdAt   DateTime @default(now())
+
+  patient     Patient  @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
+}
+
+// Bitacora libre del paciente: que hizo el medico en una consulta, sin
+// necesidad de una cita/encounter formal asociada. Append-only (NOM-004
+// 5.10/5.11: toda nota lleva autor, no se edita ni se borra -- para
+// corregir algo se agrega una nota nueva).
+model PatientNote {
+  id          Int              @id @default(autoincrement())
+  uuid        String           @unique @default(uuid())
+  patientUuid String
+  tenantUuid  String
+  authorUuid  String
+  category    DocumentCategory @default(EVOLUTION_CONTROL)
+  text        String           @db.VarChar(500)
+  createdAt   DateTime         @default(now())
+
+  patient     Patient          @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid])
+  @@index([tenantUuid])
+}
+
 model PatientDevice {
   id              Int          @id @default(autoincrement())
   uuid            String       @unique @default(uuid())
@@ -92,17 +153,18 @@ model PatientDevice {
 }
 
 model PatientDocument {
-  id           Int      @id @default(autoincrement())
-  uuid         String   @unique @default(uuid())
-  patientUuid  String
-  tenantUuid   String
-  originalName String
-  url          String
-  category     String   @default("OTHER") // RECEIPT | WARRANTY | EXTERNAL_TEST | OTHER
-  size         Int      @default(0)
-  uploadedAt   DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  uuid           String   @unique @default(uuid())
+  patientUuid    String
+  tenantUuid     String
+  originalName   String
+  url            String
+  category       DocumentCategory @default(OTHER)
+  size           Int      @default(0)
+  uploadedAt     DateTime @default(now())
+  uploadedByUuid String   @default("")
 
-  patient      Patient  @relation(fields: [patientUuid], references: [uuid])
+  patient        Patient  @relation(fields: [patientUuid], references: [uuid])
 
   @@index([patientUuid])
   @@index([tenantUuid])
@@ -230,25 +292,28 @@ model Appointment {
   userUUID          String          
   tenantUUID        String
   typeUUID          String
+  branchUUID        String?
   speciality        String
-  status            String          
-  date              DateTime        
-  startTime         DateTime        
-  endTime           DateTime        
-  notes             String?         
-  
+  status            String
+  date              DateTime
+  startTime         DateTime
+  endTime           DateTime
+  notes             String?
+
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
   // Relaciones
   patient           Patient         @relation(fields: [patientUUID], references: [uuid])
   appointmentType   AppointmentType @relation(fields: [typeUUID], references: [uuid])
+  branch            Branch?         @relation(fields: [branchUUID], references: [uuid])
   medicalControl    MedicalControl?
   encounter         Encounter?
 
   @@index([patientUUID])
   @@index([tenantUUID])
   @@index([userUUID])
+  @@index([branchUUID])
 }
 
 model ClinicalTemplate {

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { DocumentCategory } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreatePatientDocumentData {
@@ -6,8 +7,9 @@ export interface CreatePatientDocumentData {
   tenantUuid: string;
   originalName: string;
   url: string;
-  category: string;
+  category: DocumentCategory;
   size: number;
+  uploadedByUuid: string;
 }
 
 @Injectable()
@@ -22,6 +24,13 @@ export class PatientDocumentStorage {
     return await this.prisma.patientDocument.findMany({
       where: { patientUuid, tenantUuid },
       orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
+  async rename(uuid: string, tenantUuid: string, originalName: string) {
+    return await this.prisma.patientDocument.update({
+      where: { uuid, tenantUuid },
+      data: { originalName },
     });
   }
 
