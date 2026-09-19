@@ -1,0 +1,63 @@
+name: Deploy migrations — Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  migrate-identity:
+    name: "Migrate · identity"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: prisma migrate deploy
+        working-directory: packages/identity
+        run: npx prisma migrate deploy
+        env:
+          IDENTITY_DB_URL: ${{ secrets.IDENTITY_DB_URL }}
+
+  migrate-medical-records:
+    name: "Migrate · medical-records"
+    runs-on: ubuntu-latest
+    needs: migrate-identity
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: prisma migrate deploy
+        working-directory: packages/medical-records
+        run: npx prisma migrate deploy
+        env:
+          MEDICAL_RECORDS_DB_URL: ${{ secrets.MEDICAL_RECORDS_DB_URL }}
+
+  resultado:
+    name: "Resultado"
+    runs-on: ubuntu-latest
+    needs: [migrate-identity, migrate-medical-records]
+    if: always()
+    steps:
+      - name: Verificar resultado de ambas migraciones
+        run: |
+          if [ "${{ needs.migrate-identity.result }}" = "success" ] && [ "${{ needs.migrate-medical-records.result }}" = "success" ]; then
+            echo "✅ Migraciones aplicadas — identity y medical-records al día en producción."
+          else
+            echo "❌ Alguna migración falló. Revisar logs antes de asumir que el schema de producción está actualizado."
+            exit 1
+          fi
