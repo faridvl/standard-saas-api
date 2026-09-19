@@ -9,6 +9,7 @@
 - Identity service: user creation and listing (POST /users, GET /users) scoped by tenant
 - Medical records service: patient CRUD (POST, GET list, GET by UUID)
 - Medical records service: appointments CRUD (POST, GET list, GET by UUID, PATCH, GET by patient)
+- Medical records service: `GET /appointments/months` — meses con al menos una cita CONFIRMED futura, para poblar un selector de filtro (usado por audiocolors-backoffice)
 - Medical records service: medical controls (POST, GET by patient, GET by UUID)
 - Medical records service: inventory/products (full CRUD with soft-delete)
 - CORS config (identity: `*`, medical-records: restricted to Vercel frontend in prod)

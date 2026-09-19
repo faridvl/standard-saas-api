@@ -18,6 +18,7 @@ import { GetAppointmentsUseCase } from '@medical-records/domain/use-cases/appoin
 import { FindOneAppointment } from '@medical-records/domain/use-cases/appointments/find-one-appointment.use-case';
 import { UpdateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/update-appointment.use-case';
 import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/delete-appointment.use-case';
+import { FindScheduledMonthsUseCase } from '@medical-records/domain/use-cases/appointments/find-scheduled-months.use-case';
 
 // DTOs
 import {
@@ -38,6 +39,7 @@ export class AppointmentController {
     private readonly updateUseCase: UpdateAppointmentUseCase,
     private readonly getAppointmentsByPatientUseCase: GetAppointmentsByPatientUseCase,
     private readonly deleteUseCase: DeleteAppointmentUseCase,
+    private readonly findScheduledMonthsUseCase: FindScheduledMonthsUseCase,
   ) {}
 
   @Post()
@@ -63,6 +65,12 @@ export class AppointmentController {
       date,
       patientId,
     });
+  }
+
+  @Get('months')
+  async findScheduledMonths(@CurrentUser() user: JwtPayload) {
+    const months = await this.findScheduledMonthsUseCase.execute(user.tenantUuid);
+    return { months };
   }
 
   @Get(':uuid')

@@ -163,6 +163,28 @@ export class AppointmentStorage {
     });
   }
 
+  /**
+   * Meses (YYYY-MM, UTC) que tienen al menos una cita CONFIRMED futura para
+   * el tenant. Mismo criterio que el filtro `nextAppointmentMonth` de
+   * /patients, para poblar un selector de filtro sin listar meses vacios.
+   */
+  async findScheduledMonths(tenantUUID: string): Promise<string[]> {
+    const rows = await this.prisma.appointment.findMany({
+      where: {
+        tenantUUID,
+        status: AppointmentStatus.CONFIRMED,
+        startTime: { gte: new Date() },
+      },
+      select: { startTime: true },
+    });
+
+    const months = new Set(
+      rows.map((row) => row.startTime.toISOString().slice(0, 7)),
+    );
+
+    return Array.from(months).sort();
+  }
+
   async findByPatient(patientUUID: string, tenantUUID: string): Promise<Appointment[]> {
     const rows = await this.prisma.appointment.findMany({
       where: {

@@ -24,6 +24,7 @@ import { FindOneAppointment } from '@medical-records/domain/use-cases/appointmen
 import { GetAppointmentsUseCase } from '@medical-records/domain/use-cases/appointments/find-all-appointment.use-case';
 import { GetAppointmentsByPatientUseCase } from '@medical-records/domain/use-cases/appointments/find-byPatient-appointment.use-case';
 import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/delete-appointment.use-case';
+import { FindScheduledMonthsUseCase } from '@medical-records/domain/use-cases/appointments/find-scheduled-months.use-case';
 import { ProductController } from './controllers/inventory.controller';
 import { ProductStorage } from '@medical-records/infrastructure/adapters/inventoryRepository/inventory.storage';
 import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
@@ -155,6 +156,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     GetAppointmentsByPatientUseCase,
     DeleteAppointmentUseCase,
     ScheduleNextAppointmentUseCase,
+    FindScheduledMonthsUseCase,
 
     ProductManagerUseCase,
 

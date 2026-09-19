@@ -248,6 +248,19 @@
 
 ---
 
+### GET /appointments/months
+**Auth:** Required  
+**Response 200:**
+```json
+{
+  "months": ["2026-10", "2026-11", "2026-12"]
+}
+```
+Meses (`YYYY-MM`, UTC), ordenados ascendente, que tienen al menos una cita con `status: CONFIRMED` y `startTime >= now()` para el tenant. Pensado para poblar un selector de filtro en el frontend sin listar meses sin citas. Mismo criterio que el filtro `nextAppointmentMonth` de `GET /patients`.  
+**Status:** Implemented. Registrado antes de `GET /appointments/:uuid` en el controller para que NestJS no lo confunda con el parámetro de ruta.
+
+---
+
 ### PATCH /appointments/:uuid
 **Auth:** Required  
 **Body (all optional):**
