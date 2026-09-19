@@ -24,6 +24,7 @@ import {
   UpdateClinicalTemplateDto,
   UpdateClinicalTemplateSchema,
 } from '@medical-records/app/dtos/clinical-template.dto';
+import { ClinicalTemplateEntity } from '@medical-records/domain/entities/clinical-template.entity';
 
 @Controller('clinical-templates')
 @UseGuards(AuthGuard)
@@ -38,7 +39,7 @@ export class ClinicalTemplateController {
   ) {}
 
   @Get()
-  async findAll(@CurrentUser() user: JwtPayload) {
+  async findAll(@CurrentUser() user: JwtPayload): Promise<ClinicalTemplateEntity[]> {
     return await this.findAllUseCase.execute(user.tenantUuid);
   }
 
@@ -46,7 +47,7 @@ export class ClinicalTemplateController {
   async findAllBySpeciality(
     @Param('speciality') speciality: string,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<ClinicalTemplateEntity[]> {
     return await this.findAllBySpecialityUseCase.execute(user.tenantUuid, speciality);
   }
 
@@ -54,13 +55,13 @@ export class ClinicalTemplateController {
   async findBySpeciality(
     @Param('speciality') speciality: string,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<ClinicalTemplateEntity> {
     return await this.findBySpecialityUseCase.execute(user.tenantUuid, speciality);
   }
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateClinicalTemplateSchema))
-  async create(@Body() dto: CreateClinicalTemplateDto, @CurrentUser() user: JwtPayload) {
+  async create(@Body() dto: CreateClinicalTemplateDto, @CurrentUser() user: JwtPayload): Promise<ClinicalTemplateEntity> {
     return await this.createUseCase.execute(user.tenantUuid, dto);
   }
 
@@ -70,13 +71,13 @@ export class ClinicalTemplateController {
     @Param('uuid') uuid: string,
     @Body() dto: UpdateClinicalTemplateDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<ClinicalTemplateEntity> {
     return await this.updateUseCase.execute(uuid, user.tenantUuid, dto);
   }
 
   @Delete(':uuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async remove(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<{ success: boolean }> {
     return await this.deleteUseCase.execute(uuid, user.tenantUuid);
   }
 }

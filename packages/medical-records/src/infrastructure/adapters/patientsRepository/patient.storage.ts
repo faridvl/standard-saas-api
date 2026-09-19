@@ -46,7 +46,7 @@ export class PatientStorage {
   constructor(private readonly prisma: PrismaService) {}
 
   async save(data: Prisma.PatientUncheckedCreateInput, tx?: Prisma.TransactionClient): Promise<Patient> {
-    const client = tx || (this.prisma as any);
+    const client: Prisma.TransactionClient | PrismaService = tx || this.prisma;
 
     return client.patient.create({ data });
   }

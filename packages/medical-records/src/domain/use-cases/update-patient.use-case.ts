@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Patient } from '@prisma/client';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 
@@ -6,7 +7,7 @@ import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 export class UpdatePatientUseCase {
   constructor(private readonly storage: PatientStorage) {}
 
-  async execute(uuid: string, tenantUuid: string, dto: UpdatePatientDto) {
+  async execute(uuid: string, tenantUuid: string, dto: UpdatePatientDto): Promise<Patient> {
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);

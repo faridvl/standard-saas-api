@@ -3,7 +3,13 @@ import { Controller, Get } from '@nestjs/common';
 @Controller('health')
 export class HealthController {
   @Get()
-  check() {
+  check(): {
+    status: string;
+    timestamp: string;
+    uptime: number;
+    memory: NodeJS.MemoryUsage;
+    message: string;
+  } {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),

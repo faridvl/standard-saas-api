@@ -11,6 +11,7 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 
 // Use Cases
 import { CreateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/create-appointment.use-case';
@@ -19,6 +20,7 @@ import { FindOneAppointment } from '@medical-records/domain/use-cases/appointmen
 import { UpdateAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/update-appointment.use-case';
 import { DeleteAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/delete-appointment.use-case';
 import { FindScheduledMonthsUseCase } from '@medical-records/domain/use-cases/appointments/find-scheduled-months.use-case';
+import { Appointment } from '@medical-records/domain/types/appointment.types';
 
 // DTOs
 import {
@@ -27,7 +29,10 @@ import {
   UpdateAppointmentDto,
   UpdateAppointmentSchema,
 } from '@medical-records/app/dtos/appointment.dto';
-import { GetAppointmentsByPatientUseCase } from '@medical-records/domain/use-cases/appointments/find-byPatient-appointment.use-case';
+import {
+  GetAppointmentsByPatientUseCase,
+  PatientAppointmentsResult,
+} from '@medical-records/domain/use-cases/appointments/find-byPatient-appointment.use-case';
 
 @Controller('appointments')
 @UseGuards(AuthGuard)
@@ -44,7 +49,7 @@ export class AppointmentController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateAppointmentSchema))
-  async create(@Body() dto: CreateAppointmentDto, @CurrentUser() user: JwtPayload) {
+  async create(@Body() dto: CreateAppointmentDto, @CurrentUser() user: JwtPayload): Promise<Appointment> {
     return await this.createUseCase.execute(user.tenantUuid, {
       ...dto,
       userUUID: user.sub,
@@ -58,7 +63,7 @@ export class AppointmentController {
     @Query('limit') limit?: string,
     @Query('date') date?: string,
     @Query('patientId') patientId?: string,
-  ) {
+  ): Promise<PaginatedResponse<Appointment>> {
     return await this.getAllUseCase.execute(user.tenantUuid, {
       page,
       limit,
@@ -68,13 +73,13 @@ export class AppointmentController {
   }
 
   @Get('months')
-  async findScheduledMonths(@CurrentUser() user: JwtPayload) {
+  async findScheduledMonths(@CurrentUser() user: JwtPayload): Promise<{ months: string[] }> {
     const months = await this.findScheduledMonthsUseCase.execute(user.tenantUuid);
     return { months };
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<Appointment> {
     return await this.getOneUseCase.execute(uuid, user.tenantUuid);
   }
 
@@ -84,17 +89,20 @@ export class AppointmentController {
     @Param('uuid') uuid: string,
     @Body() dto: UpdateAppointmentDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<Appointment> {
     return await this.updateUseCase.execute(uuid, user.tenantUuid, dto);
   }
   @Get('patient/:patientUUID')
-  async getByPatient(@Param('patientUUID') patientUUID: string, @CurrentUser() user: JwtPayload) {
+  async getByPatient(
+    @Param('patientUUID') patientUUID: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientAppointmentsResult> {
     // Invocamos el Use Case que orquesta la búsqueda de citas e info del paciente
     return await this.getAppointmentsByPatientUseCase.execute(patientUUID, user.tenantUuid);
   }
 
   @Delete(':uuid')
-  async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<{ success: boolean }> {
     return await this.deleteUseCase.execute(uuid, user.tenantUuid);
   }
 }

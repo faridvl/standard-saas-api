@@ -1,16 +1,22 @@
 import { Injectable } from '@nestjs/common';
+import { Product as PrismaProduct, ProductUnit as PrismaProductUnit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Product } from '@medical-records/domain/types/product.types';
+
+type ProductRow = PrismaProduct & {
+  _count?: { units: number };
+  units?: PrismaProductUnit[];
+};
 
 @Injectable()
 export class ProductStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapToDomain(row: any): Product {
+  private mapToDomain(row: ProductRow): Product {
     const availableCount =
       row._count?.units !== undefined
         ? row._count.units
-        : (row.units?.filter((u: any) => u.status === 'AVAILABLE').length ?? 0);
+        : (row.units?.filter((u) => u.status === 'AVAILABLE').length ?? 0);
 
     return {
       uuid: row.uuid,

@@ -23,7 +23,7 @@ import { CreateProductUnitsBulkUseCase } from '@medical-records/domain/use-cases
 import { FindProductUnitsUseCase } from '@medical-records/domain/use-cases/product-unit/find-product-units.use-case';
 import { FindOneProductUnitUseCase } from '@medical-records/domain/use-cases/product-unit/find-one-product-unit.use-case';
 import { UpdateProductUnitUseCase } from '@medical-records/domain/use-cases/product-unit/update-product-unit.use-case';
-import { ProductUnitStatus } from '@medical-records/domain/types/product.types';
+import { ProductUnit, ProductUnitStatus } from '@medical-records/domain/types/product.types';
 
 @Controller()
 @UseGuards(AuthGuard)
@@ -42,7 +42,7 @@ export class ProductUnitController {
     @Param('productUuid') productUuid: string,
     @Body() dto: CreateProductUnitDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<ProductUnit> {
     return this.createUseCase.execute(productUuid, user.tenantUuid, dto);
   }
 
@@ -52,7 +52,7 @@ export class ProductUnitController {
     @Param('productUuid') productUuid: string,
     @Body() dto: CreateProductUnitsBulkDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<ProductUnit[]> {
     return this.createBulkUseCase.execute(productUuid, user.tenantUuid, dto.units);
   }
 
@@ -61,7 +61,7 @@ export class ProductUnitController {
     @Param('productUuid') productUuid: string,
     @Query('status') status: string,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<ProductUnit[]> {
     const validStatuses: ProductUnitStatus[] = ['AVAILABLE', 'ASSIGNED', 'DAMAGED', 'RETIRED'];
     const statusFilter = validStatuses.includes(status as ProductUnitStatus)
       ? (status as ProductUnitStatus)
@@ -70,13 +70,13 @@ export class ProductUnitController {
   }
 
   @Get('product-units/:uuid')
-  async findOne(@Param('uuid') uuid: string) {
+  async findOne(@Param('uuid') uuid: string): Promise<ProductUnit> {
     return this.findOneUseCase.execute(uuid);
   }
 
   @Patch('product-units/:uuid')
   @UsePipes(new ZodValidationPipe(UpdateProductUnitSchema))
-  async update(@Param('uuid') uuid: string, @Body() dto: UpdateProductUnitDto) {
+  async update(@Param('uuid') uuid: string, @Body() dto: UpdateProductUnitDto): Promise<ProductUnit> {
     return this.updateUseCase.execute(uuid, dto);
   }
 }

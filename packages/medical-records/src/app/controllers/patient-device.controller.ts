@@ -4,6 +4,7 @@ import { CreatePatientDeviceUseCase } from '@medical-records/domain/use-cases/pa
 import { FindPatientDevicesUseCase } from '@medical-records/domain/use-cases/patient-device/find-patient-devices.use-case';
 import { DeactivatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/deactivate-patient-device.use-case';
 import { CreatePatientDeviceDto, CreatePatientDeviceSchema } from '../dtos/patient-device.dto';
+import { PatientDeviceWithProductUnit } from '@medical-records/infrastructure/adapters/patientDeviceRepository/patient-device.storage';
 
 @Controller('patients/:patientUuid/devices')
 @UseGuards(AuthGuard)
@@ -15,7 +16,10 @@ export class PatientDeviceController {
   ) {}
 
   @Get()
-  async findAll(@Param('patientUuid') patientUuid: string, @CurrentUser() user: JwtPayload) {
+  async findAll(
+    @Param('patientUuid') patientUuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientDeviceWithProductUnit[]> {
     return await this.findUseCase.execute(patientUuid, user.tenantUuid);
   }
 
@@ -25,7 +29,7 @@ export class PatientDeviceController {
     @Param('patientUuid') patientUuid: string,
     @Body() dto: CreatePatientDeviceDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<PatientDeviceWithProductUnit> {
     return await this.createUseCase.execute({
       patientUuid,
       tenantUuid: user.tenantUuid,
@@ -37,7 +41,7 @@ export class PatientDeviceController {
 
   @Delete(':deviceUuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deactivate(@Param('deviceUuid') deviceUuid: string, @CurrentUser() user: JwtPayload) {
+  async deactivate(@Param('deviceUuid') deviceUuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.deactivateUseCase.execute(deviceUuid, user.tenantUuid);
   }
 }

@@ -10,8 +10,11 @@ import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
 import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
 import { UpsertPatientBackgroundDto, UpsertPatientBackgroundSchema } from '../dtos/patient-background.dto';
-import { BulkImportPatientsUseCase } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
+import { BulkImportPatientsUseCase, BulkImportResult } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
+import { Patient } from '@prisma/client';
+import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
+import { PatientBackgroundEntity } from '@medical-records/domain/entities/patient-background.entity';
 
 // STAFF (recepción) no tiene acceso a antecedentes: son datos de salud
 // sensibles (Ley 8968), no información administrativa.
@@ -33,7 +36,7 @@ export class PatientController {
 
   @Post('bulk')
   @UsePipes(new ZodValidationPipe(BulkImportPatientsSchema))
-  async bulkImport(@Body() body: BulkImportPatientsDto, @CurrentUser() user: JwtPayload) {
+  async bulkImport(@Body() body: BulkImportPatientsDto, @CurrentUser() user: JwtPayload): Promise<BulkImportResult> {
     return await this.bulkImportUseCase.execute(body.patients, {
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
@@ -43,7 +46,7 @@ export class PatientController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreatePatientSchema))
-  async create(@Body() body: CreatePatientDto, @CurrentUser() user: JwtPayload) {
+  async create(@Body() body: CreatePatientDto, @CurrentUser() user: JwtPayload): Promise<Patient> {
     return await this.createUseCase.execute(body, {
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
@@ -59,7 +62,7 @@ export class PatientController {
     @Query('includeInactive') includeInactive: string = 'false',
     @Query('search') search?: string,
     @Query('nextAppointmentMonth') nextAppointmentMonth?: string,
-  ) {
+  ): Promise<PaginatedResponse<Patient & { nextAppointmentAt: Date | null }>> {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
       Number(page),
@@ -72,12 +75,12 @@ export class PatientController {
 
   @Delete(':uuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async softDelete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async softDelete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.softDeletePatientUseCase.execute(uuid, user.tenantUuid);
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<Patient> {
     return await this.getPatientByUuidUseCase.execute(uuid, user.tenantUuid);
   }
 
@@ -87,12 +90,15 @@ export class PatientController {
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<Patient> {
     return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto);
   }
 
   @Get(':uuid/background')
-  async getBackground(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async getBackground(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientBackgroundEntity | null> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a antecedentes clínicos');
     }
@@ -105,7 +111,7 @@ export class PatientController {
     @Param('uuid') uuid: string,
     @Body() dto: UpsertPatientBackgroundDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<PatientBackgroundEntity> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a antecedentes clínicos');
     }

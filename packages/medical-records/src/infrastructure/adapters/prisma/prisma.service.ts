@@ -22,12 +22,12 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
   }
 
-  async onModuleInit() {
+  async onModuleInit(): Promise<void> {
     // Eliminamos el await this.$connect() para evitar bloquear el arranque
     // La conexión se hará bajo demanda en la primera query
   }
 
-  async onModuleDestroy() {
+  async onModuleDestroy(): Promise<void> {
     await this.$disconnect();
   }
 }

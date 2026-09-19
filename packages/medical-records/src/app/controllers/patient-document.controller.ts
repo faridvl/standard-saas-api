@@ -1,10 +1,13 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UploadedFile, UseGuards, UseInterceptors, UsePipes } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { DocumentCategory } from '@prisma/client';
+import { DocumentCategory, PatientDocument } from '@prisma/client';
 import { AuthGuard, CurrentUser, JwtPayload, StorageService, ZodValidationPipe, imageAndPdfFilter } from '@project/core';
 import { RenamePatientDocumentDto, RenamePatientDocumentSchema } from '@medical-records/app/dtos/patient-document.dto';
-import { FindPatientDocumentsUseCase } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
+import {
+  FindPatientDocumentsUseCase,
+  PatientDocumentWithUploader,
+} from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
 import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/delete-patient-document.use-case';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 import { RenamePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/rename-patient-document.use-case';
@@ -30,7 +33,7 @@ export class PatientDocumentController {
   async findAll(
     @Param('patientUuid') patientUuid: string,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<PatientDocumentWithUploader[]> {
     return await this.findUseCase.execute(patientUuid, user.tenantUuid);
   }
 
@@ -41,7 +44,7 @@ export class PatientDocumentController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: JwtPayload,
     @Body('category') category: string = DocumentCategory.OTHER,
-  ) {
+  ): Promise<PatientDocumentWithUploader> {
     const url = await this.storageService.upload('medical_records', user.tenantUuid, 'documentos', file, patientUuid);
     return await this.createUseCase.execute({
       patientUuid,
@@ -60,7 +63,7 @@ export class PatientDocumentController {
     @Param('documentUuid') documentUuid: string,
     @Body() dto: RenamePatientDocumentDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<PatientDocument> {
     return await this.renameUseCase.execute(documentUuid, user.tenantUuid, dto.originalName);
   }
 
@@ -69,7 +72,7 @@ export class PatientDocumentController {
   async delete(
     @Param('documentUuid') documentUuid: string,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<void> {
     await this.deleteUseCase.execute(documentUuid, user.tenantUuid);
   }
 }

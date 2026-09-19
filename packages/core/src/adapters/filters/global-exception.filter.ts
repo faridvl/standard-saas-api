@@ -1,4 +1,5 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { AppLogger } from '../logger/app-logger';
 
 @Catch()
@@ -9,10 +10,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     this.logger.setContext('HttpTraffic');
   }
 
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse();
-    const request = ctx.getRequest();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     const status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
@@ -20,16 +21,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // 1. Extraemos la respuesta completa de la excepción
     const exceptionResponse = exception instanceof HttpException ? exception.getResponse() : null;
 
+    const exceptionMessage = exception instanceof Error ? exception.message : 'Internal Server Error';
+    const exceptionStack = exception instanceof Error ? exception.stack : undefined;
+
     // 2. Buscamos el mensaje y los detalles (si existen)
     // NestJS a veces pone el mensaje en .message, Zod lo pusimos en .message también.
     const message =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null
-        ? (exceptionResponse as any).message || exception.message
-        : exception.message || 'Internal Server Error';
+      typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse
+        ? (exceptionResponse as { message?: string }).message || exceptionMessage
+        : exceptionMessage;
 
     const details =
-      typeof exceptionResponse === 'object' && exceptionResponse !== null
-        ? (exceptionResponse as any).details || null // <--- AQUÍ CAPTURAMOS TUS DETALLES DE ZOD
+      typeof exceptionResponse === 'object' && exceptionResponse !== null && 'details' in exceptionResponse
+        ? (exceptionResponse as { details?: unknown }).details || null // <--- AQUÍ CAPTURAMOS TUS DETALLES DE ZOD
         : null;
 
     const logInfo = {
@@ -40,7 +44,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     };
 
     if (status >= 500) {
-      this.logger.error(`Critical Error: ${message}`, exception.stack, logInfo);
+      this.logger.error(`Critical Error: ${message}`, exceptionStack, logInfo);
     } else {
       this.logger.warn(`Client Error: ${JSON.stringify(message)}`, logInfo);
     }

@@ -33,7 +33,7 @@ export class UploadController {
     @Param('uuid') uuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
-  ) {
+  ): Promise<{ url: string }> {
     const url = await this.storageService.upload('identity', currentUser.tenantUuid, 'logos', file);
     await this.updateTenantUseCase.execute(uuid, currentUser.tenantUuid, { logoUrl: url });
     return { url };
@@ -45,7 +45,7 @@ export class UploadController {
     @Param('uuid') uuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
-  ) {
+  ): Promise<{ url: string }> {
     const url = await this.storageService.upload(
       'identity',
       currentUser.tenantUuid,
@@ -63,7 +63,7 @@ export class UploadController {
     @Param('uuid') uuid: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
-  ) {
+  ): Promise<{ url: string }> {
     const url = await this.storageService.upload(
       'identity',
       currentUser.tenantUuid,

@@ -1,13 +1,45 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Appointment, AppointmentStatus } from '@medical-records/domain/types/appointment.types';
+import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
+
+/**
+ * Shape mínimo que necesita `mapToDomain`. Los distintos métodos de este
+ * storage piden diferentes `include`/`select` a Prisma (algunos traen
+ * `medicalControl`, otros no; `patient` completo o solo nombre), así que se
+ * describe la forma estructural en vez de fijar un único `GetPayload`.
+ */
+type AppointmentRow = Pick<
+  Prisma.AppointmentGetPayload<Record<string, never>>,
+  | 'uuid'
+  | 'patientUUID'
+  | 'userUUID'
+  | 'typeUUID'
+  | 'branchUUID'
+  | 'tenantUUID'
+  | 'speciality'
+  | 'status'
+  | 'date'
+  | 'startTime'
+  | 'endTime'
+  | 'notes'
+  | 'createdAt'
+  | 'updatedAt'
+> & {
+  patient?: { firstName: string; lastName: string } | null;
+  appointmentType?: { name: string } | null;
+  medicalControl?: { uuid: string } | null;
+};
+
+type AppointmentCreateData = Prisma.AppointmentCreateInput;
 
 @Injectable()
 export class AppointmentStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapToDomain(row: any): Appointment {
+  private mapToDomain(row: AppointmentRow): Appointment {
     return {
       id: row.uuid,
       patientUUID: row.patientUUID,
@@ -15,14 +47,14 @@ export class AppointmentStorage {
       typeUUID: row.typeUUID,
       branchUUID: row.branchUUID,
       tenantUUID: row.tenantUUID,
-      speciality: row.speciality,
+      speciality: row.speciality as MedicalSpeciality,
       status: row.status as AppointmentStatus,
       schedule: {
         date: row.date,
         startTime: row.startTime,
         endTime: row.endTime,
       },
-      notes: row.notes,
+      notes: row.notes ?? undefined,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       patientName: row.patient ? `${row.patient.firstName} ${row.patient.lastName}` : undefined,
@@ -32,7 +64,7 @@ export class AppointmentStorage {
   }
 
   async create(data: Partial<Appointment>, tenantUUID: string): Promise<Appointment> {
-    const createData: any = {
+    const createData: Partial<AppointmentCreateData> = {
       patient: {
         connect: { uuid: data.patientUUID },
       },
@@ -61,7 +93,7 @@ export class AppointmentStorage {
     }
 
     const created = await this.prisma.appointment.create({
-      data: createData,
+      data: createData as AppointmentCreateData,
       include: {
         appointmentType: true,
         patient: true,

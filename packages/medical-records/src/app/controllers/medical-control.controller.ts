@@ -8,6 +8,8 @@ import {
 import { FindAllMedicalControlsUseCase } from '@medical-records/domain/use-cases/medical-control/find-all-medical-controls.use-case';
 import { FindOneMedicalControlUseCase } from '@medical-records/domain/use-cases/medical-control/find-one-medical-control.use-case';
 import { AddCorrectionNoteUseCase } from '@medical-records/domain/use-cases/medical-control/add-correction-note.use-case';
+import { MedicalControlEntity } from '@medical-records/domain/entities/medical-control.entity';
+import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { z } from 'zod';
 
 const CorrectionNoteSchema = z.object({ correctionNotes: z.string().min(1) });
@@ -30,7 +32,7 @@ export class MedicalControlController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateMedicalControlSchema))
-  async create(@Body() dto: CreateMedicalControlDto, @CurrentUser() user: JwtPayload) {
+  async create(@Body() dto: CreateMedicalControlDto, @CurrentUser() user: JwtPayload): Promise<MedicalControlEntity> {
     return await this.createUseCase.execute(dto, {
       tenantUuid: user.tenantUuid,
       userUuid: user.sub,
@@ -43,7 +45,7 @@ export class MedicalControlController {
     @CurrentUser() user: JwtPayload,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
-  ) {
+  ): Promise<PaginatedResponse<MedicalControlEntity>> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
     }
@@ -58,7 +60,7 @@ export class MedicalControlController {
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<MedicalControlEntity> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
     }
@@ -75,7 +77,7 @@ export class MedicalControlController {
     @Param('uuid') uuid: string,
     @Body() dto: CorrectionNoteDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<MedicalControlEntity> {
     return await this.addCorrectionNoteUseCase.execute(uuid, user.tenantUuid, dto.correctionNotes);
   }
 }

@@ -9,6 +9,7 @@ import {
   CreateAppointmentTypeSchema,
 } from '@medical-records/app/dtos/appointment-type.dto';
 import { z } from 'zod';
+import { AppointmentTypeEntity } from '@medical-records/domain/entities/appointment-type.entity';
 
 const InitializeAppointmentTypesSchema = z.object({
   tenantUuid: z.string().uuid({ message: 'tenantUuid debe ser un UUID válido' }),
@@ -27,21 +28,21 @@ export class AppointmentTypeController {
 
   @Get()
   @UseGuards(AuthGuard)
-  async findAll(@CurrentUser() user: JwtPayload) {
+  async findAll(@CurrentUser() user: JwtPayload): Promise<AppointmentTypeEntity[]> {
     return await this.findAllUseCase.execute(user.tenantUuid);
   }
 
   @Post()
   @UseGuards(AuthGuard)
   @UsePipes(new ZodValidationPipe(CreateAppointmentTypeSchema))
-  async create(@Body() dto: CreateAppointmentTypeDto, @CurrentUser() user: JwtPayload) {
+  async create(@Body() dto: CreateAppointmentTypeDto, @CurrentUser() user: JwtPayload): Promise<AppointmentTypeEntity> {
     return await this.createUseCase.execute(user.tenantUuid, dto);
   }
 
   @Delete(':uuid')
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.deleteUseCase.execute(user.tenantUuid, uuid);
   }
 
@@ -51,7 +52,7 @@ export class AppointmentTypeController {
     @Body() dto: InitializeAppointmentTypesDto,
     @Headers('x-internal-call') internalHeader: string | undefined,
     @Headers('authorization') authHeader: string | undefined,
-  ) {
+  ): Promise<AppointmentTypeEntity[]> {
     const isInternal = internalHeader === 'true';
     const isUnauthenticated = !authHeader;
 

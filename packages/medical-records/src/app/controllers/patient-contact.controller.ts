@@ -10,6 +10,7 @@ import { CreatePatientContactUseCase } from '@medical-records/domain/use-cases/p
 import { FindPatientContactsUseCase } from '@medical-records/domain/use-cases/patient-contacts/find-patient-contacts.use-case';
 import { DeletePatientContactUseCase } from '@medical-records/domain/use-cases/patient-contacts/delete-patient-contact.use-case';
 import { SyncPatientContactsUseCase } from '@medical-records/domain/use-cases/patient-contacts/sync-patient-contacts.use-case';
+import { PatientContact } from '@prisma/client';
 
 @Controller('patients/:patientUuid/contacts')
 @UseGuards(AuthGuard)
@@ -22,7 +23,7 @@ export class PatientContactController {
   ) {}
 
   @Get()
-  async findAll(@Param('patientUuid') patientUuid: string, @CurrentUser() user: JwtPayload) {
+  async findAll(@Param('patientUuid') patientUuid: string, @CurrentUser() user: JwtPayload): Promise<PatientContact[]> {
     return await this.findUseCase.execute(patientUuid, user.tenantUuid);
   }
 
@@ -32,7 +33,7 @@ export class PatientContactController {
     @Param('patientUuid') patientUuid: string,
     @Body() dto: CreatePatientContactDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<PatientContact> {
     return await this.createUseCase.execute({
       patientUuid,
       tenantUuid: user.tenantUuid,
@@ -47,13 +48,13 @@ export class PatientContactController {
     @Param('patientUuid') patientUuid: string,
     @Body() dto: SyncPatientContactsDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<PatientContact[]> {
     return await this.syncUseCase.execute(patientUuid, user.tenantUuid, dto.contacts);
   }
 
   @Delete(':contactUuid')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async delete(@Param('contactUuid') contactUuid: string, @CurrentUser() user: JwtPayload) {
+  async delete(@Param('contactUuid') contactUuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.deleteUseCase.execute(contactUuid, user.tenantUuid);
   }
 }

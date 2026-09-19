@@ -1,4 +1,5 @@
 import { Injectable, ConflictException } from '@nestjs/common';
+import { Patient } from '@prisma/client';
 import { PatientStorage } from '../../infrastructure/adapters/patientsRepository/patient.storage';
 import { PatientContactStorage } from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
 import { PatientEntity } from '../entities/patient.entity';
@@ -13,7 +14,7 @@ export class CreatePatientUseCase {
   async execute(
     data: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
     userContext: { tenantId: number; tenantUuid: string; sub: string },
-  ) {
+  ): Promise<Patient> {
     if (data.documentId) {
       const existing = await this.storage.findByDocumentId(data.documentId, userContext.tenantUuid);
       if (existing) {

@@ -34,4 +34,4 @@ if (!_env.success) {
 }
 
 // Exportamos los datos validados o el process.env directamente como fallback
-export const env = _env.success ? _env.data : (process.env as any);
+export const env = _env.success ? _env.data : (process.env as NodeJS.ProcessEnv);

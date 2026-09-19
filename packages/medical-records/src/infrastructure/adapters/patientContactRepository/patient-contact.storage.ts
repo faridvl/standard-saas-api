@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PatientContact } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreatePatientContactData {
@@ -18,23 +19,23 @@ export interface SyncPatientContactItem {
 export class PatientContactStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreatePatientContactData) {
+  async create(data: CreatePatientContactData): Promise<PatientContact> {
     return await this.prisma.patientContact.create({ data });
   }
 
-  async createMany(data: CreatePatientContactData[]) {
+  async createMany(data: CreatePatientContactData[]): Promise<void> {
     if (data.length === 0) return;
     await this.prisma.patientContact.createMany({ data });
   }
 
-  async findAllByPatient(patientUuid: string, tenantUuid: string) {
+  async findAllByPatient(patientUuid: string, tenantUuid: string): Promise<PatientContact[]> {
     return await this.prisma.patientContact.findMany({
       where: { patientUuid, tenantUuid },
       orderBy: { createdAt: 'asc' },
     });
   }
 
-  async delete(uuid: string, tenantUuid: string) {
+  async delete(uuid: string, tenantUuid: string): Promise<PatientContact> {
     return await this.prisma.patientContact.delete({
       where: { uuid, tenantUuid },
     });
@@ -45,7 +46,7 @@ export class PatientContactStorage {
    * formulario: actualiza los que traen uuid (ya existían), crea los que no
    * traen uuid, y elimina los que existían pero ya no vienen en la lista.
    */
-  async sync(patientUuid: string, tenantUuid: string, items: SyncPatientContactItem[]) {
+  async sync(patientUuid: string, tenantUuid: string, items: SyncPatientContactItem[]): Promise<PatientContact[]> {
     const existing = await this.findAllByPatient(patientUuid, tenantUuid);
     const incomingUuids = new Set(items.filter((item) => item.uuid).map((item) => item.uuid));
 

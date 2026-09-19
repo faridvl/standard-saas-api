@@ -2,7 +2,10 @@ import { Body, Controller, Get, Param, Post, UseGuards, UsePipes } from '@nestjs
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreatePatientNoteDto, CreatePatientNoteSchema } from '@medical-records/app/dtos/patient-note.dto';
 import { CreatePatientNoteUseCase } from '@medical-records/domain/use-cases/patient-notes/create-patient-note.use-case';
-import { FindPatientNotesUseCase } from '@medical-records/domain/use-cases/patient-notes/find-patient-notes.use-case';
+import {
+  FindPatientNotesUseCase,
+  PatientNoteWithAuthor,
+} from '@medical-records/domain/use-cases/patient-notes/find-patient-notes.use-case';
 
 @Controller('patients/:patientUuid/notes')
 @UseGuards(AuthGuard)
@@ -13,7 +16,10 @@ export class PatientNoteController {
   ) {}
 
   @Get()
-  async findAll(@Param('patientUuid') patientUuid: string, @CurrentUser() user: JwtPayload) {
+  async findAll(
+    @Param('patientUuid') patientUuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientNoteWithAuthor[]> {
     return await this.findUseCase.execute(patientUuid, user.tenantUuid);
   }
 
@@ -23,7 +29,7 @@ export class PatientNoteController {
     @Param('patientUuid') patientUuid: string,
     @Body() dto: CreatePatientNoteDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<PatientNoteWithAuthor> {
     return await this.createUseCase.execute({
       patientUuid,
       tenantUuid: user.tenantUuid,

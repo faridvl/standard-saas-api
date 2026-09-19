@@ -2,6 +2,7 @@ import { Body, Controller, Param, Patch, UseGuards, UsePipes } from '@nestjs/com
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { UpdateTenantUseCase } from '../../domain/use-cases/tenants/update-tenant.use-case';
 import { UpdateTenantDto, UpdateTenantSchema } from '../../domain/dtos/update-tenant.dto';
+import { TenantDomain } from '../../domain/types/auth.types';
 
 @Controller('tenants')
 @UseGuards(AuthGuard)
@@ -14,7 +15,7 @@ export class TenantController {
     @Param('uuid') uuid: string,
     @Body() dto: UpdateTenantDto,
     @CurrentUser() currentUser: JwtPayload,
-  ) {
+  ): Promise<TenantDomain> {
     return await this.updateTenantUseCase.execute(uuid, currentUser.tenantUuid, dto);
   }
 }

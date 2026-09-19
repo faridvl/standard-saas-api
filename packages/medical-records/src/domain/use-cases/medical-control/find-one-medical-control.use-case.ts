@@ -1,4 +1,5 @@
 import { MedicalControlStorage } from '@medical-records/infrastructure/adapters/controlRepository/medical-control.storage';
+import { MedicalControlEntity } from '@medical-records/domain/entities/medical-control.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 @Injectable()
@@ -8,7 +9,10 @@ export class FindOneMedicalControlUseCase {
     // private readonly followUpStorage: FollowUpStorage, // Orquestamos ambos storages
   ) {}
 
-  async execute(controlUuid: string, context: { tenantUuid: string; userUuid: string }) {
+  async execute(
+    controlUuid: string,
+    context: { tenantUuid: string; userUuid: string },
+  ): Promise<MedicalControlEntity> {
     const control = await this.controlStorage.findOneByUuid(controlUuid, context.tenantUuid);
 
     if (!control) {

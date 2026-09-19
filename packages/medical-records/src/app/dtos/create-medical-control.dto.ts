@@ -54,35 +54,38 @@ const schemaBySpeciality: Record<string, z.ZodTypeAny> = {
   [MedicalSpeciality.GENERAL]: GeneralControlSchema,
 };
 
-export const CreateMedicalControlSchema = z
+const BaseControlSchema = z
   .object({ header: z.object({ speciality: z.string() }).passthrough() })
-  .passthrough()
-  .superRefine((data, ctx) => {
-    const speciality = (data as any).header?.speciality as string | undefined;
-    const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
+  .passthrough();
 
-    if (!targeted) {
+type BaseControlData = z.infer<typeof BaseControlSchema>;
+
+export const CreateMedicalControlSchema = BaseControlSchema.superRefine((data: BaseControlData, ctx) => {
+  const speciality = data.header?.speciality;
+  const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
+
+  if (!targeted) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['header', 'speciality'],
+      message: `Especialidad inválida: "${speciality}". Valores permitidos: ${Object.keys(schemaBySpeciality).join(', ')}`,
+    });
+    return;
+  }
+
+  const result = targeted.safeParse(data);
+  if (!result.success) {
+    for (const issue of result.error.issues) {
       ctx.addIssue({
         code: 'custom',
-        path: ['header', 'speciality'],
-        message: `Especialidad inválida: "${speciality}". Valores permitidos: ${Object.keys(schemaBySpeciality).join(', ')}`,
+        path: issue.path as string[],
+        message: issue.message,
       });
-      return;
     }
-
-    const result = targeted.safeParse(data);
-    if (!result.success) {
-      for (const issue of result.error.issues) {
-        ctx.addIssue({
-          code: 'custom',
-          path: issue.path as string[],
-          message: issue.message,
-        });
-      }
-    }
-  })
-  .transform((data) => {
-    const speciality = (data as any).header?.speciality as string | undefined;
+  }
+})
+  .transform((data: BaseControlData) => {
+    const speciality = data.header?.speciality;
     const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
     return targeted ? targeted.parse(data) : data;
   }) as z.ZodType<CreateMedicalControlDto>;
