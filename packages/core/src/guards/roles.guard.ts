@@ -1,5 +1,11 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
+import { JwtPayload } from '../interfaces/auth.interface';
+
+interface RequestWithUser extends Request {
+  user?: JwtPayload;
+}
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -13,9 +19,9 @@ export class RolesGuard implements CanActivate {
 
     if (!requiredRoles) return true;
 
-    const { user } = context.switchToHttp().getRequest();
+    const { user } = context.switchToHttp().getRequest<RequestWithUser>();
 
-    if (!user || !requiredRoles.includes(user.role)) {
+    if (!user || !user.role || !requiredRoles.includes(user.role)) {
       throw new ForbiddenException('No tienes permisos para esta zona');
     }
 

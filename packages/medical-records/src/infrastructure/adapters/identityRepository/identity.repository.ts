@@ -39,10 +39,11 @@ export class IdentityRepository {
         return null;
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as IdentityUser;
       return { uuid: data.uuid, fullName: data.fullName };
     } catch (error) {
-      this.logger.warn(`No se pudo resolver el usuario ${uuid} en identity: ${error}`);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`No se pudo resolver el usuario ${uuid} en identity: ${message}`);
       return null;
     }
   }

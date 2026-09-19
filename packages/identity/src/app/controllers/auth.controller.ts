@@ -28,13 +28,13 @@ export class AuthController {
 
   @UseGuards(AuthGuard)
   @Get('test')
-  async testToken(@CurrentUser() user: JwtPayload): Promise<{
+  testToken(@CurrentUser() user: JwtPayload): {
     message: string;
     userUuid: string;
     email: string;
     tenant: string;
     fullData: JwtPayload;
-  }> {
+  } {
     return {
       message: 'Tu token es válido y centralizado',
       userUuid: user.sub,
