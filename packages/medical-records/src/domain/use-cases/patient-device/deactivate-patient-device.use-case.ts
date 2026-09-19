@@ -9,7 +9,7 @@ export class DeactivatePatientDeviceUseCase {
     private readonly unitStorage: ProductUnitStorage,
   ) {}
 
-  async execute(uuid: string, tenantUuid: string) {
+  async execute(uuid: string, tenantUuid: string): Promise<void> {
     const device = await this.storage.findOne(uuid);
     if (!device) throw new NotFoundException('Dispositivo no encontrado');
 

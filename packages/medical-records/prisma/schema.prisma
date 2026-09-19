@@ -15,6 +15,21 @@ enum DocumentCategory {
   OTHER
 }
 
+// Copia local minima de usuarios de identity, resuelta de forma perezosa
+// (get-or-create) para poder mostrar el nombre de quien creo un registro
+// sin depender de un JOIN cross-servicio. Puede quedar desactualizada si
+// el usuario cambia de nombre en identity; se resincroniza en el proximo
+// get-or-create donde el uuid ya conocido no requiere refresco.
+model User {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  tenantUuid String
+  fullName   String
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantUuid])
+}
+
 model Branch {
   id         Int      @id @default(autoincrement())
   uuid       String   @unique @default(uuid())

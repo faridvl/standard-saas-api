@@ -1,11 +1,24 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreateEncounterUseCase } from '@medical-records/domain/use-cases/encounters/create-encounter.use-case';
 import { FindByPatientEncounterUseCase } from '@medical-records/domain/use-cases/encounters/find-by-patient-encounter.use-case';
 import { FindOneEncounterUseCase } from '@medical-records/domain/use-cases/encounters/find-one-encounter.use-case';
 import { CloseEncounterUseCase } from '@medical-records/domain/use-cases/encounters/close-encounter.use-case';
 import { CreateEncounterDto, CreateEncounterSchema } from '../dtos/encounter.dto';
-import { EncounterEntity, EncounterDetail } from '@medical-records/domain/entities/encounter.entity';
+import {
+  EncounterEntity,
+  EncounterDetail,
+} from '@medical-records/domain/entities/encounter.entity';
 
 // STAFF (recepción) no tiene acceso a notas clínicas: Ley 8968 clasifica los
 // datos de salud como sensibles. Mismo criterio que MedicalControlController.
@@ -23,7 +36,10 @@ export class EncounterController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreateEncounterSchema))
-  async create(@Body() dto: CreateEncounterDto, @CurrentUser() user: JwtPayload): Promise<EncounterEntity> {
+  async create(
+    @Body() dto: CreateEncounterDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<EncounterEntity> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
     }
@@ -35,7 +51,10 @@ export class EncounterController {
   }
 
   @Get('patient/:uuid')
-  async findByPatient(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<EncounterEntity[]> {
+  async findByPatient(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<EncounterEntity[]> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
     }
@@ -46,7 +65,10 @@ export class EncounterController {
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<EncounterDetail> {
+  async findOne(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<EncounterDetail> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
     }
@@ -55,7 +77,10 @@ export class EncounterController {
   }
 
   @Patch(':uuid/close')
-  async close(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<EncounterEntity> {
+  async close(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<EncounterEntity> {
     if (user.role === STAFF_ROLE) {
       throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
     }

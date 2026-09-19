@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 import { User } from '../../domain/entities/user.entity';
 import { UserDomain, UserRole } from '../../domain/types/user.types';
@@ -13,7 +13,7 @@ export type CreateUserParams = Omit<UserDomain, 'uuid' | 'createdAt'> & {
 export class UserStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: Prisma.UserCreateInput, tx?: Prisma.TransactionClient): Promise<any> {
+  async create(data: Prisma.UserCreateInput, tx?: Prisma.TransactionClient): Promise<PrismaUser> {
     const client = tx || this.prisma;
     return client.user.create({ data });
   }
@@ -90,7 +90,13 @@ export class UserStorage {
 
   async update(
     uuid: string,
-    data: { fullName?: string; phoneNumber?: string; specialty?: string; signatureUrl?: string | null; avatarUrl?: string | null },
+    data: {
+      fullName?: string;
+      phoneNumber?: string;
+      specialty?: string;
+      signatureUrl?: string | null;
+      avatarUrl?: string | null;
+    },
   ): Promise<UserDomain> {
     const record = await this.prisma.user.update({
       where: { uuid },

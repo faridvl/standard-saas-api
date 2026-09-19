@@ -13,6 +13,7 @@ import {
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
 import { ProductDto, ProductSchema } from '../dtos/inventory.dto';
+import { Product } from '@medical-records/domain/types/product.types';
 
 @Controller('products')
 @UseGuards(AuthGuard)
@@ -21,7 +22,7 @@ export class ProductController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(ProductSchema))
-  async create(@Body() dto: ProductDto, @CurrentUser() user: JwtPayload) {
+  async create(@Body() dto: ProductDto, @CurrentUser() user: JwtPayload): Promise<Product> {
     return await this.productManager.create(user.tenantUuid, dto);
   }
 
@@ -29,12 +30,12 @@ export class ProductController {
   async findAll(
     @CurrentUser() user: JwtPayload,
     @Query('includeInactive') includeInactive: string,
-  ) {
+  ): Promise<Product[]> {
     return await this.productManager.listAll(user.tenantUuid, includeInactive === 'true');
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<Product> {
     return await this.productManager.getDetail(user.tenantUuid, uuid);
   }
 
@@ -43,12 +44,12 @@ export class ProductController {
     @Param('uuid') uuid: string,
     @Body() dto: Partial<ProductDto>,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<Product> {
     return await this.productManager.update(user.tenantUuid, uuid, dto);
   }
 
   @Delete(':uuid')
-  async deactivate(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload) {
+  async deactivate(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     return await this.productManager.toggleStatus(user.tenantUuid, uuid, false);
   }
 }

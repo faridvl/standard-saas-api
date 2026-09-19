@@ -1,12 +1,14 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "composite": true,
+    "declaration": true,
     "outDir": "./dist",
-    "baseUrl": ".", 
+    "rootDir": "./src",
+    "baseUrl": ".",
     "paths": {
-      "@project/core": ["../core/src/index", "../core/dist/index"],
-      "@project/core/*": ["../core/src/*", "../core/dist/*"],
-      "@prisma/client": ["./node_modules/@prisma/client"],
+      "@project/core": ["../core/src/index"],
+      "@project/core/*": ["../core/src/*"],
       "src/*": ["src/*"]
     },
     "module": "CommonJS",
@@ -14,6 +16,7 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true
   },
-  "include": ["src/**/*"],
+  "references": [{ "path": "../core" }],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "test", "**/*spec.ts"]
 }

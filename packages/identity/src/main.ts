@@ -13,7 +13,10 @@ async function bootstrap() {
     : ['https://next-audiology-files.vercel.app'];
 
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -38,4 +41,7 @@ async function bootstrap() {
   Logger.log(`🚀 Identity Service running on ${displayUrl}`, 'Bootstrap');
 }
 
-bootstrap();
+bootstrap().catch((error) => {
+  Logger.error('Error al iniciar Identity Service', error, 'Bootstrap');
+  process.exit(1);
+});

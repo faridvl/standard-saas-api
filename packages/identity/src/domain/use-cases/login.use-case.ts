@@ -1,11 +1,18 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { PrismaService } from '../../infrastructure/adapters/prisma/prisma.service';
-import { User } from '../entities/user.entity';
 import { UserStorage } from '../../infrastructure/adapters/user.storage';
 import { BcryptService } from '../../infrastructure/security/bcrypt.service';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from '../../app/dtos/login.dto';
 import { JwtPayload } from '@project/core';
+
+export type LoginResult = {
+  access_token: string;
+  user: {
+    name: string;
+    email: string;
+    tenantUuid: string;
+  };
+};
 
 @Injectable()
 export class LoginUseCase {
@@ -15,7 +22,7 @@ export class LoginUseCase {
     private readonly jwtService: JwtService,
   ) {}
 
-  async execute(dto: LoginDto) {
+  async execute(dto: LoginDto): Promise<LoginResult> {
     const user = await this.userStorage.findByEmail(dto.email);
 
     if (!user) throw new UnauthorizedException('Credenciales inválidas');

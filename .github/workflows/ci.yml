@@ -1,4 +1,4 @@
-name: Continuous Integration
+name: "[CHECK] PR - API"
 
 on:
   pull_request:
@@ -28,5 +28,15 @@ jobs:
           cache: 'yarn'
       - name: Install dependencies
         run: yarn install --frozen-lockfile
+      - name: Generate Prisma client (identity)
+        working-directory: packages/identity
+        run: npx prisma generate
+        env:
+          IDENTITY_DB_URL: postgresql://admin:password123@localhost:5432/records_db_test
+      - name: Generate Prisma client (medical-records)
+        working-directory: packages/medical-records
+        run: npx prisma generate
+        env:
+          MEDICAL_RECORDS_DB_URL: postgresql://admin:password123@localhost:5432/records_db_test
       - name: Quality Check
         run: yarn precommit:check

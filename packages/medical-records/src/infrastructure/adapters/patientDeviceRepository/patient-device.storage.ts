@@ -1,5 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma, PatientDevice } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+export type PatientDeviceWithProductUnit = Prisma.PatientDeviceGetPayload<{
+  include: {
+    productUnit: {
+      include: {
+        product: {
+          select: { uuid: true; name: true; brand: true; model: true };
+        };
+      };
+    };
+  };
+}>;
 
 @Injectable()
 export class PatientDeviceStorage {
@@ -11,7 +24,7 @@ export class PatientDeviceStorage {
     side: string;
     productUnitId: number;
     notes?: string;
-  }) {
+  }): Promise<PatientDeviceWithProductUnit> {
     return this.prisma.patientDevice.create({
       data: {
         patient: { connect: { uuid: data.patientUuid } },
@@ -24,7 +37,10 @@ export class PatientDeviceStorage {
     });
   }
 
-  async findAllByPatient(patientUuid: string, tenantUuid: string) {
+  async findAllByPatient(
+    patientUuid: string,
+    tenantUuid: string,
+  ): Promise<PatientDeviceWithProductUnit[]> {
     return this.prisma.patientDevice.findMany({
       where: { patientUuid, tenantUuid, isActive: true },
       include: this.includeProductUnit(),
@@ -32,14 +48,14 @@ export class PatientDeviceStorage {
     });
   }
 
-  async findOne(uuid: string) {
+  async findOne(uuid: string): Promise<PatientDeviceWithProductUnit | null> {
     return this.prisma.patientDevice.findUnique({
       where: { uuid },
       include: this.includeProductUnit(),
     });
   }
 
-  async deactivate(uuid: string, tenantUuid: string) {
+  async deactivate(uuid: string, tenantUuid: string): Promise<PatientDevice> {
     return this.prisma.patientDevice.update({
       where: { uuid },
       data: { isActive: false },

@@ -4,7 +4,7 @@ import { ApiErrorCode } from './error-codes';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  catch(exception: any, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
@@ -15,11 +15,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     const message = exception instanceof Error ? exception.message : 'INTERNAL_SERVER_ERROR';
 
+    const exceptionResponse =
+      exception instanceof HttpException ? exception.getResponse() : undefined;
+    const code =
+      exceptionResponse && typeof exceptionResponse === 'object' && 'code' in exceptionResponse
+        ? (exceptionResponse as { code?: string }).code
+        : undefined;
+
     // Estructura de respuesta única para todo tu SaaS
     response.status(status).json({
       success: false,
       error: {
-        code: exception.response?.code || ApiErrorCode.INTERNAL_ERROR,
+        code: code || ApiErrorCode.INTERNAL_ERROR,
         message: message,
         timestamp: new Date().toISOString(),
       },

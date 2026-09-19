@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DocumentCategory } from '@prisma/client';
+import { DocumentCategory, PatientNote } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreatePatientNoteData {
@@ -14,11 +14,11 @@ export interface CreatePatientNoteData {
 export class PatientNoteStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreatePatientNoteData) {
+  async create(data: CreatePatientNoteData): Promise<PatientNote> {
     return await this.prisma.patientNote.create({ data });
   }
 
-  async findAllByPatient(patientUuid: string, tenantUuid: string) {
+  async findAllByPatient(patientUuid: string, tenantUuid: string): Promise<PatientNote[]> {
     return await this.prisma.patientNote.findMany({
       where: { patientUuid, tenantUuid },
       orderBy: { createdAt: 'desc' },

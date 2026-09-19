@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "CommonJS",
     "target": "ES2021",
+    "composite": true,
     "declaration": true,
     "outDir": "./dist",
     "rootDir": "./src",
@@ -11,8 +12,8 @@
     "skipLibCheck": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "baseUrl": "./",
+    "baseUrl": "./"
   },
-  "include": ["src/**/*", "src/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

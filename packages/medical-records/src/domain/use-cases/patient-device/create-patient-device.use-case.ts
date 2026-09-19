@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { PatientDeviceStorage } from '@medical-records/infrastructure/adapters/patientDeviceRepository/patient-device.storage';
+import {
+  PatientDeviceStorage,
+  PatientDeviceWithProductUnit,
+} from '@medical-records/infrastructure/adapters/patientDeviceRepository/patient-device.storage';
 import { ProductUnitStorage } from '@medical-records/infrastructure/adapters/productUnitRepository/product-unit.storage';
 
 export interface CreatePatientDeviceData {
@@ -17,7 +20,7 @@ export class CreatePatientDeviceUseCase {
     private readonly unitStorage: ProductUnitStorage,
   ) {}
 
-  async execute(data: CreatePatientDeviceData) {
+  async execute(data: CreatePatientDeviceData): Promise<PatientDeviceWithProductUnit> {
     const unit = await this.unitStorage.findOne(data.productUnitUuid);
     if (!unit) throw new NotFoundException('Unidad de producto no encontrada');
     if (unit.status !== 'AVAILABLE') {

@@ -6,7 +6,7 @@
     "start": "node dist/main.js",
     "prisma:migrate": "dotenv -e .env -- prisma migrate dev",
     "prisma:generate": "dotenv -e .env -- prisma generate",
-    "build": "prisma generate && tsc --skipLibCheck true && tsc-alias",
+    "build": "prisma generate && tsc -b tsconfig.json && tsc-alias",
     "local": "dotenv -e .env -- ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/main.ts"
   },
   "dependencies": {

@@ -12,7 +12,9 @@ export class UpdateProductUnitUseCase {
     if (!unit) throw new NotFoundException('Unidad no encontrada');
 
     if (dto.status === 'AVAILABLE' && unit.status === 'ASSIGNED') {
-      throw new BadRequestException('No se puede marcar como disponible una unidad asignada a un paciente. Use la opción de devolución.');
+      throw new BadRequestException(
+        'No se puede marcar como disponible una unidad asignada a un paciente. Use la opción de devolución.',
+      );
     }
 
     return this.unitStorage.update(uuid, dto);

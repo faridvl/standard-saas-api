@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DocumentCategory } from '@prisma/client';
+import { DocumentCategory, PatientDocument } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreatePatientDocumentData {
@@ -16,25 +16,25 @@ export interface CreatePatientDocumentData {
 export class PatientDocumentStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: CreatePatientDocumentData) {
+  async create(data: CreatePatientDocumentData): Promise<PatientDocument> {
     return await this.prisma.patientDocument.create({ data });
   }
 
-  async findAllByPatient(patientUuid: string, tenantUuid: string) {
+  async findAllByPatient(patientUuid: string, tenantUuid: string): Promise<PatientDocument[]> {
     return await this.prisma.patientDocument.findMany({
       where: { patientUuid, tenantUuid },
       orderBy: { uploadedAt: 'desc' },
     });
   }
 
-  async rename(uuid: string, tenantUuid: string, originalName: string) {
+  async rename(uuid: string, tenantUuid: string, originalName: string): Promise<PatientDocument> {
     return await this.prisma.patientDocument.update({
       where: { uuid, tenantUuid },
       data: { originalName },
     });
   }
 
-  async delete(uuid: string, tenantUuid: string) {
+  async delete(uuid: string, tenantUuid: string): Promise<PatientDocument> {
     return await this.prisma.patientDocument.delete({
       where: { uuid, tenantUuid },
     });

@@ -248,6 +248,19 @@
 
 ---
 
+### GET /appointments/months
+**Auth:** Required  
+**Response 200:**
+```json
+{
+  "months": ["2026-10", "2026-11", "2026-12"]
+}
+```
+Meses (`YYYY-MM`, UTC), ordenados ascendente, que tienen al menos una cita con `status: CONFIRMED` y `startTime >= now()` para el tenant. Pensado para poblar un selector de filtro en el frontend sin listar meses sin citas. Mismo criterio que el filtro `nextAppointmentMonth` de `GET /patients`.  
+**Status:** Implemented. Registrado antes de `GET /appointments/:uuid` en el controller para que NestJS no lo confunda con el parámetro de ruta.
+
+---
+
 ### PATCH /appointments/:uuid
 **Auth:** Required  
 **Body (all optional):**
@@ -383,6 +396,17 @@
 **Auth:** Required  
 **Response 200:** Soft-deletes (sets `isActive = false`).  
 **Status:** Implemented.
+
+---
+
+## Patient Documents & Notes (Medical Records Service, port 7071)
+
+`GET`/`POST` en `/patients/:patientUuid/documents` y `/patients/:patientUuid/notes`
+devuelven cada item con `uploadedByName` (documentos) / `authorName` (notas):
+el nombre completo de quien lo creó, resuelto contra identity vía un cache
+local (tabla `User` en la base de medical-records, ver DATABASE.md). Es
+`null` si identity no responde o `IDENTITY_SERVICE_URL` no está configurada
+— no bloquea la operación principal.
 
 ---
 

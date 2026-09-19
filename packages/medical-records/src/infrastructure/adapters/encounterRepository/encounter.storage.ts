@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Encounter as PrismaEncounter } from '@prisma/client';
-import { EncounterEntity, EncounterDetail } from '@medical-records/domain/entities/encounter.entity';
+import {
+  EncounterEntity,
+  EncounterDetail,
+} from '@medical-records/domain/entities/encounter.entity';
 import { EncounterStatus } from '@medical-records/domain/types/encounter.types';
 
 @Injectable()
@@ -80,7 +83,7 @@ export class EncounterStorage {
 
     // Encounter cerrado → sin update posterior. Reabrir significa crear un
     // nuevo encuentro vinculado, no reescribir este (append-only, NOM-004 5.11).
-    if (existing.status === EncounterStatus.CLOSED) {
+    if ((existing.status as EncounterStatus) === EncounterStatus.CLOSED) {
       return this.mapToEntity(existing);
     }
 

@@ -54,11 +54,15 @@ const schemaBySpeciality: Record<string, z.ZodTypeAny> = {
   [MedicalSpeciality.GENERAL]: GeneralControlSchema,
 };
 
-export const CreateMedicalControlSchema = z
+const BaseControlSchema = z
   .object({ header: z.object({ speciality: z.string() }).passthrough() })
-  .passthrough()
-  .superRefine((data, ctx) => {
-    const speciality = (data as any).header?.speciality as string | undefined;
+  .passthrough();
+
+type BaseControlData = z.infer<typeof BaseControlSchema>;
+
+export const CreateMedicalControlSchema = BaseControlSchema.superRefine(
+  (data: BaseControlData, ctx) => {
+    const speciality = data.header?.speciality;
     const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
 
     if (!targeted) {
@@ -80,11 +84,13 @@ export const CreateMedicalControlSchema = z
         });
       }
     }
-  })
-  .transform((data) => {
-    const speciality = (data as any).header?.speciality as string | undefined;
-    const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
-    return targeted ? targeted.parse(data) : data;
-  }) as z.ZodType<CreateMedicalControlDto>;
+  },
+).transform((data: BaseControlData) => {
+  const speciality = data.header?.speciality;
+  const targeted = speciality ? schemaBySpeciality[speciality] : undefined;
+  return targeted ? targeted.parse(data) : data;
+}) as z.ZodType<CreateMedicalControlDto>;
 
-export type CreateMedicalControlDto = z.infer<typeof AudiologyControlSchema> | z.infer<typeof GeneralControlSchema>;
+export type CreateMedicalControlDto =
+  | z.infer<typeof AudiologyControlSchema>
+  | z.infer<typeof GeneralControlSchema>;

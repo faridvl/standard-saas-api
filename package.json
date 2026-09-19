@@ -20,12 +20,14 @@
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
     "lint": "eslint \"packages/**/*.ts\" --fix",
+    "lint:check": "eslint \"packages/**/*.ts\"",
     "format": "prettier --write \"packages/**/*.ts\"",
+    "type-check": "tsc -b tsconfig.build.json",
     "identity:prisma:gen": "yarn workspace @project/identity-service prisma:generate",
     "identity:prisma:migrate": "yarn workspace @project/identity-service prisma:migrate",
     "records:prisma:gen": "yarn workspace @project/medical-records prisma:generate",
     "records:prisma:migrate": "yarn workspace @project/medical-records prisma:migrate",
-    "precommit:check": "echo 'Pre-commit checks passed'"
+    "precommit:check": "yarn type-check && yarn lint:check"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

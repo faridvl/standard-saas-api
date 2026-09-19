@@ -10,8 +10,15 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { DocumentCategory } from '@prisma/client';
-import { AuthGuard, CurrentUser, JwtPayload, StorageService, imageAndPdfFilter } from '@project/core';
+import {
+  AuthGuard,
+  CurrentUser,
+  JwtPayload,
+  StorageService,
+  imageAndPdfFilter,
+} from '@project/core';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
+import { PatientDocumentWithUploader } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
 
 const UPLOAD_OPTIONS = {
   storage: memoryStorage(),
@@ -34,8 +41,14 @@ export class UploadController {
     tipo: string,
     category: string,
     file: Express.Multer.File,
-  ) {
-    const url = await this.storageService.upload('medical_records', tenantUuid, tipo, file, patientUuid);
+  ): Promise<PatientDocumentWithUploader> {
+    const url = await this.storageService.upload(
+      'medical_records',
+      tenantUuid,
+      tipo,
+      file,
+      patientUuid,
+    );
     const document = await this.createDocumentUseCase.execute({
       patientUuid,
       tenantUuid,
@@ -55,8 +68,15 @@ export class UploadController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
     @Body('category') category: string = DocumentCategory.EXTERNAL_TEST,
-  ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'audiometrias', category, file);
+  ): Promise<PatientDocumentWithUploader> {
+    return await this.uploadAndPersist(
+      patientUuid,
+      currentUser.tenantUuid,
+      currentUser.sub,
+      'audiometrias',
+      category,
+      file,
+    );
   }
 
   @Post('patients/:uuid/imagenes')
@@ -66,8 +86,15 @@ export class UploadController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
     @Body('category') category: string = DocumentCategory.OTHER,
-  ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'imagenes', category, file);
+  ): Promise<PatientDocumentWithUploader> {
+    return await this.uploadAndPersist(
+      patientUuid,
+      currentUser.tenantUuid,
+      currentUser.sub,
+      'imagenes',
+      category,
+      file,
+    );
   }
 
   @Post('patients/:uuid/informes')
@@ -77,7 +104,14 @@ export class UploadController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
     @Body('category') category: string = DocumentCategory.OTHER,
-  ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'informes', category, file);
+  ): Promise<PatientDocumentWithUploader> {
+    return await this.uploadAndPersist(
+      patientUuid,
+      currentUser.tenantUuid,
+      currentUser.sub,
+      'informes',
+      category,
+      file,
+    );
   }
 }

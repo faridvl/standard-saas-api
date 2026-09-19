@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { ProductUnit as PrismaProductUnit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductUnit, ProductUnitStatus } from '@medical-records/domain/types/product.types';
 import { CreateProductUnitDto } from '@medical-records/app/dtos/product-unit.dto';
+
+type ProductUnitRow = PrismaProductUnit & {
+  patient?: { uuid: string; firstName: string; lastName: string } | null;
+};
 
 @Injectable()
 export class ProductUnitStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapToDomain(row: any): ProductUnit {
+  private mapToDomain(row: ProductUnitRow): ProductUnit {
     return {
       uuid: row.uuid,
       serialNumber: row.serialNumber,
@@ -90,7 +95,10 @@ export class ProductUnitStorage {
     return row ? this.mapToDomain(row) : null;
   }
 
-  async update(uuid: string, data: Partial<Pick<ProductUnit, 'status' | 'warrantyUntil' | 'photoUrl' | 'notes'>>): Promise<ProductUnit> {
+  async update(
+    uuid: string,
+    data: Partial<Pick<ProductUnit, 'status' | 'warrantyUntil' | 'photoUrl' | 'notes'>>,
+  ): Promise<ProductUnit> {
     const row = await this.prisma.productUnit.update({
       where: { uuid },
       data: {

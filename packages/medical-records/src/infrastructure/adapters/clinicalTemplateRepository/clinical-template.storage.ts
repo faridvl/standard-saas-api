@@ -33,7 +33,10 @@ export class ClinicalTemplateStorage {
     };
   }
 
-  async create(tenantUuid: string, dto: CreateClinicalTemplateDto): Promise<ClinicalTemplateEntity> {
+  async create(
+    tenantUuid: string,
+    dto: CreateClinicalTemplateDto,
+  ): Promise<ClinicalTemplateEntity> {
     const row = await this.prisma.clinicalTemplate.create({
       data: {
         tenantUuid,
@@ -61,7 +64,10 @@ export class ClinicalTemplateStorage {
     return this.mapToDomain(row);
   }
 
-  async findBySpeciality(tenantUuid: string, speciality: string): Promise<ClinicalTemplateEntity | null> {
+  async findBySpeciality(
+    tenantUuid: string,
+    speciality: string,
+  ): Promise<ClinicalTemplateEntity | null> {
     const row = await this.prisma.clinicalTemplate.findFirst({
       where: { tenantUuid, speciality },
       orderBy: { createdAt: 'desc' },
@@ -70,7 +76,10 @@ export class ClinicalTemplateStorage {
     return this.mapToDomain(row);
   }
 
-  async findAllBySpeciality(tenantUuid: string, speciality: string): Promise<ClinicalTemplateEntity[]> {
+  async findAllBySpeciality(
+    tenantUuid: string,
+    speciality: string,
+  ): Promise<ClinicalTemplateEntity[]> {
     const rows = await this.prisma.clinicalTemplate.findMany({
       where: { tenantUuid, speciality },
       orderBy: { createdAt: 'desc' },
@@ -78,7 +87,11 @@ export class ClinicalTemplateStorage {
     return rows.map((row) => this.mapToDomain(row));
   }
 
-  async update(uuid: string, tenantUuid: string, dto: UpdateClinicalTemplateDto): Promise<ClinicalTemplateEntity> {
+  async update(
+    uuid: string,
+    tenantUuid: string,
+    dto: UpdateClinicalTemplateDto,
+  ): Promise<ClinicalTemplateEntity> {
     const existing = await this.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Plantilla clínica con UUID ${uuid} no encontrada`);

@@ -12,7 +12,9 @@ const ClinicalFieldDefinitionSchema = z.object({
 export const CreateClinicalTemplateSchema = z.object({
   name: z.string().min(1, { message: 'El nombre es requerido' }),
   speciality: z.string().min(1, { message: 'La especialidad es requerida' }),
-  fields: z.array(ClinicalFieldDefinitionSchema).min(1, { message: 'Debe incluir al menos un campo' }),
+  fields: z
+    .array(ClinicalFieldDefinitionSchema)
+    .min(1, { message: 'Debe incluir al menos un campo' }),
 });
 
 export const UpdateClinicalTemplateSchema = z.object({

@@ -7,7 +7,10 @@ import { PatientBackgroundEntity } from '@medical-records/domain/entities/patien
 export class UpsertPatientBackgroundUseCase {
   constructor(private readonly storage: PatientBackgroundStorage) {}
 
-  async execute(patientUuid: string, dto: UpsertPatientBackgroundDto): Promise<PatientBackgroundEntity> {
+  async execute(
+    patientUuid: string,
+    dto: UpsertPatientBackgroundDto,
+  ): Promise<PatientBackgroundEntity> {
     return this.storage.upsert(patientUuid, { ...dto, notes: dto.notes ?? null });
   }
 }

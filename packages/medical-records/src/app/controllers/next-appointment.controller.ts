@@ -5,6 +5,7 @@ import {
   ScheduleNextAppointmentSchema,
 } from '@medical-records/app/dtos/next-appointment.dto';
 import { ScheduleNextAppointmentUseCase } from '@medical-records/domain/use-cases/appointments/schedule-next-appointment.use-case';
+import { Appointment } from '@medical-records/domain/types/appointment.types';
 
 /**
  * Agendar rápido desde el detalle del paciente: solo fecha/hora y sede. Usa
@@ -22,7 +23,7 @@ export class NextAppointmentController {
     @Param('patientUuid') patientUuid: string,
     @Body() dto: ScheduleNextAppointmentDto,
     @CurrentUser() user: JwtPayload,
-  ) {
+  ): Promise<Appointment> {
     return await this.scheduleUseCase.execute(patientUuid, user.tenantUuid, user.sub, dto);
   }
 }

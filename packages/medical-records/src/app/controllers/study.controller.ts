@@ -1,4 +1,13 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, UseGuards, UsePipes } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  UsePipes,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreateStudyUseCase } from '@medical-records/domain/use-cases/studies/create-study.use-case';
 import { FindByPatientStudyUseCase } from '@medical-records/domain/use-cases/studies/find-by-patient-study.use-case';
@@ -23,7 +32,9 @@ export class StudyController {
   @UsePipes(new ZodValidationPipe(CreateStudySchema))
   async create(@Body() dto: CreateStudyDto, @CurrentUser() user: JwtPayload): Promise<StudyEntity> {
     if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a estudios clínicos');
+      throw new ForbiddenException(
+        'El personal administrativo no tiene acceso a estudios clínicos',
+      );
     }
 
     return this.createUseCase.execute(dto, {
@@ -33,18 +44,28 @@ export class StudyController {
   }
 
   @Get('patient/:uuid')
-  async findByPatient(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<StudyEntity[]> {
+  async findByPatient(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<StudyEntity[]> {
     if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a estudios clínicos');
+      throw new ForbiddenException(
+        'El personal administrativo no tiene acceso a estudios clínicos',
+      );
     }
 
     return this.findByPatientUseCase.execute(uuid, user.tenantUuid);
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<StudyEntity> {
+  async findOne(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<StudyEntity> {
     if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a estudios clínicos');
+      throw new ForbiddenException(
+        'El personal administrativo no tiene acceso a estudios clínicos',
+      );
     }
 
     return this.findOneUseCase.execute(uuid, user.tenantUuid);

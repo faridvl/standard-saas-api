@@ -17,6 +17,7 @@ const envSchema = z.object({
 
   JWT_SECRET: z.string().min(10),
   // Añade aquí IDENTITY_DB_URL si la usas en el PrismaService
+  IDENTITY_SERVICE_URL: z.string().url().optional(),
 });
 
 // Usamos safeParse para evitar que la app explote si falta algo no crítico
@@ -33,4 +34,4 @@ if (!_env.success) {
 }
 
 // Exportamos los datos validados o el process.env directamente como fallback
-export const env = _env.success ? _env.data : (process.env as any);
+export const env = _env.success ? _env.data : process.env;

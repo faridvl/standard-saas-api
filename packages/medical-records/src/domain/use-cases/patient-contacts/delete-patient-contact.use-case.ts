@@ -5,7 +5,7 @@ import { PatientContactStorage } from '@medical-records/infrastructure/adapters/
 export class DeletePatientContactUseCase {
   constructor(private readonly storage: PatientContactStorage) {}
 
-  async execute(uuid: string, tenantUuid: string) {
+  async execute(uuid: string, tenantUuid: string): Promise<void> {
     await this.storage.delete(uuid, tenantUuid);
   }
 }

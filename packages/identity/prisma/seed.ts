@@ -20,6 +20,7 @@ async function main() {
     update: {},
     create: {
       email: 'admin@admin.com',
+      name: 'Admin',
       password: 'admin_password_123',
       tenantId: tenant.id,
     },

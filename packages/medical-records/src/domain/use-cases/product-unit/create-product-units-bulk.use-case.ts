@@ -11,20 +11,30 @@ export class CreateProductUnitsBulkUseCase {
     private readonly productStorage: ProductStorage,
   ) {}
 
-  async execute(productUuid: string, tenantUuid: string, units: CreateProductUnitDto[]): Promise<ProductUnit[]> {
+  async execute(
+    productUuid: string,
+    tenantUuid: string,
+    units: CreateProductUnitDto[],
+  ): Promise<ProductUnit[]> {
     const product = await this.productStorage.findOne(productUuid, tenantUuid);
     if (!product) throw new NotFoundException('Producto no encontrado');
 
     const serials = units.map((u) => u.serialNumber);
     const duplicatesInRequest = serials.filter((s, i) => serials.indexOf(s) !== i);
     if (duplicatesInRequest.length > 0) {
-      throw new ConflictException(`Seriales duplicados en la solicitud: ${duplicatesInRequest.join(', ')}`);
+      throw new ConflictException(
+        `Seriales duplicados en la solicitud: ${duplicatesInRequest.join(', ')}`,
+      );
     }
 
-    const existingChecks = await Promise.all(units.map((u) => this.unitStorage.findBySerial(u.serialNumber)));
+    const existingChecks = await Promise.all(
+      units.map((u) => this.unitStorage.findBySerial(u.serialNumber)),
+    );
     const alreadyExisting = existingChecks.filter(Boolean).map((u) => u!.serialNumber);
     if (alreadyExisting.length > 0) {
-      throw new ConflictException(`Los siguientes números de serie ya existen: ${alreadyExisting.join(', ')}`);
+      throw new ConflictException(
+        `Los siguientes números de serie ya existen: ${alreadyExisting.join(', ')}`,
+      );
     }
 
     const productId = await this.productStorage.findRawId(productUuid);
