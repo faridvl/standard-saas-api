@@ -9,6 +9,7 @@ export interface CreatePatientDocumentData {
   url: string;
   category: DocumentCategory;
   size: number;
+  uploadedByUuid: string;
 }
 
 @Injectable()
@@ -23,6 +24,13 @@ export class PatientDocumentStorage {
     return await this.prisma.patientDocument.findMany({
       where: { patientUuid, tenantUuid },
       orderBy: { uploadedAt: 'desc' },
+    });
+  }
+
+  async rename(uuid: string, tenantUuid: string, originalName: string) {
+    return await this.prisma.patientDocument.update({
+      where: { uuid, tenantUuid },
+      data: { originalName },
     });
   }
 

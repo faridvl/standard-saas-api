@@ -85,6 +85,7 @@ import { PatientDocumentStorage } from '@medical-records/infrastructure/adapters
 import { FindPatientDocumentsUseCase } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/delete-patient-document.use-case';
+import { RenamePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/rename-patient-document.use-case';
 import { EncounterController } from './controllers/encounter.controller';
 import { EncounterStorage } from '@medical-records/infrastructure/adapters/encounterRepository/encounter.storage';
 import { CreateEncounterUseCase } from '@medical-records/domain/use-cases/encounters/create-encounter.use-case';
@@ -215,6 +216,7 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     FindPatientDocumentsUseCase,
     CreatePatientDocumentUseCase,
     DeletePatientDocumentUseCase,
+    RenamePatientDocumentUseCase,
 
     EncounterStorage,
     CreateEncounterUseCase,

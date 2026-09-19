@@ -30,6 +30,7 @@ export class UploadController {
   private async uploadAndPersist(
     patientUuid: string,
     tenantUuid: string,
+    uploadedByUuid: string,
     tipo: string,
     category: string,
     file: Express.Multer.File,
@@ -42,6 +43,7 @@ export class UploadController {
       url,
       category,
       size: file.size,
+      uploadedByUuid,
     });
     return document;
   }
@@ -54,7 +56,7 @@ export class UploadController {
     @CurrentUser() currentUser: JwtPayload,
     @Body('category') category: string = DocumentCategory.EXTERNAL_TEST,
   ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'audiometrias', category, file);
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'audiometrias', category, file);
   }
 
   @Post('patients/:uuid/imagenes')
@@ -65,7 +67,7 @@ export class UploadController {
     @CurrentUser() currentUser: JwtPayload,
     @Body('category') category: string = DocumentCategory.OTHER,
   ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'imagenes', category, file);
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'imagenes', category, file);
   }
 
   @Post('patients/:uuid/informes')
@@ -76,6 +78,6 @@ export class UploadController {
     @CurrentUser() currentUser: JwtPayload,
     @Body('category') category: string = DocumentCategory.OTHER,
   ) {
-    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, 'informes', category, file);
+    return await this.uploadAndPersist(patientUuid, currentUser.tenantUuid, currentUser.sub, 'informes', category, file);
   }
 }

@@ -153,17 +153,18 @@ model PatientDevice {
 }
 
 model PatientDocument {
-  id           Int      @id @default(autoincrement())
-  uuid         String   @unique @default(uuid())
-  patientUuid  String
-  tenantUuid   String
-  originalName String
-  url          String
-  category     DocumentCategory @default(OTHER)
-  size         Int      @default(0)
-  uploadedAt   DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  uuid           String   @unique @default(uuid())
+  patientUuid    String
+  tenantUuid     String
+  originalName   String
+  url            String
+  category       DocumentCategory @default(OTHER)
+  size           Int      @default(0)
+  uploadedAt     DateTime @default(now())
+  uploadedByUuid String   @default("")
 
-  patient      Patient  @relation(fields: [patientUuid], references: [uuid])
+  patient        Patient  @relation(fields: [patientUuid], references: [uuid])
 
   @@index([patientUuid])
   @@index([tenantUuid])

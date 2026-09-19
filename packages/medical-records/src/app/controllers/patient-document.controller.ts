@@ -1,11 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UploadedFile, UseGuards, UseInterceptors, UsePipes } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { DocumentCategory } from '@prisma/client';
-import { AuthGuard, CurrentUser, JwtPayload, StorageService, imageAndPdfFilter } from '@project/core';
+import { AuthGuard, CurrentUser, JwtPayload, StorageService, ZodValidationPipe, imageAndPdfFilter } from '@project/core';
+import { RenamePatientDocumentDto, RenamePatientDocumentSchema } from '@medical-records/app/dtos/patient-document.dto';
 import { FindPatientDocumentsUseCase } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
 import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/delete-patient-document.use-case';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
+import { RenamePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/rename-patient-document.use-case';
 
 const UPLOAD_OPTIONS = {
   storage: memoryStorage(),
@@ -20,6 +22,7 @@ export class PatientDocumentController {
     private readonly findUseCase: FindPatientDocumentsUseCase,
     private readonly createUseCase: CreatePatientDocumentUseCase,
     private readonly deleteUseCase: DeletePatientDocumentUseCase,
+    private readonly renameUseCase: RenamePatientDocumentUseCase,
     private readonly storageService: StorageService,
   ) {}
 
@@ -47,7 +50,18 @@ export class PatientDocumentController {
       url,
       category,
       size: file.size,
+      uploadedByUuid: user.sub,
     });
+  }
+
+  @Patch(':documentUuid')
+  @UsePipes(new ZodValidationPipe(RenamePatientDocumentSchema))
+  async rename(
+    @Param('documentUuid') documentUuid: string,
+    @Body() dto: RenamePatientDocumentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return await this.renameUseCase.execute(documentUuid, user.tenantUuid, dto.originalName);
   }
 
   @Delete(':documentUuid')
