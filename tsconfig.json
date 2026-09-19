@@ -10,6 +10,7 @@
     "target": "ES2021",
     "sourceMap": true,
     "baseUrl": "./",
+    "ignoreDeprecations": "5.0",
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
