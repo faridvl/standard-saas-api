@@ -132,7 +132,6 @@ Indexes: `@@index([patientUUID])`, `@@index([tenantUUID])`, `@@index([userUUID])
 | model | String? | model | |
 | description | String? | description | |
 | price | Decimal(15,2) | price | default 0.00 |
-| currentStock | Int | current_stock | default 0 |
 | minStock | Int | min_stock | default 5 |
 | cabysCode | String? | cabys_code | Costa Rica CABYS catalog code |
 | isActive | Boolean | is_active | default true; soft-delete pattern |
@@ -141,6 +140,34 @@ Indexes: `@@index([patientUUID])`, `@@index([tenantUUID])`, `@@index([userUUID])
 | updatedAt | DateTime | updated_at | |
 
 Indexes: `@@index([tenantUuid])`, `@@index([sku])`; Unique: `sku`
+
+Stock real vive en `ProductUnit` (una fila por unidad física, con
+`serialNumber`/`warrantyUntil`/`assignedToPatientUuid`), no en un contador
+en `Product`. La antigua `current_stock` (y sus equivalentes viejos en
+`PatientDevice`: `brand`, `model`, `productUuid`, `purchaseDate`,
+`serialNumber`, `warrantyUntil`) se dejaron sin usar "para migración
+gradual" al introducir `ProductUnit` (`20260630220000_add_product_units`)
+y se eliminaron recién en `20260919090000_drop_legacy_inventory_columns`.
+Si se vuelve a reemplazar un campo por un modelo nuevo, la migración que
+lo hace debe incluir el `DROP COLUMN` de una vez — no dejarlo pendiente.
+
+#### `User` (cache local de identity)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| uuid | String (unique) | mismo uuid que en identity |
+| tenantUuid | String | |
+| fullName | String | |
+| updatedAt | DateTime | |
+
+Copia local mínima, poblada de forma perezosa (get-or-create) para
+resolver el nombre de quien creó un `PatientDocument`/`PatientNote` sin
+depender de un JOIN cross-servicio con identity (que vive en otra base).
+Ver `GetOrCreateUserUseCase` e `IdentityRepository`. Puede quedar
+desactualizada si el usuario cambia de nombre en identity — mismo
+trade-off que documenta `service-core-comx` para el mismo patrón.
+
+Index: `@@index([tenantUuid])`
 
 ### Migrations (medical-records)
 | Migration | Description |
@@ -151,6 +178,9 @@ Indexes: `@@index([tenantUuid])`, `@@index([sku])`; Unique: `sku`
 | 20260217072715_add_patient_gender | Added gender to Patient |
 | 20260218045243_add_appointments_table | Appointment + AppointmentType tables |
 | 20260219235825_add_inventory | Product table |
+| 20260630220000_add_product_units | ProductUnit table; deja columnas legacy de Product/PatientDevice sin usar a propósito |
+| 20260919090000_drop_legacy_inventory_columns | Elimina current_stock (Product) y brand/model/productUuid/purchaseDate/serialNumber/warrantyUntil (PatientDevice), sin uso desde add_product_units |
+| 20260919091500_add_local_user_cache | Tabla User (cache local de identity) |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)
@@ -169,9 +199,14 @@ FROM "Appointment" a
 LEFT JOIN "AppointmentType" at ON a."typeUUID" = at.uuid
 WHERE a."patientUUID" = '<patient_uuid>' AND a."tenantUUID" = '<tenant_uuid>';
 
--- Inventory below min stock
-SELECT * FROM "Product" WHERE "is_active" = true AND "current_stock" < "min_stock" AND "tenantUuid" = '<uuid>';
+-- Inventory below min stock (cuenta unidades AVAILABLE en ProductUnit, no un contador en Product)
+SELECT p.*, COUNT(pu.id) AS available_units
+FROM "Product" p
+LEFT JOIN "ProductUnit" pu ON pu.product_id = p.id AND pu.status = 'AVAILABLE'
+WHERE p."is_active" = true AND p."tenantUuid" = '<uuid>'
+GROUP BY p.id
+HAVING COUNT(pu.id) < p."min_stock";
 
--- Users for a tenant
+-- Users for a tenant (identity database)
 SELECT uuid, email, name, role, status FROM "User" WHERE "tenantUUID" = '<uuid>';
 ```

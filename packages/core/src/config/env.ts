@@ -17,6 +17,7 @@ const envSchema = z.object({
 
   JWT_SECRET: z.string().min(10),
   // Añade aquí IDENTITY_DB_URL si la usas en el PrismaService
+  IDENTITY_SERVICE_URL: z.string().url().optional(),
 });
 
 // Usamos safeParse para evitar que la app explote si falta algo no crítico

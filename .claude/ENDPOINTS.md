@@ -399,6 +399,17 @@ Meses (`YYYY-MM`, UTC), ordenados ascendente, que tienen al menos una cita con `
 
 ---
 
+## Patient Documents & Notes (Medical Records Service, port 7071)
+
+`GET`/`POST` en `/patients/:patientUuid/documents` y `/patients/:patientUuid/notes`
+devuelven cada item con `uploadedByName` (documentos) / `authorName` (notas):
+el nombre completo de quien lo creó, resuelto contra identity vía un cache
+local (tabla `User` en la base de medical-records, ver DATABASE.md). Es
+`null` si identity no responde o `IDENTITY_SERVICE_URL` no está configurada
+— no bloquea la operación principal.
+
+---
+
 ## Encounters (Medical Records Service, port 7071)
 
 Modela el `Encuentro` (visita del paciente) como entidad persistente — reemplaza

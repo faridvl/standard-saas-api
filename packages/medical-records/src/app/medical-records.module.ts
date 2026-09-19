@@ -98,6 +98,9 @@ import { StudyStorage } from '@medical-records/infrastructure/adapters/studyRepo
 import { CreateStudyUseCase } from '@medical-records/domain/use-cases/studies/create-study.use-case';
 import { FindByPatientStudyUseCase } from '@medical-records/domain/use-cases/studies/find-by-patient-study.use-case';
 import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/find-one-study.use-case';
+import { UserStorage } from '@medical-records/infrastructure/adapters/userRepository/user.storage';
+import { IdentityRepository } from '@medical-records/infrastructure/adapters/identityRepository/identity.repository';
+import { GetOrCreateUserUseCase } from '@medical-records/domain/use-cases/users/get-or-create-user.use-case';
 
 @Module({
   imports: [
@@ -230,6 +233,10 @@ import { FindOneStudyUseCase } from '@medical-records/domain/use-cases/studies/f
     CreateStudyUseCase,
     FindByPatientStudyUseCase,
     FindOneStudyUseCase,
+
+    UserStorage,
+    IdentityRepository,
+    GetOrCreateUserUseCase,
   ],
   exports: [PrismaService, PatientStorage, AppointmentStorage],
 })
