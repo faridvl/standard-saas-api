@@ -10,6 +10,6 @@ const STORAGES = [PatientBackgroundStorage];
 
 @Module({
   providers: [...USE_CASES, ...STORAGES],
-  exports: [...STORAGES],
+  exports: [...USE_CASES, ...STORAGES],
 })
 export class PatientBackgroundModule {}

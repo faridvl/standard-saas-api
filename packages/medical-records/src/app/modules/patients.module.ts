@@ -8,6 +8,7 @@ import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-p
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
 import { BulkImportPatientsUseCase } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { PatientContactsModule } from './patient-contacts.module';
+import { PatientBackgroundModule } from './patient-background.module';
 
 const CONTROLLERS = [PatientController];
 const USE_CASES = [
@@ -21,7 +22,7 @@ const USE_CASES = [
 const STORAGES = [PatientStorage];
 
 @Module({
-  imports: [PatientContactsModule],
+  imports: [PatientContactsModule, PatientBackgroundModule],
   controllers: [...CONTROLLERS],
   providers: [...USE_CASES, ...STORAGES],
   exports: [...STORAGES],
