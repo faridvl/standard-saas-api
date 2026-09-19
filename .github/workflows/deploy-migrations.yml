@@ -1,4 +1,4 @@
-name: Deploy migrations — Production
+name: "[Release] Production"
 
 on:
   push:
