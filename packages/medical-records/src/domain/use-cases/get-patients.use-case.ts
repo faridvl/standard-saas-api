@@ -14,7 +14,11 @@ export class GetPatientsUseCase {
     includeInactive = false,
     search?: string,
     nextAppointmentMonth?: string,
-  ): Promise<PaginatedResponse<Patient & { nextAppointmentAt: Date | null }>> {
+  ): Promise<
+    PaginatedResponse<
+      Patient & { nextAppointmentAt: Date | null; nextAppointmentType: string | null }
+    >
+  > {
     return await this.patientStorage.findAllByTenant(
       tenantUUID,
       page,

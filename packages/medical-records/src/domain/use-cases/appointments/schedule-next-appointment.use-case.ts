@@ -15,10 +15,9 @@ const APPOINTMENT_DURATION_MINUTES = 30;
 const DEFAULT_APPOINTMENT_HOUR = 8;
 
 /**
- * Tipo de cita genérico usado por el modal "agendar próxima cita" del
- * detalle del paciente, donde el usuario no elige tipo/especialidad. Es
- * configuración propia de este tenant (AudioColors); habrá que revisar
- * esto cuando se prepare la migración a producción o a otro tenant.
+ * Tipo de cita usado cuando la petición no manda `typeUUID`. Zynka sigue
+ * llamando a este endpoint sin elegir tipo, así que el genérico tiene que
+ * seguir existiendo. Es configuración propia del tenant AudioColors.
  */
 const GENERIC_APPOINTMENT_TYPE_UUID = 'e684a454-aa15-4f64-9bfd-4ea805b7482f';
 
@@ -42,7 +41,7 @@ export class ScheduleNextAppointmentUseCase {
       {
         patientUUID,
         userUUID,
-        typeUUID: GENERIC_APPOINTMENT_TYPE_UUID,
+        typeUUID: dto.typeUUID ?? GENERIC_APPOINTMENT_TYPE_UUID,
         branchUUID: dto.branchUUID,
         speciality: MedicalSpeciality.AUDIOLOGY,
         status: AppointmentStatus.CONFIRMED,

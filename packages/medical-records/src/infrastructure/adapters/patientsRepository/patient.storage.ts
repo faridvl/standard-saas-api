@@ -108,7 +108,7 @@ export class PatientStorage {
   private async findNextAppointmentsByPatient(
     tenantUUID: string,
     patientUUIDs: string[],
-  ): Promise<Map<string, Date>> {
+  ): Promise<Map<string, { startTime: Date; typeName: string | null }>> {
     if (patientUUIDs.length === 0) return new Map();
 
     const rows = await this.prisma.appointment.findMany({
@@ -120,10 +120,19 @@ export class PatientStorage {
       },
       distinct: ['patientUUID'],
       orderBy: [{ patientUUID: 'asc' }, { startTime: 'asc' }],
-      select: { patientUUID: true, startTime: true },
+      select: {
+        patientUUID: true,
+        startTime: true,
+        appointmentType: { select: { name: true } },
+      },
     });
 
-    return new Map(rows.map((row) => [row.patientUUID, row.startTime]));
+    return new Map(
+      rows.map((row) => [
+        row.patientUUID,
+        { startTime: row.startTime, typeName: row.appointmentType?.name ?? null },
+      ]),
+    );
   }
 
   /** UUIDs de pacientes cuya próxima cita CONFIRMED cae dentro del mes dado (YYYY-MM). */
@@ -158,7 +167,11 @@ export class PatientStorage {
     includeInactive = false,
     search?: string,
     nextAppointmentMonth?: string,
-  ): Promise<PaginatedResponse<Patient & { nextAppointmentAt: Date | null }>> {
+  ): Promise<
+    PaginatedResponse<
+      Patient & { nextAppointmentAt: Date | null; nextAppointmentType: string | null }
+    >
+  > {
     const skip = (page - 1) * limit;
     const where: Prisma.PatientWhereInput = {
       tenantUuid: tenantUUID,
@@ -193,7 +206,8 @@ export class PatientStorage {
       const data = records
         .map((record) => ({
           ...record,
-          nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
+          nextAppointmentAt: nextAppointments.get(record.uuid)?.startTime ?? null,
+          nextAppointmentType: nextAppointments.get(record.uuid)?.typeName ?? null,
         }))
         // Con el filtro de mes activo se ordena por próxima cita (la más
         // cercana primero); sin filtro se mantiene el orden por createdAt.
@@ -224,7 +238,8 @@ export class PatientStorage {
 
     const data = records.map((record) => ({
       ...record,
-      nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
+      nextAppointmentAt: nextAppointments.get(record.uuid)?.startTime ?? null,
+      nextAppointmentType: nextAppointments.get(record.uuid)?.typeName ?? null,
     }));
 
     return {

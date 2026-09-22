@@ -86,7 +86,11 @@ export class PatientController {
     @Query('includeInactive') includeInactive: string = 'false',
     @Query('search') search?: string,
     @Query('nextAppointmentMonth') nextAppointmentMonth?: string,
-  ): Promise<PaginatedResponse<Patient & { nextAppointmentAt: Date | null }>> {
+  ): Promise<
+    PaginatedResponse<
+      Patient & { nextAppointmentAt: Date | null; nextAppointmentType: string | null }
+    >
+  > {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
       Number(page),
