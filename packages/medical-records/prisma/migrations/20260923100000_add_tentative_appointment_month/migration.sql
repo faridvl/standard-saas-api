@@ -1,0 +1,13 @@
+-- Mes tentativo de la próxima cita, previo a que el paciente confirme el día.
+-- Flujo de la clínica: al cerrar una visita se anota solo el mes en que
+-- tocaría volver; más adelante la recepción llama, y si el paciente confirma
+-- se agenda la cita real (Appointment) y este campo se limpia. Si no
+-- confirma, solo se corre el mes y no se crea cita alguna.
+--
+-- Va en Patient y no en Appointment porque Appointment.date/startTime/endTime
+-- son NOT NULL: guardar un mes ahí obligaría a inventar un día, que luego se
+-- lee como fecha acordada y contamina el filtro de próxima cita.
+--
+-- Columna nullable: los pacientes existentes quedan en NULL y nada cambia
+-- para ellos ni para las citas ya agendadas.
+ALTER TABLE "Patient" ADD COLUMN "tentativeAppointmentMonth" TEXT;

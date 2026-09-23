@@ -54,13 +54,31 @@ export class PatientStorage {
     return client.patient.create({ data });
   }
 
-  async findByUuid(uuid: string, tenantUuid: string): Promise<Patient | null> {
-    return await this.prisma.patient.findFirst({
+  /**
+   * El detalle devuelve la próxima cita igual que el listado. Sin esto la
+   * pantalla del paciente dependía de que el dato viniera en la caché del
+   * listado, y al recargarla (o al refrescarse tras agendar) la fecha
+   * desaparecía.
+   */
+  async findByUuid(
+    uuid: string,
+    tenantUuid: string,
+  ): Promise<(Patient & { nextAppointmentAt: Date | null }) | null> {
+    const patient = await this.prisma.patient.findFirst({
       where: {
         uuid: uuid,
         tenantUuid: tenantUuid,
       },
     });
+
+    if (!patient) return null;
+
+    const nextAppointments = await this.findNextAppointmentsByPatient(tenantUuid, [patient.uuid]);
+
+    return {
+      ...patient,
+      nextAppointmentAt: nextAppointments.get(patient.uuid)?.startTime ?? null,
+    };
   }
 
   async update(uuid: string, tenantUuid: string, dto: UpdatePatientDto): Promise<Patient> {
@@ -78,6 +96,9 @@ export class PatientStorage {
         ...(dto.documentId !== undefined && { documentId: dto.documentId }),
         ...(dto.occupation !== undefined && { occupation: dto.occupation }),
         ...(dto.branchUuid !== undefined && { branchUuid: dto.branchUuid }),
+        ...(dto.tentativeAppointmentMonth !== undefined && {
+          tentativeAppointmentMonth: dto.tentativeAppointmentMonth,
+        }),
       },
     });
   }
@@ -133,6 +154,19 @@ export class PatientStorage {
         { startTime: row.startTime, typeName: row.appointmentType?.name ?? null },
       ]),
     );
+  }
+
+  /** Meses (YYYY-MM) con al menos un paciente cuyo mes tentativo está anotado. */
+  async findTentativeMonths(tenantUuid: string): Promise<string[]> {
+    const rows = await this.prisma.patient.findMany({
+      where: { tenantUuid, isActive: true, tentativeAppointmentMonth: { not: null } },
+      distinct: ['tentativeAppointmentMonth'],
+      select: { tentativeAppointmentMonth: true },
+    });
+
+    return rows
+      .map((row) => row.tentativeAppointmentMonth)
+      .filter((month): month is string => month !== null);
   }
 
   /** UUIDs de pacientes cuya próxima cita CONFIRMED cae dentro del mes dado (YYYY-MM). */
@@ -193,8 +227,25 @@ export class PatientStorage {
         nextAppointmentMonth,
       );
 
+      // El mes filtra dos cosas a la vez: quien tiene cita confirmada ese mes
+      // y quien solo tiene el mes anotado. Recepción usa este filtro para
+      // saber a quién llamar, y los pendientes de confirmar son justo los que
+      // no puede perderse.
+      // Va dentro de AND y no como OR suelto: `where` ya puede traer su
+      // propio OR (la búsqueda por texto), y dos OR en el mismo objeto se
+      // pisan — buscar y filtrar por mes a la vez devolvería de más.
       const records = await this.prisma.patient.findMany({
-        where: { ...where, uuid: { in: matchingUuids } },
+        where: {
+          ...where,
+          AND: [
+            {
+              OR: [
+                { uuid: { in: matchingUuids } },
+                { tentativeAppointmentMonth: nextAppointmentMonth },
+              ],
+            },
+          ],
+        },
         orderBy: { createdAt: 'desc' },
       });
 
@@ -211,8 +262,13 @@ export class PatientStorage {
         }))
         // Con el filtro de mes activo se ordena por próxima cita (la más
         // cercana primero); sin filtro se mantiene el orden por createdAt.
+        // Los que solo tienen mes tentativo no tienen fecha con la que
+        // competir, así que van al final: primero lo que ya tiene día, y
+        // después la lista de a quién falta llamar.
         .sort(
-          (a, b) => (a.nextAppointmentAt?.getTime() ?? 0) - (b.nextAppointmentAt?.getTime() ?? 0),
+          (a, b) =>
+            (a.nextAppointmentAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+            (b.nextAppointmentAt?.getTime() ?? Number.MAX_SAFE_INTEGER),
         );
 
       return {

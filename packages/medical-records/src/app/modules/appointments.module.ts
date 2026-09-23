@@ -11,6 +11,7 @@ import {
   DeleteAppointmentUseCase,
   FindScheduledMonthsUseCase,
   ScheduleNextAppointmentUseCase,
+  SetTentativeMonthUseCase,
 } from '@medical-records/domain/use-cases/appointments';
 import { ExpireAppointmentsJob } from '@medical-records/infrastructure/jobs/expire-appointments.job';
 import { PatientsModule } from './patients.module';
@@ -24,6 +25,7 @@ const USE_CASES = [
   GetAppointmentsByPatientUseCase,
   DeleteAppointmentUseCase,
   ScheduleNextAppointmentUseCase,
+  SetTentativeMonthUseCase,
   FindScheduledMonthsUseCase,
 ];
 const STORAGES = [AppointmentStorage];

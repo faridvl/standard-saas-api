@@ -5,4 +5,5 @@ export * from './find-byPatient-appointment.use-case';
 export * from './find-one-appointment.use-case';
 export * from './find-scheduled-months.use-case';
 export * from './schedule-next-appointment.use-case';
+export * from './set-tentative-month.use-case';
 export * from './update-appointment.use-case';
