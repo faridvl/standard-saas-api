@@ -22,7 +22,12 @@ export class SetTentativeMonthUseCase {
     private readonly appointmentStorage: AppointmentStorage,
   ) {}
 
-  async execute(patientUuid: string, tenantUuid: string, month: string | null): Promise<void> {
+  async execute(
+    patientUuid: string,
+    tenantUuid: string,
+    month: string | null,
+    typeUuid?: string | null,
+  ): Promise<void> {
     const patient = await this.patientStorage.findByUuid(patientUuid, tenantUuid);
     if (!patient) {
       throw new NotFoundException(`Paciente con UUID ${patientUuid} no encontrado`);
@@ -34,6 +39,8 @@ export class SetTentativeMonthUseCase {
 
     await this.patientStorage.update(patientUuid, tenantUuid, {
       tentativeAppointmentMonth: month,
+      // Sin mes no queda nada que tipificar, así que el tipo se limpia con él.
+      tentativeAppointmentTypeUuid: month ? typeUuid ?? null : null,
     });
   }
 }

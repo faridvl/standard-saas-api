@@ -34,6 +34,7 @@ import {
 } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
 import { Patient } from '@prisma/client';
+import { PatientWithNextAppointment } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { PatientBackgroundEntity } from '@medical-records/domain/entities/patient-background.entity';
 
@@ -86,11 +87,7 @@ export class PatientController {
     @Query('includeInactive') includeInactive: string = 'false',
     @Query('search') search?: string,
     @Query('nextAppointmentMonth') nextAppointmentMonth?: string,
-  ): Promise<
-    PaginatedResponse<
-      Patient & { nextAppointmentAt: Date | null; nextAppointmentType: string | null }
-    >
-  > {
+  ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
       Number(page),

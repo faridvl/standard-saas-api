@@ -1,0 +1,12 @@
+-- De qué sería la próxima cita tentativa (control, mantenimiento, cita…),
+-- anotada junto al mes y antes de que exista una cita real. Al confirmar el
+-- día se precarga este tipo y de ahí pasa a la cita, y el apunte se limpia.
+--
+-- Sin llave foránea a AppointmentType a propósito: es una intención, no una
+-- cita. Si la clínica reorganiza sus tipos, borrar uno no debe fallar por un
+-- apunte tentativo ni dejar al paciente amarrado a un tipo inexistente; el
+-- front simplemente no encuentra el nombre y no lo muestra.
+--
+-- Columna nullable: los pacientes que ya tenían mes anotado quedan sin tipo y
+-- nada cambia para ellos.
+ALTER TABLE "Patient" ADD COLUMN "tentativeAppointmentTypeUuid" TEXT;

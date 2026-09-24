@@ -56,6 +56,11 @@ export class NextAppointmentController {
     @Body() dto: SetTentativeMonthDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
-    await this.setTentativeMonthUseCase.execute(patientUuid, user.tenantUuid, dto.month);
+    await this.setTentativeMonthUseCase.execute(
+      patientUuid,
+      user.tenantUuid,
+      dto.month,
+      dto.typeUUID,
+    );
   }
 }

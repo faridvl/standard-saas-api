@@ -54,12 +54,14 @@ export class ScheduleNextAppointmentUseCase {
       tenantUUID,
     );
 
-    // Con el día ya confirmado el mes tentativo sobra: si se quedara, el
+    // Con el día ya confirmado el apunte tentativo sobra: si se quedara, el
     // paciente aparecería a la vez como "pendiente de confirmar" y con cita
-    // agendada. Se limpia aquí y no desde el front para que valga igual
-    // desde cualquier cliente que llame al endpoint.
+    // agendada. El tipo se va con el mes, porque ya viajó a la cita real. Se
+    // limpia aquí y no desde el front para que valga igual desde cualquier
+    // cliente que llame al endpoint.
     await this.patientStorage.update(patientUUID, tenantUUID, {
       tentativeAppointmentMonth: null,
+      tentativeAppointmentTypeUuid: null,
     });
 
     return appointment;

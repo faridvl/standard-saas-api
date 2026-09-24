@@ -19,6 +19,12 @@ export const UpdatePatientSchema = z.object({
     .regex(/^\d{4}-\d{2}$/, { message: 'Mes inválido (YYYY-MM)' })
     .nullable()
     .optional(),
+  // De qué sería esa próxima cita tentativa. Se limpia junto con el mes.
+  tentativeAppointmentTypeUuid: z
+    .string()
+    .uuid({ message: 'ID de tipo de cita inválido' })
+    .nullable()
+    .optional(),
 });
 
 export type UpdatePatientDto = z.infer<typeof UpdatePatientSchema>;
