@@ -15,6 +15,7 @@ export enum PatientActivityAction {
   DOCUMENT_DELETED = 'DOCUMENT_DELETED',
   APPOINTMENT_TENTATIVE = 'APPOINTMENT_TENTATIVE',
   APPOINTMENT_CONFIRMED = 'APPOINTMENT_CONFIRMED',
+  STATUS_CHANGED = 'STATUS_CHANGED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */
@@ -35,7 +36,8 @@ export type PatientActivityDetail =
   | { documentUuid: string; originalName: string; category: string }
   | { documentUuid: string; before: string; after: string }
   | { month: string; typeUuid: string | null; typeName: string | null }
-  | { appointmentUuid: string; date: string; typeUuid: string | null; typeName: string | null };
+  | { appointmentUuid: string; date: string; typeUuid: string | null; typeName: string | null }
+  | { before: string; after: string; reason: string | null; date: string | null };
 
 export interface RecordPatientActivityInput {
   tenantUuid: string;
@@ -66,6 +68,10 @@ export interface PatientActivityFilters {
   from?: Date;
   to?: Date;
   search?: string;
+  /** Sede actual del paciente. */
+  branchUuid?: string;
+  /** Tipo de cita guardado en el detalle (solo las acciones de cita lo tienen). */
+  appointmentTypeUuid?: string;
 }
 
 export interface PatientActivityActor {

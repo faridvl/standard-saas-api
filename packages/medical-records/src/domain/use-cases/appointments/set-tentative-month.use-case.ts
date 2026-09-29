@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
@@ -37,6 +38,9 @@ export class SetTentativeMonthUseCase {
     const patient = await this.patientStorage.findByUuid(patientUuid, tenantUuid);
     if (!patient) {
       throw new NotFoundException(`Paciente con UUID ${patientUuid} no encontrado`);
+    }
+    if (month && (patient.status as PatientStatus) === PatientStatus.DECEASED) {
+      throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
     }
 
     if (month) {

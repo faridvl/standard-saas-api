@@ -612,7 +612,7 @@ historial reconstruido. Registrar una acción nunca hace fallar la operación
 original (si falla, queda un warning en el log).
 
 `action` es uno de:
-`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED`
+`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | STATUS_CHANGED`
 
 `detail` según la acción:
 
@@ -627,6 +627,7 @@ original (si falla, queda un warning en el log).
 | DOCUMENT_RENAMED | `{ documentUuid, before, after }` |
 | APPOINTMENT_TENTATIVE | `{ month: "YYYY-MM", typeUuid, typeName }` — limpiar el mes no se registra |
 | APPOINTMENT_CONFIRMED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` |
+| STATUS_CHANGED | `{ before, after, reason, date }` — estados `ACTIVE/INACTIVE/DECEASED`; `date` = fecha de fallecimiento `YYYY-MM-DD` o `null` |
 
 `typeName` y `patientName` son copias al momento de la acción.
 
@@ -638,6 +639,8 @@ original (si falla, queda un warning en el log).
 - `action` — una o varias separadas por coma (`APPOINTMENT_TENTATIVE,APPOINTMENT_CONFIRMED`); 400 si alguna no existe
 - `from`, `to` — ISO 8601; filtra `createdAt >= from` y `< to`. El cliente arma el rango en su zona horaria
 - `search` — nombre del paciente (copia guardada) o cédula actual
+- `branchUuid` — sede **actual** del paciente
+- `appointmentTypeUuid` — `detail.typeUuid` (solo acciones de cita lo tienen)
 
 **Response 200:** `PaginatedResponse`, orden `createdAt` desc:
 ```json
@@ -696,3 +699,37 @@ original (si falla, queda un warning en el log).
 }
 ```
 **Status:** Implemented.
+
+
+---
+
+## Patient Status (Medical Records Service, port 7071)
+
+Estado del paciente para la clínica, independiente del borrado lógico
+(`isActive`/`deletedAt`, que sigue significando "registro eliminado").
+Campos nuevos en `Patient`: `status` (`ACTIVE | INACTIVE | DECEASED`, default
+`ACTIVE`), `statusReason`, `statusDate`, `statusChangedAt`. Los pacientes
+existentes quedan `ACTIVE`.
+
+### PUT /patients/:uuid/status
+**Auth:** Required
+**Body:**
+```json
+{ "status": "ACTIVE | INACTIVE | DECEASED", "reason": "string | null (opcional, máx 200)", "date": "YYYY-MM-DD | null (opcional, solo DECEASED)" }
+```
+- `reason` se descarta si `status` es `ACTIVE`; `date` se descarta si no es `DECEASED`.
+- Al pasar a `DECEASED` se cancelan sus citas `CONFIRMED` futuras y se limpia el mes tentativo, en una transacción.
+- Registra `STATUS_CHANGED` en la bitácora si algo cambió.
+
+**Response 200:** `Patient` actualizado.
+**Status:** Implemented.
+
+### Reglas relacionadas
+- `POST /patients/:uuid/next-appointment` y `PUT /patients/:uuid/next-appointment/tentative-month` (con mes) responden **400** si el paciente está `DECEASED`.
+
+### GET /patients — filtros nuevos
+- `status` — uno o varios separados por coma (`ACTIVE,INACTIVE`); 400 si alguno no existe. Sin el parámetro no filtra (compatibilidad con Zynka).
+- `branchUuid` — sede del paciente.
+- `appointmentTypeUuid` — tipo de la **próxima cita**: la CONFIRMED futura más cercana, o el tipo del mes tentativo.
+
+Se combinan entre sí y con `search` y `nextAppointmentMonth`.

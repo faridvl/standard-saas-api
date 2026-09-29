@@ -46,6 +46,15 @@ import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
  * cuándo es su próxima cita. Los campos `tentative*` son la intención previa
  * (solo mes, sin día confirmado) y son excluyentes con `nextAppointmentAt`.
  */
+/** Filtros opcionales del listado, además de búsqueda y mes. */
+export interface PatientListFilters {
+  /** Estados (PatientStatus) a incluir; vacío o ausente = todos. */
+  statuses?: string[];
+  branchUuid?: string;
+  /** Tipo de la próxima cita: la confirmada o, si no hay, la tentativa. */
+  appointmentTypeUuid?: string;
+}
+
 export type PatientWithNextAppointment = Patient & {
   nextAppointmentAt: Date | null;
   nextAppointmentType: string | null;
@@ -99,7 +108,7 @@ export class PatientStorage {
       ...patient,
       nextAppointmentAt: nextAppointments.get(patient.uuid)?.startTime ?? null,
       tentativeAppointmentTypeName: patient.tentativeAppointmentTypeUuid
-        ? typeNames.get(patient.tentativeAppointmentTypeUuid) ?? null
+        ? (typeNames.get(patient.tentativeAppointmentTypeUuid) ?? null)
         : null,
     };
   }
@@ -129,6 +138,46 @@ export class PatientStorage {
     });
   }
 
+  /**
+   * Cambia el estado del paciente. Al pasar a fallecido, en la misma
+   * transacción se cancelan sus citas confirmadas futuras y se limpia el mes
+   * tentativo: no debe seguir apareciendo en los filtros de próxima cita.
+   */
+  async updateStatus(
+    uuid: string,
+    tenantUuid: string,
+    data: { status: string; statusReason: string | null; statusDate: Date | null },
+    clearUpcomingAppointments: boolean,
+  ): Promise<Patient> {
+    const [patient] = await this.prisma.$transaction([
+      this.prisma.patient.update({
+        where: { uuid, tenantUuid },
+        data: {
+          ...data,
+          statusChangedAt: new Date(),
+          ...(clearUpcomingAppointments && {
+            tentativeAppointmentMonth: null,
+            tentativeAppointmentTypeUuid: null,
+          }),
+        },
+      }),
+      ...(clearUpcomingAppointments
+        ? [
+            this.prisma.appointment.updateMany({
+              where: {
+                patientUUID: uuid,
+                tenantUUID: tenantUuid,
+                status: 'CONFIRMED',
+                startTime: { gte: new Date() },
+              },
+              data: { status: 'CANCELLED' },
+            }),
+          ]
+        : []),
+    ]);
+    return patient;
+  }
+
   async findByDocumentId(
     documentId: string,
     tenantUuid: string,
@@ -146,7 +195,7 @@ export class PatientStorage {
 
   async softDelete(uuid: string, tenantUuid: string): Promise<Patient> {
     return await this.prisma.patient.update({
-      where: { uuid },
+      where: { uuid, tenantUuid },
       data: { isActive: false, deletedAt: new Date() },
     });
   }
@@ -245,6 +294,21 @@ export class PatientStorage {
       .map((row) => row.patientUUID);
   }
 
+  /** UUIDs de pacientes cuya próxima cita CONFIRMED futura es del tipo dado. */
+  private async findPatientUuidsWithNextAppointmentOfType(
+    tenantUUID: string,
+    typeUuid: string,
+  ): Promise<string[]> {
+    const rows = await this.prisma.appointment.findMany({
+      where: { tenantUUID, status: 'CONFIRMED', startTime: { gte: new Date() } },
+      distinct: ['patientUUID'],
+      orderBy: [{ patientUUID: 'asc' }, { startTime: 'asc' }],
+      select: { patientUUID: true, typeUUID: true },
+    });
+
+    return rows.filter((row) => row.typeUUID === typeUuid).map((row) => row.patientUUID);
+  }
+
   async findAllByTenant(
     tenantUUID: string,
     page: number = 1,
@@ -252,6 +316,7 @@ export class PatientStorage {
     includeInactive = false,
     search?: string,
     nextAppointmentMonth?: string,
+    filters: PatientListFilters = {},
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     const skip = (page - 1) * limit;
     const where: Prisma.PatientWhereInput = {
@@ -267,6 +332,25 @@ export class PatientStorage {
         ],
       }),
     };
+
+    // Los filtros que combinan varias condiciones van dentro de AND para no
+    // pisar el OR de la búsqueda por texto (ver el comentario del mes).
+    const and: Prisma.PatientWhereInput[] = [];
+    if (filters.statuses?.length) and.push({ status: { in: filters.statuses } });
+    if (filters.branchUuid) and.push({ branchUuid: filters.branchUuid });
+    if (filters.appointmentTypeUuid) {
+      const withConfirmedOfType = await this.findPatientUuidsWithNextAppointmentOfType(
+        tenantUUID,
+        filters.appointmentTypeUuid,
+      );
+      and.push({
+        OR: [
+          { uuid: { in: withConfirmedOfType } },
+          { tentativeAppointmentTypeUuid: filters.appointmentTypeUuid },
+        ],
+      });
+    }
+    if (and.length > 0) where.AND = and;
 
     if (nextAppointmentMonth) {
       const matchingUuids = await this.findPatientUuidsWithNextAppointmentInMonth(
@@ -285,6 +369,7 @@ export class PatientStorage {
         where: {
           ...where,
           AND: [
+            ...and,
             {
               OR: [
                 { uuid: { in: matchingUuids } },
@@ -364,7 +449,7 @@ export class PatientStorage {
       nextAppointmentAt: nextAppointments.get(record.uuid)?.startTime ?? null,
       nextAppointmentType: nextAppointments.get(record.uuid)?.typeName ?? null,
       tentativeAppointmentTypeName: record.tentativeAppointmentTypeUuid
-        ? typeNames.get(record.tentativeAppointmentTypeUuid) ?? null
+        ? (typeNames.get(record.tentativeAppointmentTypeUuid) ?? null)
         : null,
     }));
   }

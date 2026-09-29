@@ -17,6 +17,7 @@
 - PostgreSQL dual-database setup via docker-compose + init-db.sh
 - Prisma 7 driver adapter pattern (pg.Pool, max: 1, lazy connect)
 - Medical records service: bitácora de pacientes (`PatientActivity` + `GET /patient-activity`, `/actors`, `/summary`). Se registra desde alta/edición de paciente, contactos, notas, documentos y próxima cita. Tabla nueva vacía, sin backfill
+- Medical records service: estado del paciente (`status` ACTIVE/INACTIVE/DECEASED, `PUT /patients/:uuid/status`), filtros `status`/`branchUuid`/`appointmentTypeUuid` en `GET /patients`, filtros `branchUuid`/`appointmentTypeUuid` en `GET /patient-activity`, acción `STATUS_CHANGED`
 - PrismaService per-service (identity uses IDENTITY_DB_URL, medical-records uses MEDICAL_RECORDS_DB_URL)
 
 ## 🔄 EN PROGRESO

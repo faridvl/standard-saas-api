@@ -72,6 +72,16 @@ model Patient {
   // apunte no debe impedirlo ni arrastrar al paciente.
   tentativeAppointmentTypeUuid String?
 
+  // Estado del paciente para la clínica (PatientStatus en domain/types):
+  // ACTIVE, INACTIVE (dejó de venir) o DECEASED. Es independiente del
+  // borrado lógico (`isActive`/`deletedAt`), que sigue significando "registro
+  // eliminado". `statusReason` es el motivo libre al pasar a inactivo y
+  // `statusDate` la fecha de fallecimiento, si se conoce.
+  status          String    @default("ACTIVE")
+  statusReason    String?
+  statusDate      DateTime?
+  statusChangedAt DateTime?
+
   tenantId     Int
   tenantUuid   String
   createdBy    String
@@ -98,6 +108,7 @@ model Patient {
   @@index([isActive])
   @@index([tenantUuid, documentId])
   @@index([branchUuid])
+  @@index([tenantUuid, status])
 }
 
 model PatientBackground {

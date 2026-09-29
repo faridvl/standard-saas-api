@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { ScheduleNextAppointmentDto } from '@medical-records/app/dtos/next-appointment.dto';
 import { Appointment, AppointmentStatus } from '@medical-records/domain/types/appointment.types';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
@@ -38,6 +39,14 @@ export class ScheduleNextAppointmentUseCase {
     userUUID: string,
     dto: ScheduleNextAppointmentDto,
   ): Promise<Appointment> {
+    const patient = await this.patientStorage.findByUuid(patientUUID, tenantUUID);
+    if (!patient) {
+      throw new NotFoundException(`Paciente con UUID ${patientUUID} no encontrado`);
+    }
+    if ((patient.status as PatientStatus) === PatientStatus.DECEASED) {
+      throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
+    }
+
     await this.storage.completeConfirmedFutureByPatient(patientUUID, tenantUUID);
 
     const startTime = new Date(`${dto.date}T00:00:00.000Z`);

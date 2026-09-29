@@ -52,6 +52,21 @@ export class PatientActivityStorage {
       }),
     };
 
+    const and: Prisma.PatientActivityWhereInput[] = [];
+
+    if (filters.branchUuid) {
+      // Sede actual del paciente: la bitácora no guarda la sede del momento.
+      const patientsInBranch = await this.prisma.patient.findMany({
+        where: { tenantUuid, branchUuid: filters.branchUuid },
+        select: { uuid: true },
+      });
+      and.push({ patientUuid: { in: patientsInBranch.map((patient) => patient.uuid) } });
+    }
+
+    if (filters.appointmentTypeUuid) {
+      and.push({ detail: { path: ['typeUuid'], equals: filters.appointmentTypeUuid } });
+    }
+
     if (filters.search) {
       // La cédula no vive en la bitácora: se buscan los pacientes que la
       // tengan y se suman a la búsqueda por el nombre guardado.
@@ -59,12 +74,15 @@ export class PatientActivityStorage {
         where: { tenantUuid, documentId: { contains: filters.search, mode: 'insensitive' } },
         select: { uuid: true },
       });
-      where.OR = [
-        { patientName: { contains: filters.search, mode: 'insensitive' } },
-        { patientUuid: { in: patientsByDocument.map((patient) => patient.uuid) } },
-      ];
+      and.push({
+        OR: [
+          { patientName: { contains: filters.search, mode: 'insensitive' } },
+          { patientUuid: { in: patientsByDocument.map((patient) => patient.uuid) } },
+        ],
+      });
     }
 
+    if (and.length > 0) where.AND = and;
     return where;
   }
 

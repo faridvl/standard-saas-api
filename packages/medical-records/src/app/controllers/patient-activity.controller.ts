@@ -57,6 +57,8 @@ export class PatientActivityController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('search') search?: string,
+    @Query('branchUuid') branchUuid?: string,
+    @Query('appointmentTypeUuid') appointmentTypeUuid?: string,
   ): Promise<PaginatedResponse<PatientActivityItem>> {
     return await this.findUseCase.execute(user.tenantUuid, {
       page: Math.max(1, Number(page) || 1),
@@ -66,6 +68,8 @@ export class PatientActivityController {
       from: parseDate(from, 'from'),
       to: parseDate(to, 'to'),
       search: search?.trim() || undefined,
+      branchUuid: branchUuid || undefined,
+      appointmentTypeUuid: appointmentTypeUuid || undefined,
     });
   }
 
