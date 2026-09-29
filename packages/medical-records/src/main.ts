@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { MedicalRecordsModule } from './app/medical-records.module';
-import { GlobalExceptionFilter, env } from '@project/core';
+import { GlobalExceptionFilter } from '@project/core';
 import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
