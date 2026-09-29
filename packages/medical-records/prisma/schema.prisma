@@ -158,6 +158,28 @@ model PatientNote {
   @@index([tenantUuid])
 }
 
+// Bitácora de lo que el personal hace con cada paciente (alta, cambios de
+// datos, notas, archivos, citas). Append-only: nunca se edita ni se borra.
+// `patientName` es una copia al momento de la acción para que el registro
+// siga leyéndose igual si después se corrige el nombre. Sin FK a Patient a
+// propósito: la bitácora no debe impedir ni arrastrar cambios del paciente.
+// `action` es un PatientActivityAction (domain/types) y `detail` su payload.
+model PatientActivity {
+  id          Int      @id @default(autoincrement())
+  uuid        String   @unique @default(uuid())
+  tenantUuid  String
+  patientUuid String
+  patientName String
+  actorUuid   String
+  action      String
+  detail      Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantUuid, createdAt])
+  @@index([patientUuid])
+  @@index([actorUuid])
+}
+
 model PatientDevice {
   id              Int          @id @default(autoincrement())
   uuid            String       @unique @default(uuid())

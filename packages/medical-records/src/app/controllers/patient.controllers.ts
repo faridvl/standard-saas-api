@@ -116,7 +116,7 @@ export class PatientController {
     @Body() dto: UpdatePatientDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<Patient> {
-    return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto);
+    return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
   }
 
   @Get(':uuid/background')

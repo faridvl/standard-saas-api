@@ -599,3 +599,89 @@ paginar. Sin filtro por especialidad — expediente único por paciente (NOM-004
 **Auth:** Required  
 **Response 204:** No content.  
 **Status:** Implemented.
+
+
+---
+
+## Patient Activity (Medical Records Service, port 7071)
+
+Bitácora de lo que el personal hace con cada paciente. Solo lectura: las
+filas las escriben los propios casos de uso (alta, `PATCH /patients/:uuid`,
+contactos, notas, documentos, próxima cita). Append-only; arranca vacía, sin
+historial reconstruido. Registrar una acción nunca hace fallar la operación
+original (si falla, queda un warning en el log).
+
+`action` es uno de:
+`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED`
+
+`detail` según la acción:
+
+| action | detail |
+|---|---|
+| PATIENT_CREATED | `null` |
+| PATIENT_UPDATED | `{ changes: [{ field, before, after }] }` — solo campos que cambiaron (`firstName, lastName, documentId, phone, email, address, gender, bloodType, occupation, branchUuid`); sin cambios no se registra |
+| CONTACT_ADDED / CONTACT_REMOVED | `{ name, phone }` |
+| CONTACT_UPDATED | `{ name, phone, before: { name, phone } }` |
+| NOTE_ADDED | `{ category, excerpt }` (primeros 120 caracteres) |
+| DOCUMENT_UPLOADED / DOCUMENT_DELETED | `{ documentUuid, originalName, category }` |
+| DOCUMENT_RENAMED | `{ documentUuid, before, after }` |
+| APPOINTMENT_TENTATIVE | `{ month: "YYYY-MM", typeUuid, typeName }` — limpiar el mes no se registra |
+| APPOINTMENT_CONFIRMED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` |
+
+`typeName` y `patientName` son copias al momento de la acción.
+
+### GET /patient-activity
+**Auth:** Required  
+**Query:**
+- `page` (default `1`), `limit` (default `20`, máx `100`)
+- `actorUuid` — solo acciones de ese usuario
+- `action` — una o varias separadas por coma (`APPOINTMENT_TENTATIVE,APPOINTMENT_CONFIRMED`); 400 si alguna no existe
+- `from`, `to` — ISO 8601; filtra `createdAt >= from` y `< to`. El cliente arma el rango en su zona horaria
+- `search` — nombre del paciente (copia guardada) o cédula actual
+
+**Response 200:** `PaginatedResponse`, orden `createdAt` desc:
+```json
+{
+  "data": [
+    {
+      "uuid": "string",
+      "patientUuid": "string",
+      "patientName": "string",
+      "patientBranchUuid": "string | null",
+      "actorUuid": "string",
+      "actorName": "string | null",
+      "action": "NOTE_ADDED",
+      "detail": { "category": "EVOLUTION_CONTROL", "excerpt": "string" },
+      "createdAt": "ISO"
+    }
+  ],
+  "meta": { "total": 0, "page": 1, "limit": 20, "totalPages": 0 }
+}
+```
+`patientBranchUuid` es la sede actual del paciente.  
+**Status:** Implemented.
+
+---
+
+### GET /patient-activity/actors
+**Auth:** Required  
+**Response 200:** Usuarios con al menos una acción en el tenant, ordenados por nombre:
+```json
+[{ "uuid": "string", "fullName": "string | null" }]
+```
+**Status:** Implemented.
+
+---
+
+### GET /patient-activity/summary
+**Auth:** Required  
+**Query:** `from`, `to` (ISO 8601, opcionales)  
+**Response 200:**
+```json
+{
+  "total": 0,
+  "byAction": { "APPOINTMENT_CONFIRMED": 0 },
+  "byActor": [{ "actorUuid": "string", "actorName": "string | null", "count": 0 }]
+}
+```
+**Status:** Implemented.

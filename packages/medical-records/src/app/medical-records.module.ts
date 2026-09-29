@@ -21,6 +21,7 @@ import { InventoryModule } from './modules/inventory.module';
 import { ProductUnitModule } from './modules/product-unit.module';
 import { UsersModule } from './modules/users.module';
 import { UploadModule } from './modules/upload.module';
+import { PatientActivityModule } from './modules/patient-activity.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { UploadModule } from './modules/upload.module';
     ProductUnitModule,
     UsersModule,
     UploadModule,
+    PatientActivityModule,
   ],
 })
 export class MedicalRecordsModule {}

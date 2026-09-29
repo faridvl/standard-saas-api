@@ -4,6 +4,8 @@ import { Appointment, AppointmentStatus } from '@medical-records/domain/types/ap
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
+import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
 
 const APPOINTMENT_DURATION_MINUTES = 30;
 
@@ -27,6 +29,7 @@ export class ScheduleNextAppointmentUseCase {
   constructor(
     private readonly storage: AppointmentStorage,
     private readonly patientStorage: PatientStorage,
+    private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
   async execute(
@@ -62,6 +65,19 @@ export class ScheduleNextAppointmentUseCase {
     await this.patientStorage.update(patientUUID, tenantUUID, {
       tentativeAppointmentMonth: null,
       tentativeAppointmentTypeUuid: null,
+    });
+
+    await this.recordActivity.execute({
+      tenantUuid: tenantUUID,
+      patientUuid: patientUUID,
+      actorUuid: userUUID,
+      action: PatientActivityAction.APPOINTMENT_CONFIRMED,
+      detail: {
+        appointmentUuid: appointment.id,
+        date: dto.date,
+        typeUuid: appointment.typeUUID ?? null,
+        typeName: appointment.typeName ?? null,
+      },
     });
 
     return appointment;

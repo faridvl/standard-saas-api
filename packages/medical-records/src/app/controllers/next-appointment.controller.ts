@@ -61,6 +61,7 @@ export class NextAppointmentController {
       user.tenantUuid,
       dto.month,
       dto.typeUUID,
+      user.sub,
     );
   }
 }
