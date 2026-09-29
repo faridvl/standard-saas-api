@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
+import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
+import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
 
 /**
  * Fija (o limpia) el mes tentativo de la próxima cita de un paciente.
@@ -20,6 +24,8 @@ export class SetTentativeMonthUseCase {
   constructor(
     private readonly patientStorage: PatientStorage,
     private readonly appointmentStorage: AppointmentStorage,
+    private readonly appointmentTypeStorage: AppointmentTypeStorage,
+    private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
   async execute(
@@ -27,10 +33,14 @@ export class SetTentativeMonthUseCase {
     tenantUuid: string,
     month: string | null,
     typeUuid?: string | null,
+    actorUuid?: string,
   ): Promise<void> {
     const patient = await this.patientStorage.findByUuid(patientUuid, tenantUuid);
     if (!patient) {
       throw new NotFoundException(`Paciente con UUID ${patientUuid} no encontrado`);
+    }
+    if (month && (patient.status as PatientStatus) === PatientStatus.DECEASED) {
+      throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
     }
 
     if (month) {
@@ -40,7 +50,23 @@ export class SetTentativeMonthUseCase {
     await this.patientStorage.update(patientUuid, tenantUuid, {
       tentativeAppointmentMonth: month,
       // Sin mes no queda nada que tipificar, así que el tipo se limpia con él.
-      tentativeAppointmentTypeUuid: month ? typeUuid ?? null : null,
+      tentativeAppointmentTypeUuid: month ? (typeUuid ?? null) : null,
     });
+
+    // Limpiar el mes (month null) no es una acción de la bitácora: solo se
+    // anota cuando queda un mes tentativo. El nombre del tipo se guarda como
+    // copia porque la clínica puede renombrar o borrar tipos después.
+    if (actorUuid && month) {
+      const type = typeUuid
+        ? await this.appointmentTypeStorage.findByUuid(tenantUuid, typeUuid)
+        : null;
+      await this.recordActivity.execute({
+        tenantUuid,
+        patientUuid,
+        actorUuid,
+        action: PatientActivityAction.APPOINTMENT_TENTATIVE,
+        detail: { month, typeUuid: typeUuid ?? null, typeName: type?.name ?? null },
+      });
+    }
   }
 }

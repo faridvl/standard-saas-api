@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { ScheduleNextAppointmentDto } from '@medical-records/app/dtos/next-appointment.dto';
 import { Appointment, AppointmentStatus } from '@medical-records/domain/types/appointment.types';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
+import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
 
 const APPOINTMENT_DURATION_MINUTES = 30;
 
@@ -27,6 +30,7 @@ export class ScheduleNextAppointmentUseCase {
   constructor(
     private readonly storage: AppointmentStorage,
     private readonly patientStorage: PatientStorage,
+    private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
   async execute(
@@ -35,6 +39,14 @@ export class ScheduleNextAppointmentUseCase {
     userUUID: string,
     dto: ScheduleNextAppointmentDto,
   ): Promise<Appointment> {
+    const patient = await this.patientStorage.findByUuid(patientUUID, tenantUUID);
+    if (!patient) {
+      throw new NotFoundException(`Paciente con UUID ${patientUUID} no encontrado`);
+    }
+    if ((patient.status as PatientStatus) === PatientStatus.DECEASED) {
+      throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
+    }
+
     await this.storage.completeConfirmedFutureByPatient(patientUUID, tenantUUID);
 
     const startTime = new Date(`${dto.date}T00:00:00.000Z`);
@@ -62,6 +74,19 @@ export class ScheduleNextAppointmentUseCase {
     await this.patientStorage.update(patientUUID, tenantUUID, {
       tentativeAppointmentMonth: null,
       tentativeAppointmentTypeUuid: null,
+    });
+
+    await this.recordActivity.execute({
+      tenantUuid: tenantUUID,
+      patientUuid: patientUUID,
+      actorUuid: userUUID,
+      action: PatientActivityAction.APPOINTMENT_CONFIRMED,
+      detail: {
+        appointmentUuid: appointment.id,
+        date: dto.date,
+        typeUuid: appointment.typeUUID ?? null,
+        typeName: appointment.typeName ?? null,
+      },
     });
 
     return appointment;

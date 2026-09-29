@@ -49,12 +49,15 @@ export class PatientContactController {
     @Body() dto: CreatePatientContactDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientContact> {
-    return await this.createUseCase.execute({
-      patientUuid,
-      tenantUuid: user.tenantUuid,
-      name: dto.name,
-      phone: dto.phone,
-    });
+    return await this.createUseCase.execute(
+      {
+        patientUuid,
+        tenantUuid: user.tenantUuid,
+        name: dto.name,
+        phone: dto.phone,
+      },
+      user.sub,
+    );
   }
 
   @Put()
@@ -64,7 +67,7 @@ export class PatientContactController {
     @Body() dto: SyncPatientContactsDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientContact[]> {
-    return await this.syncUseCase.execute(patientUuid, user.tenantUuid, dto.contacts);
+    return await this.syncUseCase.execute(patientUuid, user.tenantUuid, dto.contacts, user.sub);
   }
 
   @Delete(':contactUuid')
@@ -73,6 +76,6 @@ export class PatientContactController {
     @Param('contactUuid') contactUuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
-    await this.deleteUseCase.execute(contactUuid, user.tenantUuid);
+    await this.deleteUseCase.execute(contactUuid, user.tenantUuid, user.sub);
   }
 }

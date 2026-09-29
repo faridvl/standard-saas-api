@@ -20,7 +20,7 @@
     "db:up": "docker-compose up -d",
     "db:down": "docker-compose down",
     "lint": "eslint \"packages/**/*.ts\" --fix",
-    "lint:check": "eslint \"packages/**/*.ts\"",
+    "lint:check": "eslint \"packages/**/*.ts\" --max-warnings 0",
     "format": "prettier --write \"packages/**/*.ts\"",
     "type-check": "tsc -b tsconfig.build.json",
     "identity:prisma:gen": "yarn workspace @project/identity-service prisma:generate",

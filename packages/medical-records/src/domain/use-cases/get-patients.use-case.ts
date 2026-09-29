@@ -1,4 +1,5 @@
 import {
+  PatientListFilters,
   PatientStorage,
   PatientWithNextAppointment,
 } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
@@ -16,6 +17,7 @@ export class GetPatientsUseCase {
     includeInactive = false,
     search?: string,
     nextAppointmentMonth?: string,
+    filters: PatientListFilters = {},
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.patientStorage.findAllByTenant(
       tenantUUID,
@@ -24,6 +26,7 @@ export class GetPatientsUseCase {
       includeInactive,
       search,
       nextAppointmentMonth,
+      filters,
     );
   }
 }

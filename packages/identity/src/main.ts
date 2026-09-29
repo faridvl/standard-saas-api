@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { IdentityModule } from './app/identity.module';
-import { GlobalExceptionFilter, env } from '@project/core';
+import { GlobalExceptionFilter } from '@project/core';
 import { Logger } from '@nestjs/common';
 
 async function bootstrap() {

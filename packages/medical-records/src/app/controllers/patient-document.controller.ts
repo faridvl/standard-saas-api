@@ -94,7 +94,12 @@ export class PatientDocumentController {
     @Body() dto: RenamePatientDocumentDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientDocument> {
-    return await this.renameUseCase.execute(documentUuid, user.tenantUuid, dto.originalName);
+    return await this.renameUseCase.execute(
+      documentUuid,
+      user.tenantUuid,
+      dto.originalName,
+      user.sub,
+    );
   }
 
   @Delete(':documentUuid')
@@ -103,6 +108,6 @@ export class PatientDocumentController {
     @Param('documentUuid') documentUuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<void> {
-    await this.deleteUseCase.execute(documentUuid, user.tenantUuid);
+    await this.deleteUseCase.execute(documentUuid, user.tenantUuid, user.sub);
   }
 }

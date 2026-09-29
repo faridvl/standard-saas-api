@@ -57,7 +57,7 @@ export class PatientDeviceStorage {
 
   async deactivate(uuid: string, tenantUuid: string): Promise<PatientDevice> {
     return this.prisma.patientDevice.update({
-      where: { uuid },
+      where: { uuid, tenantUuid },
       data: { isActive: false },
     });
   }

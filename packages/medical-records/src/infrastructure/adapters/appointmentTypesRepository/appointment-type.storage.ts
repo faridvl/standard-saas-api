@@ -33,6 +33,11 @@ export class AppointmentTypeStorage {
     return rows.map((row) => this.mapToDomain(row));
   }
 
+  async findByUuid(tenantUUID: string, uuid: string): Promise<AppointmentTypeEntity | null> {
+    const row = await this.prisma.appointmentType.findFirst({ where: { uuid, tenantUUID } });
+    return row ? this.mapToDomain(row) : null;
+  }
+
   async create(tenantUUID: string, dto: CreateAppointmentTypeDto): Promise<AppointmentTypeEntity> {
     const row = await this.prisma.appointmentType.create({
       data: {

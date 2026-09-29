@@ -3,12 +3,15 @@ import { Patient } from '@prisma/client';
 import { PatientStorage } from '../../infrastructure/adapters/patientsRepository/patient.storage';
 import { PatientContactStorage } from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
 import { PatientEntity } from '../entities/patient.entity';
+import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
+import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
 
 @Injectable()
 export class CreatePatientUseCase {
   constructor(
     private readonly storage: PatientStorage,
     private readonly contactStorage: PatientContactStorage,
+    private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
   async execute(
@@ -52,6 +55,13 @@ export class CreatePatientUseCase {
         })),
       );
     }
+
+    await this.recordActivity.execute({
+      tenantUuid: userContext.tenantUuid,
+      patientUuid: patient.uuid,
+      actorUuid: userContext.sub,
+      action: PatientActivityAction.PATIENT_CREATED,
+    });
 
     return patient;
   }

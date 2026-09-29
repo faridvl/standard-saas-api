@@ -13,6 +13,7 @@ import {
   HttpCode,
   HttpStatus,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
@@ -21,6 +22,12 @@ import { GetPatientsUseCase } from '@medical-records/domain/use-cases/get-patien
 import { GetPatientByUuidUseCase } from '@medical-records/domain/use-cases/get-patient-by-uuid.use-case';
 import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-patient.use-case';
 import { UpdatePatientDto, UpdatePatientSchema } from '../dtos/update-patient.dto';
+import {
+  UpdatePatientStatusDto,
+  UpdatePatientStatusSchema,
+} from '../dtos/update-patient-status.dto';
+import { UpdatePatientStatusUseCase } from '@medical-records/domain/use-cases/update-patient-status.use-case';
+import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
 import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
@@ -42,6 +49,18 @@ import { PatientBackgroundEntity } from '@medical-records/domain/entities/patien
 // sensibles (Ley 8968), no información administrativa.
 const STAFF_ROLE = 'STAFF';
 
+/** "ACTIVE,INACTIVE" -> ['ACTIVE', 'INACTIVE']; 400 si alguno no existe. */
+function parseStatuses(value: string | undefined): PatientStatus[] | undefined {
+  if (!value) return undefined;
+  const statuses = value.split(',').map((status) => status.trim());
+  const valid = Object.values(PatientStatus) as string[];
+  const invalid = statuses.filter((status) => !valid.includes(status));
+  if (invalid.length > 0) {
+    throw new BadRequestException(`status inválido: ${invalid.join(', ')}`);
+  }
+  return statuses as PatientStatus[];
+}
+
 @Controller('patients')
 @UseGuards(AuthGuard)
 export class PatientController {
@@ -50,6 +69,7 @@ export class PatientController {
     private readonly getPatientsUseCase: GetPatientsUseCase,
     private readonly getPatientByUuidUseCase: GetPatientByUuidUseCase,
     private readonly updatePatientUseCase: UpdatePatientUseCase,
+    private readonly updatePatientStatusUseCase: UpdatePatientStatusUseCase,
     private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
     private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
     private readonly softDeletePatientUseCase: SoftDeletePatientUseCase,
@@ -87,6 +107,9 @@ export class PatientController {
     @Query('includeInactive') includeInactive: string = 'false',
     @Query('search') search?: string,
     @Query('nextAppointmentMonth') nextAppointmentMonth?: string,
+    @Query('status') status?: string,
+    @Query('branchUuid') branchUuid?: string,
+    @Query('appointmentTypeUuid') appointmentTypeUuid?: string,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
@@ -95,6 +118,11 @@ export class PatientController {
       includeInactive === 'true',
       search,
       nextAppointmentMonth,
+      {
+        statuses: parseStatuses(status),
+        branchUuid: branchUuid || undefined,
+        appointmentTypeUuid: appointmentTypeUuid || undefined,
+      },
     );
   }
 
@@ -116,7 +144,17 @@ export class PatientController {
     @Body() dto: UpdatePatientDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<Patient> {
-    return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto);
+    return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
+  }
+
+  @Put(':uuid/status')
+  @UsePipes(new ZodValidationPipe(UpdatePatientStatusSchema))
+  async updateStatus(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpdatePatientStatusDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<Patient> {
+    return await this.updatePatientStatusUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 
   @Get(':uuid/background')

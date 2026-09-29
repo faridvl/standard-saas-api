@@ -27,6 +27,10 @@ export class PatientDocumentStorage {
     });
   }
 
+  async findByUuid(uuid: string, tenantUuid: string): Promise<PatientDocument | null> {
+    return await this.prisma.patientDocument.findFirst({ where: { uuid, tenantUuid } });
+  }
+
   async rename(uuid: string, tenantUuid: string, originalName: string): Promise<PatientDocument> {
     return await this.prisma.patientDocument.update({
       where: { uuid, tenantUuid },

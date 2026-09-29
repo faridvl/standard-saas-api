@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PatientActivityModule } from './patient-activity.module';
 import { PatientDocumentController } from '../controllers/patient-document.controller';
 import { PatientDocumentStorage } from '@medical-records/infrastructure/adapters/patientDocumentRepository/patient-document.storage';
 import {
@@ -19,7 +20,7 @@ const USE_CASES = [
 const STORAGES = [PatientDocumentStorage];
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, PatientActivityModule],
   controllers: [...CONTROLLERS],
   providers: [...USE_CASES, ...STORAGES],
   exports: [...STORAGES, ...USE_CASES],
