@@ -12,6 +12,19 @@ export const UpdatePatientSchema = z.object({
   documentId: z.string().optional(),
   occupation: z.string().optional(),
   branchUuid: z.string().uuid().nullable().optional(),
+  // Mes tentativo de la próxima cita ("YYYY-MM"). null lo limpia: es lo que
+  // manda el front cuando el paciente confirma y se agenda la cita real.
+  tentativeAppointmentMonth: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, { message: 'Mes inválido (YYYY-MM)' })
+    .nullable()
+    .optional(),
+  // De qué sería esa próxima cita tentativa. Se limpia junto con el mes.
+  tentativeAppointmentTypeUuid: z
+    .string()
+    .uuid({ message: 'ID de tipo de cita inválido' })
+    .nullable()
+    .optional(),
 });
 
 export type UpdatePatientDto = z.infer<typeof UpdatePatientSchema>;

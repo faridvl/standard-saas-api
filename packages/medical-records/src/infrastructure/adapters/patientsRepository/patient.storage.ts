@@ -41,6 +41,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 
+/**
+ * Paciente tal como lo consumen las pantallas: además de sus datos, de qué y
+ * cuándo es su próxima cita. Los campos `tentative*` son la intención previa
+ * (solo mes, sin día confirmado) y son excluyentes con `nextAppointmentAt`.
+ */
+export type PatientWithNextAppointment = Patient & {
+  nextAppointmentAt: Date | null;
+  nextAppointmentType: string | null;
+  tentativeAppointmentTypeName: string | null;
+};
+
 @Injectable()
 export class PatientStorage {
   constructor(private readonly prisma: PrismaService) {}
@@ -54,13 +65,43 @@ export class PatientStorage {
     return client.patient.create({ data });
   }
 
-  async findByUuid(uuid: string, tenantUuid: string): Promise<Patient | null> {
-    return await this.prisma.patient.findFirst({
+  /**
+   * El detalle devuelve la próxima cita igual que el listado. Sin esto la
+   * pantalla del paciente dependía de que el dato viniera en la caché del
+   * listado, y al recargarla (o al refrescarse tras agendar) la fecha
+   * desaparecía.
+   */
+  async findByUuid(
+    uuid: string,
+    tenantUuid: string,
+  ): Promise<
+    | (Patient & { nextAppointmentAt: Date | null; tentativeAppointmentTypeName: string | null })
+    | null
+  > {
+    const patient = await this.prisma.patient.findFirst({
       where: {
         uuid: uuid,
         tenantUuid: tenantUuid,
       },
     });
+
+    if (!patient) return null;
+
+    const [nextAppointments, typeNames] = await Promise.all([
+      this.findNextAppointmentsByPatient(tenantUuid, [patient.uuid]),
+      this.findAppointmentTypeNames(
+        tenantUuid,
+        patient.tentativeAppointmentTypeUuid ? [patient.tentativeAppointmentTypeUuid] : [],
+      ),
+    ]);
+
+    return {
+      ...patient,
+      nextAppointmentAt: nextAppointments.get(patient.uuid)?.startTime ?? null,
+      tentativeAppointmentTypeName: patient.tentativeAppointmentTypeUuid
+        ? typeNames.get(patient.tentativeAppointmentTypeUuid) ?? null
+        : null,
+    };
   }
 
   async update(uuid: string, tenantUuid: string, dto: UpdatePatientDto): Promise<Patient> {
@@ -78,6 +119,12 @@ export class PatientStorage {
         ...(dto.documentId !== undefined && { documentId: dto.documentId }),
         ...(dto.occupation !== undefined && { occupation: dto.occupation }),
         ...(dto.branchUuid !== undefined && { branchUuid: dto.branchUuid }),
+        ...(dto.tentativeAppointmentMonth !== undefined && {
+          tentativeAppointmentMonth: dto.tentativeAppointmentMonth,
+        }),
+        ...(dto.tentativeAppointmentTypeUuid !== undefined && {
+          tentativeAppointmentTypeUuid: dto.tentativeAppointmentTypeUuid,
+        }),
       },
     });
   }
@@ -104,11 +151,31 @@ export class PatientStorage {
     });
   }
 
+  /**
+   * Nombre de cada tipo de cita, por uuid. El mes tentativo guarda el uuid
+   * del tipo, pero las pantallas muestran el nombre; se resuelven todos de
+   * una vez para no consultar por paciente.
+   */
+  private async findAppointmentTypeNames(
+    tenantUUID: string,
+    typeUuids: string[],
+  ): Promise<Map<string, string>> {
+    const unicos = Array.from(new Set(typeUuids));
+    if (unicos.length === 0) return new Map();
+
+    const rows = await this.prisma.appointmentType.findMany({
+      where: { tenantUUID, uuid: { in: unicos } },
+      select: { uuid: true, name: true },
+    });
+
+    return new Map(rows.map((row) => [row.uuid, row.name]));
+  }
+
   /** Próxima cita CONFIRMED y futura de cada paciente (una fila por patientUUID, la más cercana). */
   private async findNextAppointmentsByPatient(
     tenantUUID: string,
     patientUUIDs: string[],
-  ): Promise<Map<string, Date>> {
+  ): Promise<Map<string, { startTime: Date; typeName: string | null }>> {
     if (patientUUIDs.length === 0) return new Map();
 
     const rows = await this.prisma.appointment.findMany({
@@ -120,10 +187,37 @@ export class PatientStorage {
       },
       distinct: ['patientUUID'],
       orderBy: [{ patientUUID: 'asc' }, { startTime: 'asc' }],
-      select: { patientUUID: true, startTime: true },
+      select: {
+        patientUUID: true,
+        startTime: true,
+        appointmentType: { select: { name: true } },
+      },
     });
 
-    return new Map(rows.map((row) => [row.patientUUID, row.startTime]));
+    return new Map(
+      rows.map((row) => [
+        row.patientUUID,
+        { startTime: row.startTime, typeName: row.appointmentType?.name ?? null },
+      ]),
+    );
+  }
+
+  /**
+   * Meses (YYYY-MM) con al menos un paciente cuyo mes tentativo está anotado.
+   * Sin filtrar por `isActive`: el listado muestra también a los inactivos y
+   * los meses de cita confirmada tampoco los excluyen, así que el filtro tiene
+   * que ofrecer cualquier mes que el listado pueda devolver.
+   */
+  async findTentativeMonths(tenantUuid: string): Promise<string[]> {
+    const rows = await this.prisma.patient.findMany({
+      where: { tenantUuid, tentativeAppointmentMonth: { not: null } },
+      distinct: ['tentativeAppointmentMonth'],
+      select: { tentativeAppointmentMonth: true },
+    });
+
+    return rows
+      .map((row) => row.tentativeAppointmentMonth)
+      .filter((month): month is string => month !== null);
   }
 
   /** UUIDs de pacientes cuya próxima cita CONFIRMED cae dentro del mes dado (YYYY-MM). */
@@ -158,7 +252,7 @@ export class PatientStorage {
     includeInactive = false,
     search?: string,
     nextAppointmentMonth?: string,
-  ): Promise<PaginatedResponse<Patient & { nextAppointmentAt: Date | null }>> {
+  ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     const skip = (page - 1) * limit;
     const where: Prisma.PatientWhereInput = {
       tenantUuid: tenantUUID,
@@ -180,25 +274,38 @@ export class PatientStorage {
         nextAppointmentMonth,
       );
 
+      // El mes filtra dos cosas a la vez: quien tiene cita confirmada ese mes
+      // y quien solo tiene el mes anotado. Recepción usa este filtro para
+      // saber a quién llamar, y los pendientes de confirmar son justo los que
+      // no puede perderse.
+      // Va dentro de AND y no como OR suelto: `where` ya puede traer su
+      // propio OR (la búsqueda por texto), y dos OR en el mismo objeto se
+      // pisan — buscar y filtrar por mes a la vez devolvería de más.
       const records = await this.prisma.patient.findMany({
-        where: { ...where, uuid: { in: matchingUuids } },
+        where: {
+          ...where,
+          AND: [
+            {
+              OR: [
+                { uuid: { in: matchingUuids } },
+                { tentativeAppointmentMonth: nextAppointmentMonth },
+              ],
+            },
+          ],
+        },
         orderBy: { createdAt: 'desc' },
       });
 
-      const nextAppointments = await this.findNextAppointmentsByPatient(
-        tenantUUID,
-        records.map((record) => record.uuid),
-      );
-
-      const data = records
-        .map((record) => ({
-          ...record,
-          nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
-        }))
+      const data = (await this.withNextAppointment(tenantUUID, records))
         // Con el filtro de mes activo se ordena por próxima cita (la más
         // cercana primero); sin filtro se mantiene el orden por createdAt.
+        // Los que solo tienen mes tentativo no tienen fecha con la que
+        // competir, así que van al final: primero lo que ya tiene día, y
+        // después la lista de a quién falta llamar.
         .sort(
-          (a, b) => (a.nextAppointmentAt?.getTime() ?? 0) - (b.nextAppointmentAt?.getTime() ?? 0),
+          (a, b) =>
+            (a.nextAppointmentAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+            (b.nextAppointmentAt?.getTime() ?? Number.MAX_SAFE_INTEGER),
         );
 
       return {
@@ -217,15 +324,7 @@ export class PatientStorage {
       this.prisma.patient.count({ where }),
     ]);
 
-    const nextAppointments = await this.findNextAppointmentsByPatient(
-      tenantUUID,
-      records.map((record) => record.uuid),
-    );
-
-    const data = records.map((record) => ({
-      ...record,
-      nextAppointmentAt: nextAppointments.get(record.uuid) ?? null,
-    }));
+    const data = await this.withNextAppointment(tenantUUID, records);
 
     return {
       data,
@@ -236,5 +335,37 @@ export class PatientStorage {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Completa una tanda de pacientes con su próxima cita y con el nombre del
+   * tipo que tengan anotado como tentativo. Las dos consultas se hacen por
+   * lote, no por paciente.
+   */
+  private async withNextAppointment(
+    tenantUUID: string,
+    records: Patient[],
+  ): Promise<PatientWithNextAppointment[]> {
+    const [nextAppointments, typeNames] = await Promise.all([
+      this.findNextAppointmentsByPatient(
+        tenantUUID,
+        records.map((record) => record.uuid),
+      ),
+      this.findAppointmentTypeNames(
+        tenantUUID,
+        records
+          .map((record) => record.tentativeAppointmentTypeUuid)
+          .filter((uuid): uuid is string => !!uuid),
+      ),
+    ]);
+
+    return records.map((record) => ({
+      ...record,
+      nextAppointmentAt: nextAppointments.get(record.uuid)?.startTime ?? null,
+      nextAppointmentType: nextAppointments.get(record.uuid)?.typeName ?? null,
+      tentativeAppointmentTypeName: record.tentativeAppointmentTypeUuid
+        ? typeNames.get(record.tentativeAppointmentTypeUuid) ?? null
+        : null,
+    }));
   }
 }

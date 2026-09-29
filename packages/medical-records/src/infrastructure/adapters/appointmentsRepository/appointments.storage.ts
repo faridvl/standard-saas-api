@@ -196,6 +196,25 @@ export class AppointmentStorage {
   }
 
   /**
+   * Cancela las citas CONFIRMED futuras de un paciente. Se usa cuando la
+   * clínica llama y el paciente no confirma: la fecha que tenía deja de
+   * valer y se vuelve a un mes tentativo. A diferencia de
+   * `completeConfirmedFutureByPatient`, aquí la cita no se dio por atendida,
+   * así que queda CANCELLED y no COMPLETED.
+   */
+  async cancelConfirmedFutureByPatient(patientUUID: string, tenantUUID: string): Promise<void> {
+    await this.prisma.appointment.updateMany({
+      where: {
+        patientUUID,
+        tenantUUID,
+        status: AppointmentStatus.CONFIRMED,
+        startTime: { gte: new Date() },
+      },
+      data: { status: AppointmentStatus.CANCELLED },
+    });
+  }
+
+  /**
    * Meses (YYYY-MM, UTC) que tienen al menos una cita CONFIRMED futura para
    * el tenant. Mismo criterio que el filtro `nextAppointmentMonth` de
    * /patients, para poblar un selector de filtro sin listar meses vacios.

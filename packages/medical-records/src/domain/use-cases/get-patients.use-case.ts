@@ -1,6 +1,8 @@
-import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import {
+  PatientStorage,
+  PatientWithNextAppointment,
+} from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { Injectable } from '@nestjs/common';
-import { Patient } from '@prisma/client';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 
 @Injectable()
@@ -14,7 +16,7 @@ export class GetPatientsUseCase {
     includeInactive = false,
     search?: string,
     nextAppointmentMonth?: string,
-  ): Promise<PaginatedResponse<Patient & { nextAppointmentAt: Date | null }>> {
+  ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.patientStorage.findAllByTenant(
       tenantUUID,
       page,

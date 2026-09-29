@@ -60,6 +60,18 @@ model Patient {
   occupation          String?
   branchUuid          String?
 
+  // Mes tentativo de la próxima cita (formato "YYYY-MM"), anterior a que el
+  // paciente confirme el día. La recepción lo anota al llamar; cuando el
+  // paciente confirma se agenda la cita real y este campo se limpia. No es
+  // una cita: no vive en Appointment porque ahí `date` exige un día concreto
+  // y un día inventado se leería como fecha acordada.
+  tentativeAppointmentMonth String?
+  // De qué sería esa próxima cita (AppointmentType). Se anota junto al mes y
+  // se precarga al confirmar el día, donde todavía puede cambiarse. Sin FK
+  // porque es una intención, no una cita: si la clínica borra un tipo, el
+  // apunte no debe impedirlo ni arrastrar al paciente.
+  tentativeAppointmentTypeUuid String?
+
   tenantId     Int
   tenantUuid   String
   createdBy    String
