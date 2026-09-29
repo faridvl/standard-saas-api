@@ -96,7 +96,7 @@ export class AppointmentController {
     @Body() dto: UpdateAppointmentDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<Appointment> {
-    return await this.updateUseCase.execute(uuid, user.tenantUuid, dto);
+    return await this.updateUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
   }
   @Get('patient/:patientUUID')
   async getByPatient(

@@ -274,6 +274,9 @@ Meses (`YYYY-MM`, UTC), ordenados ascendente, que tienen al menos una cita con `
 }
 ```
 **Response 200:** Updated appointment.  
+Pasar `status` a `WAITING` (llegó) o `COMPLETED` (atendido) anota
+`APPOINTMENT_ARRIVED` / `APPOINTMENT_COMPLETED` en la bitácora del paciente,
+solo si el estado cambia. Volver a `CONFIRMED` no se anota.  
 **Status:** Implemented.
 
 ---
@@ -612,7 +615,7 @@ historial reconstruido. Registrar una acción nunca hace fallar la operación
 original (si falla, queda un warning en el log).
 
 `action` es uno de:
-`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | STATUS_CHANGED`
+`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED`
 
 `detail` según la acción:
 
@@ -627,6 +630,7 @@ original (si falla, queda un warning en el log).
 | DOCUMENT_RENAMED | `{ documentUuid, before, after }` |
 | APPOINTMENT_TENTATIVE | `{ month: "YYYY-MM", typeUuid, typeName }` — limpiar el mes no se registra |
 | APPOINTMENT_CONFIRMED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` |
+| APPOINTMENT_ARRIVED / APPOINTMENT_COMPLETED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` — `PATCH /appointments/:uuid` con `status` `WAITING` o `COMPLETED` (solo si el estado cambia) |
 | STATUS_CHANGED | `{ before, after, reason, date }` — estados `ACTIVE/INACTIVE/DECEASED`; `date` = fecha de fallecimiento `YYYY-MM-DD` o `null` |
 
 `typeName` y `patientName` son copias al momento de la acción.

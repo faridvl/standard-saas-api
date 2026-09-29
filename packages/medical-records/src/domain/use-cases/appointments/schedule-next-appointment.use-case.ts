@@ -47,7 +47,10 @@ export class ScheduleNextAppointmentUseCase {
       throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
     }
 
-    await this.storage.completeConfirmedFutureByPatient(patientUUID, tenantUUID);
+    // La cita futura que hubiera se reemplaza por la nueva: queda CANCELLED y
+    // no COMPLETED, porque el paciente no llegó a atenderse en esa fecha (la
+    // agenda del back-office la mostraría como atendida).
+    await this.storage.cancelConfirmedFutureByPatient(patientUUID, tenantUUID);
 
     const startTime = new Date(`${dto.date}T00:00:00.000Z`);
     startTime.setUTCHours(DEFAULT_APPOINTMENT_HOUR, 0, 0, 0);

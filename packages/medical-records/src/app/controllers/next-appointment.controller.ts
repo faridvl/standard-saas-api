@@ -23,7 +23,7 @@ import { Appointment } from '@medical-records/domain/types/appointment.types';
 /**
  * Agendar rápido desde el detalle del paciente: solo fecha/hora y sede. Usa
  * un AppointmentType genérico fijo (ver ScheduleNextAppointmentUseCase) y
- * reemplaza (COMPLETED) cualquier cita CONFIRMED futura previa del paciente.
+ * reemplaza (CANCELLED) cualquier cita CONFIRMED futura previa del paciente.
  */
 @Controller('patients/:patientUuid/next-appointment')
 @UseGuards(AuthGuard)
