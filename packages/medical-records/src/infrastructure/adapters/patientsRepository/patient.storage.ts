@@ -202,10 +202,15 @@ export class PatientStorage {
     );
   }
 
-  /** Meses (YYYY-MM) con al menos un paciente cuyo mes tentativo está anotado. */
+  /**
+   * Meses (YYYY-MM) con al menos un paciente cuyo mes tentativo está anotado.
+   * Sin filtrar por `isActive`: el listado muestra también a los inactivos y
+   * los meses de cita confirmada tampoco los excluyen, así que el filtro tiene
+   * que ofrecer cualquier mes que el listado pueda devolver.
+   */
   async findTentativeMonths(tenantUuid: string): Promise<string[]> {
     const rows = await this.prisma.patient.findMany({
-      where: { tenantUuid, isActive: true, tentativeAppointmentMonth: { not: null } },
+      where: { tenantUuid, tentativeAppointmentMonth: { not: null } },
       distinct: ['tentativeAppointmentMonth'],
       select: { tentativeAppointmentMonth: true },
     });
