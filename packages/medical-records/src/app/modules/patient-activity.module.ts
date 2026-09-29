@@ -3,6 +3,7 @@ import { PatientActivityController } from '../controllers/patient-activity.contr
 import { PatientActivityStorage } from '@medical-records/infrastructure/adapters/patientActivityRepository/patient-activity.storage';
 import {
   FindPatientActivityActorsUseCase,
+  FindPatientActivityMonthsUseCase,
   FindPatientActivityUseCase,
   RecordPatientActivityUseCase,
   SummarizePatientActivityUseCase,
@@ -14,6 +15,7 @@ const USE_CASES = [
   RecordPatientActivityUseCase,
   FindPatientActivityUseCase,
   FindPatientActivityActorsUseCase,
+  FindPatientActivityMonthsUseCase,
   SummarizePatientActivityUseCase,
 ];
 const STORAGES = [PatientActivityStorage];

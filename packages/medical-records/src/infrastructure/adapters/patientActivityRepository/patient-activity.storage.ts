@@ -109,6 +109,22 @@ export class PatientActivityStorage {
     return new Map(rows.map((row) => [row.uuid, row.branchUuid]));
   }
 
+  /**
+   * Meses ("YYYY-MM") con al menos una acción, del más reciente al más
+   * antiguo. `createdAt` se guarda en UTC y se pasa a la zona horaria de la
+   * clínica antes de agrupar, para que una acción de noche no caiga en el
+   * mes siguiente.
+   */
+  async findActiveMonths(tenantUuid: string, timeZone: string): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ month: string }[]>`
+      SELECT DISTINCT to_char(("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${timeZone}, 'YYYY-MM') AS month
+      FROM "PatientActivity"
+      WHERE "tenantUuid" = ${tenantUuid}
+      ORDER BY month DESC
+    `;
+    return rows.map((row) => row.month);
+  }
+
   async findActorUuids(tenantUuid: string): Promise<string[]> {
     const rows = await this.prisma.patientActivity.findMany({
       where: { tenantUuid, actorUuid: { not: '' } },

@@ -673,6 +673,17 @@ original (si falla, queda un warning en el log).
 
 ---
 
+### GET /patient-activity/months
+**Auth:** Required  
+**Query:** `timeZone` — IANA (p. ej. `America/Costa_Rica`), opcional, default `UTC`; 400 si no es válida  
+**Response 200:** Meses `YYYY-MM` con al menos una acción, del más reciente al más antiguo, agrupados en esa zona horaria:
+```json
+{ "months": ["2026-09"] }
+```
+**Status:** Implemented.
+
+---
+
 ### GET /patient-activity/summary
 **Auth:** Required  
 **Query:** `from`, `to` (ISO 8601, opcionales)  

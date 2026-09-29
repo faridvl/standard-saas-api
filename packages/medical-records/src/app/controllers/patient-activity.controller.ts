@@ -3,6 +3,7 @@ import { AuthGuard, CurrentUser, JwtPayload } from '@project/core';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import {
   FindPatientActivityActorsUseCase,
+  FindPatientActivityMonthsUseCase,
   FindPatientActivityUseCase,
   SummarizePatientActivityUseCase,
 } from '@medical-records/domain/use-cases/patient-activity';
@@ -42,6 +43,7 @@ export class PatientActivityController {
   constructor(
     private readonly findUseCase: FindPatientActivityUseCase,
     private readonly findActorsUseCase: FindPatientActivityActorsUseCase,
+    private readonly findMonthsUseCase: FindPatientActivityMonthsUseCase,
     private readonly summarizeUseCase: SummarizePatientActivityUseCase,
   ) {}
 
@@ -70,6 +72,15 @@ export class PatientActivityController {
   @Get('actors')
   async findActors(@CurrentUser() user: JwtPayload): Promise<PatientActivityActor[]> {
     return await this.findActorsUseCase.execute(user.tenantUuid);
+  }
+
+  @Get('months')
+  async findMonths(
+    @CurrentUser() user: JwtPayload,
+    @Query('timeZone') timeZone?: string,
+  ): Promise<{ months: string[] }> {
+    const months = await this.findMonthsUseCase.execute(user.tenantUuid, timeZone);
+    return { months };
   }
 
   @Get('summary')
