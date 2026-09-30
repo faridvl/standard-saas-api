@@ -737,3 +737,40 @@ existentes quedan `ACTIVE`.
 - `appointmentTypeUuid` — tipo de la **próxima cita**: la CONFIRMED futura más cercana, o el tipo del mes tentativo.
 
 Se combinan entre sí y con `search` y `nextAppointmentMonth`.
+
+## Calendar Feed (Medical Records Service, port 7071)
+
+Calendario suscrito (webcal) para que las citas aparezcan solas en el
+calendario del teléfono (iPhone, Outlook, Google). Un enlace por usuario; la app
+de calendario no puede iniciar sesión, así que un token secreto en el enlace
+hace de llave. Tabla `CalendarFeed` (migración `20260930120000_add_calendar_feed`).
+
+### GET /calendar-feed
+**Auth:** Bearer. **Response 200:** `{ "token": string | null }` — `null` si el usuario no tiene calendario conectado.
+**Status:** Implemented.
+
+### POST /calendar-feed
+**Auth:** Bearer. **Body:** vacío. Crea el enlace del usuario o lo **regenera**: el token anterior deja de servir en el acto.
+**Response 201:** `{ "token": string }` (32 caracteres base64url).
+**Status:** Implemented.
+
+### DELETE /calendar-feed
+**Auth:** Bearer. Desconecta el calendario del usuario.
+**Response 200:** `{ "success": true }`.
+**Status:** Implemented.
+
+### GET /calendar-feed/:token.ics
+**Auth:** ninguna (público; el token es la llave).
+**Query:**
+- `branch` (uuid, opcional) — solo las citas de esa sede; el calendario se llama `Citas · <sede>`. Una sede de otra clínica devuelve el calendario vacío.
+- `color` (`#rrggbb`, opcional) — color del calendario (`X-APPLE-CALENDAR-COLOR`). El iPhone colorea calendarios enteros, no eventos: por eso el back-office ofrece un enlace por sede, cada uno con su color.
+
+**Response 200:** `text/calendar; charset=utf-8` (iCalendar, RFC 5545).
+- Citas de la clínica del dueño del token, de 30 días atrás a 365 adelante, sin `CANCELLED` ni `TENTATIVE`.
+- `SUMMARY`: `<nombre completo del paciente> · <tipo>` (+ ` · <sede>` en el calendario de todas las sedes). **Lleva el nombre completo por decisión de la clínica**, aunque el calendario vive en teléfonos personales.
+- Cita a las 08:00:00 UTC exactas (`DEFAULT_APPOINTMENT_HOUR_UTC`, "solo día") → evento de día completo.
+- `UID` estable (`<uuid de la cita>@standard-saas.com`): el teléfono actualiza en vez de duplicar.
+- `REFRESH-INTERVAL` y `X-PUBLISHED-TTL`: 15 minutos (sugerencia; cada app decide).
+
+Un token que no existe (revocado o inventado) responde **200 con un calendario vacío**, no 404: así el teléfono borra las citas que tenía.
+**Status:** Implemented.

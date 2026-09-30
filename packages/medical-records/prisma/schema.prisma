@@ -30,6 +30,21 @@ model User {
   @@index([tenantUuid])
 }
 
+/// Enlace de calendario suscrito (webcal) de un usuario: su app de
+/// calendario (iPhone, Outlook, Google) lee las citas con este token, porque
+/// no puede iniciar sesión. Uno por usuario; regenerarlo invalida el anterior
+/// y borrarlo lo desconecta.
+model CalendarFeed {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  token      String   @unique
+  tenantUuid String
+  userUuid   String   @unique
+  createdAt  DateTime @default(now())
+
+  @@index([tenantUuid])
+}
+
 model Branch {
   id         Int      @id @default(autoincrement())
   uuid       String   @unique @default(uuid())

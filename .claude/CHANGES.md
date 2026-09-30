@@ -19,6 +19,7 @@
 - Medical records service: bitácora de pacientes (`PatientActivity` + `GET /patient-activity`, `/actors`, `/summary`). Se registra desde alta/edición de paciente, contactos, notas, documentos y próxima cita. Tabla nueva vacía, sin backfill
 - Medical records service: estado del paciente (`status` ACTIVE/INACTIVE/DECEASED, `PUT /patients/:uuid/status`), filtros `status`/`branchUuid`/`appointmentTypeUuid` en `GET /patients`, filtros `branchUuid`/`appointmentTypeUuid` en `GET /patient-activity`, acción `STATUS_CHANGED`
 - PrismaService per-service (identity uses IDENTITY_DB_URL, medical-records uses MEDICAL_RECORDS_DB_URL)
+- Medical records service: calendario suscrito (`CalendarFeed` + `GET/POST/DELETE /calendar-feed`, público `GET /calendar-feed/:token.ics` con `branch` y `color`). Un enlace por usuario; el evento lleva el nombre completo del paciente. `DEFAULT_APPOINTMENT_HOUR_UTC` pasa a `appointment.types.ts` (lo comparten `next-appointment` y el calendario). Tabla nueva vacía
 
 ## 🔄 EN PROGRESO
 

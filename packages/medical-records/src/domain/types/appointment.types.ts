@@ -1,5 +1,14 @@
 import { MedicalSpeciality } from './medical-control-content.types';
 
+/**
+ * Hora (UTC) con la que `POST next-appointment` guarda una cita de la que solo
+ * se sabe el día: startTime es obligatorio en el schema (compartido con
+ * Zynka). Una cita a esta hora exacta se lee como "sin hora" (en el
+ * calendario suscrito, evento de día completo). El back-office le fija la
+ * hora real después con `PATCH /appointments/:uuid`.
+ */
+export const DEFAULT_APPOINTMENT_HOUR_UTC = 8;
+
 export enum AppointmentStatus {
   TENTATIVE = 'TENTATIVE',
   PENDING = 'PENDING',

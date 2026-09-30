@@ -22,6 +22,7 @@ import { ProductUnitModule } from './modules/product-unit.module';
 import { UsersModule } from './modules/users.module';
 import { UploadModule } from './modules/upload.module';
 import { PatientActivityModule } from './modules/patient-activity.module';
+import { CalendarFeedModule } from './modules/calendar-feed.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { PatientActivityModule } from './modules/patient-activity.module';
     UsersModule,
     UploadModule,
     PatientActivityModule,
+    CalendarFeedModule,
   ],
 })
 export class MedicalRecordsModule {}
