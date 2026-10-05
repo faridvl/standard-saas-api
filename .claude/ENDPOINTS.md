@@ -746,12 +746,22 @@ de calendario no puede iniciar sesión, así que un token secreto en el enlace
 hace de llave. Tabla `CalendarFeed` (migración `20260930120000_add_calendar_feed`).
 
 ### GET /calendar-feed
-**Auth:** Bearer. **Response 200:** `{ "token": string | null }` — `null` si el usuario no tiene calendario conectado.
+**Auth:** Bearer. **Response 200:** `{ "token": string | null, "removedBranchUuids": string[] }` — `token` es `null` si el usuario no tiene calendario conectado.
 **Status:** Implemented.
 
 ### POST /calendar-feed
-**Auth:** Bearer. **Body:** vacío. Crea el enlace del usuario o lo **regenera**: el token anterior deja de servir en el acto.
-**Response 201:** `{ "token": string }` (32 caracteres base64url).
+**Auth:** Bearer. **Body:** vacío. Crea el enlace del usuario o lo **regenera**: el token anterior deja de servir en el acto. Las sedes quitadas se conservan.
+**Response 201:** `{ "token": string, "removedBranchUuids": string[] }` (token de 32 caracteres base64url).
+**Status:** Implemented.
+
+### DELETE /calendar-feed/branches/:branchUuid
+**Auth:** Bearer. Quita una sede del calendario del usuario: `GET /calendar-feed/:token.ics?branch=<sede>` pasa a responder el calendario **vacío** (con su nombre). El servidor no puede borrar la suscripción del teléfono; el calendario queda en el iPhone sin citas.
+**Response 200:** igual que `GET /calendar-feed`. **404** si el usuario no tiene calendario o la sede no es de su clínica. **400** si el uuid es inválido.
+Columna `CalendarFeed.removedBranchUuids` (migración `20261004120000_calendar_feed_removed_branches`).
+**Status:** Implemented.
+
+### PUT /calendar-feed/branches/:branchUuid
+**Auth:** Bearer. Vuelve a publicar las citas de una sede quitada. Mismas respuestas que el `DELETE`.
 **Status:** Implemented.
 
 ### DELETE /calendar-feed
@@ -762,7 +772,7 @@ hace de llave. Tabla `CalendarFeed` (migración `20260930120000_add_calendar_fee
 ### GET /calendar-feed/:token.ics
 **Auth:** ninguna (público; el token es la llave).
 **Query:**
-- `branch` (uuid, opcional) — solo las citas de esa sede; el calendario se llama `Citas · <sede>`. Una sede de otra clínica devuelve el calendario vacío.
+- `branch` (uuid, opcional) — solo las citas de esa sede; el calendario se llama `Citas · <sede>`. Una sede de otra clínica, o una que el usuario quitó, devuelve el calendario vacío.
 - `color` (`#rrggbb`, opcional) — color del calendario (`X-APPLE-CALENDAR-COLOR`). El iPhone colorea calendarios enteros, no eventos: por eso el back-office ofrece un enlace por sede, cada uno con su color.
 
 **Response 200:** `text/calendar; charset=utf-8` (iCalendar, RFC 5545).

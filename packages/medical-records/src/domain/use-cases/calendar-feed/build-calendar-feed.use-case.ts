@@ -81,16 +81,21 @@ export class BuildCalendarFeedUseCase {
       : null;
     // Una sede de otra clínica (o inexistente) no muestra nada.
     const isUnknownBranch = Boolean(options.branchUuid) && !branchName;
+    // Una sede quitada conserva su nombre para que el teléfono la siga
+    // reconociendo, pero sin citas.
+    const isRemovedBranch =
+      Boolean(options.branchUuid) && feed.removedBranchUuids.includes(options.branchUuid ?? '');
 
     const now = Date.now();
-    const rows = isUnknownBranch
-      ? []
-      : await this.storage.findEvents(
-          feed.tenantUuid,
-          new Date(now - DAYS_BACK * MS_PER_DAY),
-          new Date(now + DAYS_AHEAD * MS_PER_DAY),
-          options.branchUuid,
-        );
+    const rows =
+      isUnknownBranch || isRemovedBranch
+        ? []
+        : await this.storage.findEvents(
+            feed.tenantUuid,
+            new Date(now - DAYS_BACK * MS_PER_DAY),
+            new Date(now + DAYS_AHEAD * MS_PER_DAY),
+            options.branchUuid,
+          );
 
     return buildIcsCalendar({
       name: branchName ? `${CALENDAR_NAME}${NAME_SEPARATOR}${branchName}` : CALENDAR_NAME,

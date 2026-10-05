@@ -40,6 +40,8 @@ model CalendarFeed {
   token      String   @unique
   tenantUuid String
   userUuid   String   @unique
+  /// Sedes que el usuario quitó desde el back-office: su calendario se publica vacío.
+  removedBranchUuids String[] @default([])
   createdAt  DateTime @default(now())
 
   @@index([tenantUuid])

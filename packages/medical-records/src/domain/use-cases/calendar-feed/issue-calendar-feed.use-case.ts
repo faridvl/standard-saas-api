@@ -1,7 +1,7 @@
 import { randomBytes } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { CalendarFeedStorage } from '@medical-records/infrastructure/adapters/calendarFeedRepository/calendar-feed.storage';
-import { CalendarFeedStatus } from './get-calendar-feed.use-case';
+import { CalendarFeedStatus, toCalendarFeedStatus } from './get-calendar-feed.use-case';
 
 /** 24 bytes al azar = 32 caracteres base64url: imposible de adivinar. */
 const TOKEN_BYTES = 24;
@@ -17,7 +17,6 @@ export class IssueCalendarFeedUseCase {
 
   async execute(userUuid: string, tenantUuid: string): Promise<CalendarFeedStatus> {
     const token = randomBytes(TOKEN_BYTES).toString('base64url');
-    const feed = await this.storage.upsertToken(userUuid, tenantUuid, token);
-    return { token: feed.token };
+    return toCalendarFeedStatus(await this.storage.upsertToken(userUuid, tenantUuid, token));
   }
 }

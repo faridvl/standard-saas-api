@@ -1,4 +1,15 @@
-import { Controller, Delete, Get, Header, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload } from '@project/core';
 import {
   BuildCalendarFeedUseCase,
@@ -6,6 +17,7 @@ import {
   GetCalendarFeedUseCase,
   IssueCalendarFeedUseCase,
   RevokeCalendarFeedUseCase,
+  SetCalendarFeedBranchUseCase,
 } from '@medical-records/domain/use-cases/calendar-feed';
 
 /** El teléfono pide `/calendar-feed/<token>.ics`: se quita la extensión para quedarse con el token. */
@@ -25,7 +37,37 @@ export class CalendarFeedController {
     private readonly issueUseCase: IssueCalendarFeedUseCase,
     private readonly revokeUseCase: RevokeCalendarFeedUseCase,
     private readonly buildUseCase: BuildCalendarFeedUseCase,
+    private readonly setBranchUseCase: SetCalendarFeedBranchUseCase,
   ) {}
+
+  /** Quita una sede: su calendario en el teléfono queda vacío. */
+  @Delete('branches/:branchUuid')
+  @UseGuards(AuthGuard)
+  async removeBranch(
+    @Param('branchUuid') branchUuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<CalendarFeedStatus> {
+    return await this.setBranch(branchUuid, user, true);
+  }
+
+  /** Vuelve a publicar las citas de una sede quitada. */
+  @Put('branches/:branchUuid')
+  @UseGuards(AuthGuard)
+  async restoreBranch(
+    @Param('branchUuid') branchUuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<CalendarFeedStatus> {
+    return await this.setBranch(branchUuid, user, false);
+  }
+
+  private async setBranch(
+    branchUuid: string,
+    user: JwtPayload,
+    isRemoved: boolean,
+  ): Promise<CalendarFeedStatus> {
+    if (!UUID.test(branchUuid)) throw new BadRequestException('UUID de sede inválido');
+    return await this.setBranchUseCase.execute(user.sub, user.tenantUuid, branchUuid, isRemoved);
+  }
 
   @Get()
   @UseGuards(AuthGuard)

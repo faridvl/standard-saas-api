@@ -38,6 +38,16 @@ export class CalendarFeedStorage {
     });
   }
 
+  async updateRemovedBranches(
+    userUuid: string,
+    removedBranchUuids: string[],
+  ): Promise<CalendarFeed> {
+    return await this.prisma.calendarFeed.update({
+      where: { userUuid },
+      data: { removedBranchUuids },
+    });
+  }
+
   async deleteByUser(userUuid: string, tenantUuid: string): Promise<void> {
     await this.prisma.calendarFeed.deleteMany({ where: { userUuid, tenantUuid } });
   }
