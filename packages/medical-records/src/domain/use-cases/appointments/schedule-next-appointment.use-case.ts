@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { ScheduleNextAppointmentDto } from '@medical-records/app/dtos/next-appointment.dto';
-import { Appointment, AppointmentStatus } from '@medical-records/domain/types/appointment.types';
+import {
+  Appointment,
+  AppointmentStatus,
+  DEFAULT_APPOINTMENT_HOUR_UTC,
+} from '@medical-records/domain/types/appointment.types';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
@@ -10,13 +14,6 @@ import { PatientActivityAction } from '@medical-records/domain/types/patient-act
 
 const APPOINTMENT_DURATION_MINUTES = 30;
 
-/**
- * El modal de agendar rápido solo pide el día: no tiene sentido pedirle al
- * usuario una hora exacta cuando ni siquiera elige tipo de cita. startTime
- * es obligatorio en el schema (compartido con Zynka), así que se fija
- * internamente a esta hora en vez de exponerla en el formulario.
- */
-const DEFAULT_APPOINTMENT_HOUR = 8;
 
 /**
  * Tipo de cita usado cuando la petición no manda `typeUUID`. Zynka sigue
@@ -53,7 +50,7 @@ export class ScheduleNextAppointmentUseCase {
     await this.storage.cancelConfirmedFutureByPatient(patientUUID, tenantUUID);
 
     const startTime = new Date(`${dto.date}T00:00:00.000Z`);
-    startTime.setUTCHours(DEFAULT_APPOINTMENT_HOUR, 0, 0, 0);
+    startTime.setUTCHours(DEFAULT_APPOINTMENT_HOUR_UTC, 0, 0, 0);
     const endTime = new Date(startTime.getTime() + APPOINTMENT_DURATION_MINUTES * 60_000);
 
     const appointment = await this.storage.create(
