@@ -143,6 +143,14 @@ export class PatientStorage {
    * transacción se cancelan sus citas confirmadas futuras y se limpia el mes
    * tentativo: no debe seguir apareciendo en los filtros de próxima cita.
    */
+  async updateFlags(
+    uuid: string,
+    tenantUuid: string,
+    data: { hearingAidsInLabSince?: Date | null; warrantyActiveSince?: Date | null },
+  ): Promise<Patient> {
+    return this.prisma.patient.update({ where: { uuid, tenantUuid }, data });
+  }
+
   async updateStatus(
     uuid: string,
     tenantUuid: string,

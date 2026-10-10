@@ -27,6 +27,8 @@ import {
   UpdatePatientStatusSchema,
 } from '../dtos/update-patient-status.dto';
 import { UpdatePatientStatusUseCase } from '@medical-records/domain/use-cases/update-patient-status.use-case';
+import { UpdatePatientFlagsUseCase } from '@medical-records/domain/use-cases/update-patient-flags.use-case';
+import { UpdatePatientFlagsDto, UpdatePatientFlagsSchema } from '../dtos/update-patient-flags.dto';
 import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
@@ -70,6 +72,7 @@ export class PatientController {
     private readonly getPatientByUuidUseCase: GetPatientByUuidUseCase,
     private readonly updatePatientUseCase: UpdatePatientUseCase,
     private readonly updatePatientStatusUseCase: UpdatePatientStatusUseCase,
+    private readonly updatePatientFlagsUseCase: UpdatePatientFlagsUseCase,
     private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
     private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
     private readonly softDeletePatientUseCase: SoftDeletePatientUseCase,
@@ -155,6 +158,16 @@ export class PatientController {
     @CurrentUser() user: JwtPayload,
   ): Promise<Patient> {
     return await this.updatePatientStatusUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
+  }
+
+  @Put(':uuid/flags')
+  @UsePipes(new ZodValidationPipe(UpdatePatientFlagsSchema))
+  async updateFlags(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpdatePatientFlagsDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<Patient> {
+    return await this.updatePatientFlagsUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 
   @Get(':uuid/background')
