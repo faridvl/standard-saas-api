@@ -58,6 +58,13 @@ export interface PatientListFilters {
   hearingAidsInLab?: boolean;
   hasActiveWarranty?: boolean;
   isVideoCandidate?: boolean;
+  /** Si la próxima cita es confirmada (con día) o tentativa (solo mes); ambas o ninguna = todas. */
+  nextAppointmentKinds?: NextAppointmentKind[];
+}
+
+export enum NextAppointmentKind {
+  CONFIRMED = 'confirmed',
+  TENTATIVE = 'tentative',
 }
 
 /** Columnas "desde cuándo" de los indicadores; null = apagado. */
@@ -371,6 +378,15 @@ export class PatientStorage {
     if (filters.hearingAidsInLab) and.push({ hearingAidsInLabSince: { not: null } });
     if (filters.hasActiveWarranty) and.push({ warrantyActiveSince: { not: null } });
     if (filters.isVideoCandidate) and.push({ videoCandidateSince: { not: null } });
+    // Confirmada y tentativa son excluyentes, así que pedir una sola basta para separarlas.
+    const kinds = filters.nextAppointmentKinds ?? [];
+    if (kinds.length === 1 && kinds[0] === NextAppointmentKind.CONFIRMED) {
+      const nextConfirmed = await this.findNextConfirmedAppointments(tenantUUID);
+      and.push({ uuid: { in: nextConfirmed.map((row) => row.patientUUID) } });
+    }
+    if (kinds.length === 1 && kinds[0] === NextAppointmentKind.TENTATIVE) {
+      and.push({ tentativeAppointmentMonth: { not: null } });
+    }
     if (and.length > 0) where.AND = and;
 
     if (nextAppointmentMonths?.length) {

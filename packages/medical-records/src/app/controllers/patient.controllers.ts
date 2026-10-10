@@ -43,7 +43,10 @@ import {
 } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
 import { Patient } from '@prisma/client';
-import { PatientWithNextAppointment } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import {
+  NextAppointmentKind,
+  PatientWithNextAppointment,
+} from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { PatientBackgroundEntity } from '@medical-records/domain/entities/patient-background.entity';
 
@@ -58,6 +61,18 @@ function parseList(value: string | undefined): string[] | undefined {
     .map((item) => item.trim())
     .filter(Boolean);
   return items?.length ? items : undefined;
+}
+
+/** "confirmed,tentative" -> kinds; 400 si alguno no existe. */
+function parseKinds(value: string | undefined): NextAppointmentKind[] | undefined {
+  const kinds = parseList(value);
+  if (!kinds) return undefined;
+  const valid = Object.values(NextAppointmentKind) as string[];
+  const invalid = kinds.filter((kind) => !valid.includes(kind));
+  if (invalid.length > 0) {
+    throw new BadRequestException(`nextAppointmentKind inválido: ${invalid.join(', ')}`);
+  }
+  return kinds as NextAppointmentKind[];
 }
 
 /** "ACTIVE,INACTIVE" -> ['ACTIVE', 'INACTIVE']; 400 si alguno no existe. */
@@ -126,6 +141,7 @@ export class PatientController {
     @Query('hearingAidsInLab') hearingAidsInLab?: string,
     @Query('hasActiveWarranty') hasActiveWarranty?: string,
     @Query('isVideoCandidate') isVideoCandidate?: string,
+    @Query('nextAppointmentKind') nextAppointmentKind?: string,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
@@ -141,6 +157,7 @@ export class PatientController {
         hearingAidsInLab: hearingAidsInLab === 'true',
         hasActiveWarranty: hasActiveWarranty === 'true',
         isVideoCandidate: isVideoCandidate === 'true',
+        nextAppointmentKinds: parseKinds(nextAppointmentKind),
       },
     );
   }
