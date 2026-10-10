@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   CalendarEventRow,
   CalendarFeedStorage,
 } from '@medical-records/infrastructure/adapters/calendarFeedRepository/calendar-feed.storage';
 import { DEFAULT_APPOINTMENT_HOUR_UTC } from '@medical-records/domain/types/appointment.types';
 import { buildIcsCalendar, IcsEvent } from '@medical-records/domain/utils/ics-calendar.util';
+import { buildCalendarKey } from '@medical-records/domain/utils/calendar-key.util';
 
 /** Ventana publicada: un mes hacia atrás (lo reciente) y un año hacia adelante. */
 const DAYS_BACK = 30;
@@ -23,8 +24,16 @@ const UID_DOMAIN = 'standard-saas.com';
 export interface CalendarFeedOptions {
   /** Solo las citas de esta sede: un calendario por sede, cada uno de su color. */
   branchUuid?: string;
+  /** Además, solo las de este tipo (requiere sede): "Ciudad Neily · Control". */
+  typeUuid?: string;
   /** Color del calendario (`#rrggbb`), lo decide el back-office con su paleta. */
   color?: string;
+}
+
+/** Lo que el nombre del calendario ya dice no se repite en cada evento. */
+interface CalendarScope {
+  hasBranch: boolean;
+  hasType: boolean;
 }
 
 /** Cita guardada solo con día (sin hora real): va como evento de día completo. */
@@ -40,14 +49,13 @@ function isWithoutTime(startTime: Date): boolean {
  * "María Pérez · Control": nombre completo del paciente, por decisión de la
  * clínica. Ojo: el calendario vive en teléfonos personales (y su iCloud).
  */
-function toIcsEvent(row: CalendarEventRow, isSingleBranch: boolean): IcsEvent {
+function toIcsEvent(row: CalendarEventRow, scope: CalendarScope): IcsEvent {
   const branchName = row.branch?.name;
   const patientName = `${row.patient.firstName} ${row.patient.lastName}`.trim();
   const summaryParts = [
     patientName,
-    row.appointmentType.name,
-    // En el calendario de una sede, la sede ya está en el nombre del calendario.
-    ...(!isSingleBranch && branchName ? [branchName] : []),
+    ...(!scope.hasType ? [row.appointmentType.name] : []),
+    ...(!scope.hasBranch && branchName ? [branchName] : []),
   ];
 
   return {
@@ -68,6 +76,8 @@ function toIcsEvent(row: CalendarEventRow, isSingleBranch: boolean): IcsEvent {
  */
 @Injectable()
 export class BuildCalendarFeedUseCase {
+  private readonly logger = new Logger(BuildCalendarFeedUseCase.name);
+
   constructor(private readonly storage: CalendarFeedStorage) {}
 
   async execute(token: string, options: CalendarFeedOptions = {}): Promise<string> {
@@ -76,32 +86,57 @@ export class BuildCalendarFeedUseCase {
       return buildIcsCalendar({ name: CALENDAR_NAME, refreshMinutes: REFRESH_MINUTES, events: [] });
     }
 
-    const branchName = options.branchUuid
-      ? await this.storage.findBranchName(options.branchUuid, feed.tenantUuid)
-      : null;
-    // Una sede de otra clínica (o inexistente) no muestra nada.
-    const isUnknownBranch = Boolean(options.branchUuid) && !branchName;
-    // Una sede quitada conserva su nombre para que el teléfono la siga
+    const { branchUuid } = options;
+    const typeUuid = branchUuid ? options.typeUuid : undefined;
+    const [branchName, typeName] = await Promise.all([
+      branchUuid ? this.storage.findBranchName(branchUuid, feed.tenantUuid) : null,
+      typeUuid ? this.storage.findAppointmentTypeName(typeUuid, feed.tenantUuid) : null,
+    ]);
+    // Una sede o un tipo de otra clínica (o inexistente) no muestra nada.
+    const isUnknown = (Boolean(branchUuid) && !branchName) || (Boolean(typeUuid) && !typeName);
+    const calendarKey = branchUuid ? buildCalendarKey(branchUuid, typeUuid) : null;
+    // Un calendario quitado conserva su nombre para que el teléfono lo siga
     // reconociendo, pero sin citas.
-    const isRemovedBranch =
-      Boolean(options.branchUuid) && feed.removedBranchUuids.includes(options.branchUuid ?? '');
+    const isRemoved = calendarKey !== null && feed.removedCalendarKeys.includes(calendarKey);
 
     const now = Date.now();
     const rows =
-      isUnknownBranch || isRemovedBranch
+      isUnknown || isRemoved
         ? []
         : await this.storage.findEvents(
             feed.tenantUuid,
             new Date(now - DAYS_BACK * MS_PER_DAY),
             new Date(now + DAYS_AHEAD * MS_PER_DAY),
-            options.branchUuid,
+            branchUuid,
+            typeUuid,
           );
 
+    if (calendarKey && !isUnknown) await this.recordFetch(feed.id, calendarKey);
+
     return buildIcsCalendar({
-      name: branchName ? `${CALENDAR_NAME}${NAME_SEPARATOR}${branchName}` : CALENDAR_NAME,
+      name: this.buildName(branchName, typeName),
       refreshMinutes: REFRESH_MINUTES,
       color: options.color,
-      events: rows.map((row) => toIcsEvent(row, Boolean(branchName))),
+      events: rows.map((row) =>
+        toIcsEvent(row, { hasBranch: Boolean(branchName), hasType: Boolean(typeName) }),
+      ),
     });
+  }
+
+  /** "Ciudad Neily · Control" o "Citas · Ciudad Neily". */
+  private buildName(branchName: string | null, typeName: string | null): string {
+    if (branchName && typeName) return `${branchName}${NAME_SEPARATOR}${typeName}`;
+    if (branchName) return `${CALENDAR_NAME}${NAME_SEPARATOR}${branchName}`;
+    return CALENDAR_NAME;
+  }
+
+  /** Si anotar la consulta falla, el teléfono igual recibe su calendario. */
+  private async recordFetch(feedId: number, calendarKey: string): Promise<void> {
+    try {
+      await this.storage.markFetched(feedId, calendarKey, new Date());
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`No se pudo anotar la consulta del calendario ${calendarKey}: ${reason}`);
+    }
   }
 }

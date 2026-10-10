@@ -7,15 +7,17 @@ import { CalendarFeedStatus, toCalendarFeedStatus } from './get-calendar-feed.us
 const TOKEN_BYTES = 24;
 
 /**
- * Crea el enlace de calendario del usuario, o lo regenera si ya tenía: el
- * token viejo deja de servir en el acto (su calendario queda vacío en la
- * siguiente actualización del teléfono).
+ * Crea el enlace de calendario del usuario. Si ya tiene uno lo devuelve igual:
+ * cambiarlo dejaría sin citas a todos los calendarios que ya agregó al teléfono.
  */
 @Injectable()
 export class IssueCalendarFeedUseCase {
   constructor(private readonly storage: CalendarFeedStorage) {}
 
   async execute(userUuid: string, tenantUuid: string): Promise<CalendarFeedStatus> {
+    const existing = await this.storage.findByUser(userUuid, tenantUuid);
+    if (existing) return toCalendarFeedStatus(existing);
+
     const token = randomBytes(TOKEN_BYTES).toString('base64url');
     return toCalendarFeedStatus(await this.storage.upsertToken(userUuid, tenantUuid, token));
   }

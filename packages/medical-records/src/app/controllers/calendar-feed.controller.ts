@@ -1,23 +1,27 @@
 import {
-  BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
   Header,
   Param,
+  Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload } from '@project/core';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import {
+  SetCalendarVisibilityDto,
+  SetCalendarVisibilitySchema,
+} from '@medical-records/app/dtos/calendar-feed.dto';
 import {
   BuildCalendarFeedUseCase,
   CalendarFeedStatus,
   GetCalendarFeedUseCase,
   IssueCalendarFeedUseCase,
   RevokeCalendarFeedUseCase,
-  SetCalendarFeedBranchUseCase,
+  SetCalendarVisibilityUseCase,
 } from '@medical-records/domain/use-cases/calendar-feed';
 
 /** El teléfono pide `/calendar-feed/<token>.ics`: se quita la extensión para quedarse con el token. */
@@ -37,37 +41,8 @@ export class CalendarFeedController {
     private readonly issueUseCase: IssueCalendarFeedUseCase,
     private readonly revokeUseCase: RevokeCalendarFeedUseCase,
     private readonly buildUseCase: BuildCalendarFeedUseCase,
-    private readonly setBranchUseCase: SetCalendarFeedBranchUseCase,
+    private readonly setVisibilityUseCase: SetCalendarVisibilityUseCase,
   ) {}
-
-  /** Quita una sede: su calendario en el teléfono queda vacío. */
-  @Delete('branches/:branchUuid')
-  @UseGuards(AuthGuard)
-  async removeBranch(
-    @Param('branchUuid') branchUuid: string,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<CalendarFeedStatus> {
-    return await this.setBranch(branchUuid, user, true);
-  }
-
-  /** Vuelve a publicar las citas de una sede quitada. */
-  @Put('branches/:branchUuid')
-  @UseGuards(AuthGuard)
-  async restoreBranch(
-    @Param('branchUuid') branchUuid: string,
-    @CurrentUser() user: JwtPayload,
-  ): Promise<CalendarFeedStatus> {
-    return await this.setBranch(branchUuid, user, false);
-  }
-
-  private async setBranch(
-    branchUuid: string,
-    user: JwtPayload,
-    isRemoved: boolean,
-  ): Promise<CalendarFeedStatus> {
-    if (!UUID.test(branchUuid)) throw new BadRequestException('UUID de sede inválido');
-    return await this.setBranchUseCase.execute(user.sub, user.tenantUuid, branchUuid, isRemoved);
-  }
 
   @Get()
   @UseGuards(AuthGuard)
@@ -75,7 +50,7 @@ export class CalendarFeedController {
     return await this.getUseCase.execute(user.sub, user.tenantUuid);
   }
 
-  /** Crea el enlace, o lo regenera (el anterior deja de servir). */
+  /** Crea el enlace del usuario; si ya tiene uno, lo devuelve sin cambiarlo. */
   @Post()
   @UseGuards(AuthGuard)
   async issue(@CurrentUser() user: JwtPayload): Promise<CalendarFeedStatus> {
@@ -88,17 +63,29 @@ export class CalendarFeedController {
     return await this.revokeUseCase.execute(user.sub, user.tenantUuid);
   }
 
-  /** Público: el calendario del enlace, opcionalmente de una sede y con su color. */
+  /** Quita un calendario (queda vacío en el teléfono) o lo vuelve a mostrar. */
+  @Patch('calendars')
+  @UseGuards(AuthGuard)
+  async setVisibility(
+    @Body(new ZodValidationPipe(SetCalendarVisibilitySchema)) dto: SetCalendarVisibilityDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<CalendarFeedStatus> {
+    return await this.setVisibilityUseCase.execute(user.sub, user.tenantUuid, dto);
+  }
+
+  /** Público: el calendario del enlace, opcionalmente de una sede (y un tipo) y con su color. */
   @Get(':file')
   @Header('Content-Type', 'text/calendar; charset=utf-8')
   @Header('Cache-Control', 'no-cache, no-store, must-revalidate')
   async feed(
     @Param('file') file: string,
     @Query('branch') branch?: string,
+    @Query('type') type?: string,
     @Query('color') color?: string,
   ): Promise<string> {
     return await this.buildUseCase.execute(file.replace(ICS_EXTENSION, ''), {
       branchUuid: branch && UUID.test(branch) ? branch : undefined,
+      typeUuid: type && UUID.test(type) ? type : undefined,
       color: color && HEX_COLOR.test(color) ? color : undefined,
     });
   }

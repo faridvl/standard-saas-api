@@ -6,7 +6,7 @@ import {
   GetCalendarFeedUseCase,
   IssueCalendarFeedUseCase,
   RevokeCalendarFeedUseCase,
-  SetCalendarFeedBranchUseCase,
+  SetCalendarVisibilityUseCase,
 } from '@medical-records/domain/use-cases/calendar-feed';
 
 const CONTROLLERS = [CalendarFeedController];
@@ -15,7 +15,7 @@ const USE_CASES = [
   GetCalendarFeedUseCase,
   IssueCalendarFeedUseCase,
   RevokeCalendarFeedUseCase,
-  SetCalendarFeedBranchUseCase,
+  SetCalendarVisibilityUseCase,
 ];
 const STORAGES = [CalendarFeedStorage];
 

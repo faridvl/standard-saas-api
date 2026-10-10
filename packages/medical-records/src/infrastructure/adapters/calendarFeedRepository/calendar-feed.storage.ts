@@ -38,14 +38,26 @@ export class CalendarFeedStorage {
     });
   }
 
-  async updateRemovedBranches(
+  async updateRemovedCalendars(
     userUuid: string,
-    removedBranchUuids: string[],
+    removedCalendarKeys: string[],
   ): Promise<CalendarFeed> {
     return await this.prisma.calendarFeed.update({
       where: { userUuid },
-      data: { removedBranchUuids },
+      data: { removedCalendarKeys },
     });
+  }
+
+  /**
+   * Anota que el teléfono acaba de pedir un calendario. `jsonb_set` en la base
+   * y no leer-modificar-escribir: el teléfono pide varios calendarios a la vez.
+   */
+  async markFetched(feedId: number, calendarKey: string, fetchedAt: Date): Promise<void> {
+    await this.prisma.$executeRaw`
+      UPDATE "CalendarFeed"
+      SET "fetchedCalendars" = jsonb_set("fetchedCalendars", ARRAY[${calendarKey}], to_jsonb(${fetchedAt.toISOString()}::text))
+      WHERE "id" = ${feedId}
+    `;
   }
 
   async deleteByUser(userUuid: string, tenantUuid: string): Promise<void> {
@@ -60,17 +72,27 @@ export class CalendarFeedStorage {
     return branch?.name ?? null;
   }
 
-  /** Citas en pie de la clínica entre dos fechas (de una sede, si se pide), con paciente, tipo y sede. */
+  async findAppointmentTypeName(typeUuid: string, tenantUuid: string): Promise<string | null> {
+    const type = await this.prisma.appointmentType.findFirst({
+      where: { uuid: typeUuid, tenantUUID: tenantUuid },
+      select: { name: true },
+    });
+    return type?.name ?? null;
+  }
+
+  /** Citas en pie de la clínica entre dos fechas (de una sede y un tipo, si se piden), con paciente, tipo y sede. */
   async findEvents(
     tenantUuid: string,
     from: Date,
     to: Date,
     branchUuid?: string,
+    typeUuid?: string,
   ): Promise<CalendarEventRow[]> {
     return await this.prisma.appointment.findMany({
       where: {
         tenantUUID: tenantUuid,
         ...(branchUuid && { branchUUID: branchUuid }),
+        ...(typeUuid && { typeUUID: typeUuid }),
         status: { notIn: HIDDEN_STATUSES },
         startTime: { gte: from, lt: to },
       },
