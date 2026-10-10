@@ -4,8 +4,9 @@ export const UpdatePatientFlagsSchema = z
   .object({
     hearingAidsInLab: z.boolean().optional(),
     hasActiveWarranty: z.boolean().optional(),
+    isVideoCandidate: z.boolean().optional(),
   })
-  .refine((dto) => dto.hearingAidsInLab !== undefined || dto.hasActiveWarranty !== undefined, {
+  .refine((dto) => Object.values(dto).some((value) => value !== undefined), {
     message: 'Indica al menos un indicador',
   });
 

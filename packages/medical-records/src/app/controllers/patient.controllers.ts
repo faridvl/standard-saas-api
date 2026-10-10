@@ -125,6 +125,7 @@ export class PatientController {
     @Query('appointmentTypeUuid') appointmentTypeUuid?: string,
     @Query('hearingAidsInLab') hearingAidsInLab?: string,
     @Query('hasActiveWarranty') hasActiveWarranty?: string,
+    @Query('isVideoCandidate') isVideoCandidate?: string,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
@@ -139,6 +140,7 @@ export class PatientController {
         appointmentTypeUuids: parseList(appointmentTypeUuid),
         hearingAidsInLab: hearingAidsInLab === 'true',
         hasActiveWarranty: hasActiveWarranty === 'true',
+        isVideoCandidate: isVideoCandidate === 'true',
       },
     );
   }

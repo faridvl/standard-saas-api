@@ -73,6 +73,7 @@ model Patient {
   // Indicadores que se prenden y apagan: desde cuándo están prendidos, null si no.
   hearingAidsInLabSince DateTime?
   warrantyActiveSince   DateTime?
+  videoCandidateSince   DateTime?
   birthDate    DateTime
   email        String?
   gender              String?

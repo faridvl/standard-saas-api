@@ -24,6 +24,8 @@ export enum PatientActivityAction {
   HEARING_AIDS_LAB_CHANGED = 'HEARING_AIDS_LAB_CHANGED',
   /** Se activó o desactivó la garantía. */
   WARRANTY_CHANGED = 'WARRANTY_CHANGED',
+  /** Se marcó o desmarcó como candidato a video. */
+  VIDEO_CANDIDATE_CHANGED = 'VIDEO_CANDIDATE_CHANGED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */

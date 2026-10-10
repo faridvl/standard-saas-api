@@ -57,6 +57,14 @@ export interface PatientListFilters {
   /** Solo pacientes con el indicador prendido. */
   hearingAidsInLab?: boolean;
   hasActiveWarranty?: boolean;
+  isVideoCandidate?: boolean;
+}
+
+/** Columnas "desde cuándo" de los indicadores; null = apagado. */
+export interface PatientFlagsUpdate {
+  hearingAidsInLabSince?: Date | null;
+  warrantyActiveSince?: Date | null;
+  videoCandidateSince?: Date | null;
 }
 
 /** Valor del filtro de mes que pide los pacientes sin próxima cita. */
@@ -150,11 +158,7 @@ export class PatientStorage {
    * transacción se cancelan sus citas confirmadas futuras y se limpia el mes
    * tentativo: no debe seguir apareciendo en los filtros de próxima cita.
    */
-  async updateFlags(
-    uuid: string,
-    tenantUuid: string,
-    data: { hearingAidsInLabSince?: Date | null; warrantyActiveSince?: Date | null },
-  ): Promise<Patient> {
+  async updateFlags(uuid: string, tenantUuid: string, data: PatientFlagsUpdate): Promise<Patient> {
     return this.prisma.patient.update({ where: { uuid, tenantUuid }, data });
   }
 
@@ -366,6 +370,7 @@ export class PatientStorage {
     }
     if (filters.hearingAidsInLab) and.push({ hearingAidsInLabSince: { not: null } });
     if (filters.hasActiveWarranty) and.push({ warrantyActiveSince: { not: null } });
+    if (filters.isVideoCandidate) and.push({ videoCandidateSince: { not: null } });
     if (and.length > 0) where.AND = and;
 
     if (nextAppointmentMonths?.length) {
