@@ -59,6 +59,9 @@ export interface PatientListFilters {
   hasActiveWarranty?: boolean;
 }
 
+/** Valor del filtro de mes que pide los pacientes sin próxima cita. */
+export const NO_APPOINTMENT_FILTER = 'none';
+
 export type PatientWithNextAppointment = Patient & {
   nextAppointmentAt: Date | null;
   nextAppointmentType: string | null;
@@ -281,11 +284,13 @@ export class PatientStorage {
       .filter((month): month is string => month !== null);
   }
 
-  /** UUIDs de pacientes cuya próxima cita CONFIRMED cae en alguno de los meses (YYYY-MM, UTC). */
-  private async findPatientUuidsWithNextAppointmentInMonths(
+  /**
+   * Próxima cita CONFIRMED futura de cada paciente que tiene una. Base de los
+   * filtros por mes y de "sin cita".
+   */
+  private async findNextConfirmedAppointments(
     tenantUUID: string,
-    months: string[],
-  ): Promise<string[]> {
+  ): Promise<{ patientUUID: string; startTime: Date }[]> {
 
     const rows = await this.prisma.appointment.findMany({
       where: {
@@ -298,9 +303,7 @@ export class PatientStorage {
       select: { patientUUID: true, startTime: true },
     });
 
-    return rows
-      .filter((row) => months.includes(row.startTime.toISOString().slice(0, 7)))
-      .map((row) => row.patientUUID);
+    return rows;
   }
 
   /** UUIDs de pacientes cuya próxima cita CONFIRMED futura es de alguno de los tipos. */
@@ -366,10 +369,29 @@ export class PatientStorage {
     if (and.length > 0) where.AND = and;
 
     if (nextAppointmentMonths?.length) {
-      const matchingUuids = await this.findPatientUuidsWithNextAppointmentInMonths(
-        tenantUUID,
-        nextAppointmentMonths,
-      );
+      const months = nextAppointmentMonths.filter((month) => month !== NO_APPOINTMENT_FILTER);
+      const wantsNoAppointment = nextAppointmentMonths.includes(NO_APPOINTMENT_FILTER);
+      const nextConfirmed = await this.findNextConfirmedAppointments(tenantUUID);
+      const matchingUuids = nextConfirmed
+        .filter((row) => months.includes(row.startTime.toISOString().slice(0, 7)))
+        .map((row) => row.patientUUID);
+
+      const monthConditions: Prisma.PatientWhereInput[] = [];
+      if (months.length > 0) {
+        monthConditions.push(
+          { uuid: { in: matchingUuids } },
+          { tentativeAppointmentMonth: { in: months } },
+        );
+      }
+      // "Sin cita": ni cita confirmada futura ni mes tentativo anotado.
+      if (wantsNoAppointment) {
+        monthConditions.push({
+          AND: [
+            { uuid: { notIn: nextConfirmed.map((row) => row.patientUUID) } },
+            { tentativeAppointmentMonth: null },
+          ],
+        });
+      }
 
       // El mes filtra dos cosas a la vez: quien tiene cita confirmada ese mes
       // y quien solo tiene el mes anotado. Recepción usa este filtro para
@@ -383,12 +405,7 @@ export class PatientStorage {
           ...where,
           AND: [
             ...and,
-            {
-              OR: [
-                { uuid: { in: matchingUuids } },
-                { tentativeAppointmentMonth: { in: nextAppointmentMonths } },
-              ],
-            },
+            { OR: monthConditions },
           ],
         },
         orderBy: { createdAt: 'desc' },
