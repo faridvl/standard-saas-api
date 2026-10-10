@@ -27,6 +27,8 @@ import {
   UpdatePatientStatusSchema,
 } from '../dtos/update-patient-status.dto';
 import { UpdatePatientStatusUseCase } from '@medical-records/domain/use-cases/update-patient-status.use-case';
+import { UpdatePatientFlagsUseCase } from '@medical-records/domain/use-cases/update-patient-flags.use-case';
+import { UpdatePatientFlagsDto, UpdatePatientFlagsSchema } from '../dtos/update-patient-flags.dto';
 import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
@@ -41,13 +43,37 @@ import {
 } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
 import { Patient } from '@prisma/client';
-import { PatientWithNextAppointment } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import {
+  NextAppointmentKind,
+  PatientWithNextAppointment,
+} from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { PatientBackgroundEntity } from '@medical-records/domain/entities/patient-background.entity';
 
 // STAFF (recepción) no tiene acceso a antecedentes: son datos de salud
 // sensibles (Ley 8968), no información administrativa.
 const STAFF_ROLE = 'STAFF';
+
+/** "a,b" -> ['a', 'b']; vacío o ausente = sin filtrar. */
+function parseList(value: string | undefined): string[] | undefined {
+  const items = value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items?.length ? items : undefined;
+}
+
+/** "confirmed,tentative" -> kinds; 400 si alguno no existe. */
+function parseKinds(value: string | undefined): NextAppointmentKind[] | undefined {
+  const kinds = parseList(value);
+  if (!kinds) return undefined;
+  const valid = Object.values(NextAppointmentKind) as string[];
+  const invalid = kinds.filter((kind) => !valid.includes(kind));
+  if (invalid.length > 0) {
+    throw new BadRequestException(`nextAppointmentKind inválido: ${invalid.join(', ')}`);
+  }
+  return kinds as NextAppointmentKind[];
+}
 
 /** "ACTIVE,INACTIVE" -> ['ACTIVE', 'INACTIVE']; 400 si alguno no existe. */
 function parseStatuses(value: string | undefined): PatientStatus[] | undefined {
@@ -70,6 +96,7 @@ export class PatientController {
     private readonly getPatientByUuidUseCase: GetPatientByUuidUseCase,
     private readonly updatePatientUseCase: UpdatePatientUseCase,
     private readonly updatePatientStatusUseCase: UpdatePatientStatusUseCase,
+    private readonly updatePatientFlagsUseCase: UpdatePatientFlagsUseCase,
     private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
     private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
     private readonly softDeletePatientUseCase: SoftDeletePatientUseCase,
@@ -108,8 +135,13 @@ export class PatientController {
     @Query('search') search?: string,
     @Query('nextAppointmentMonth') nextAppointmentMonth?: string,
     @Query('status') status?: string,
+    // Sedes, tipos y meses aceptan varios valores separados por coma.
     @Query('branchUuid') branchUuid?: string,
     @Query('appointmentTypeUuid') appointmentTypeUuid?: string,
+    @Query('hearingAidsInLab') hearingAidsInLab?: string,
+    @Query('hasActiveWarranty') hasActiveWarranty?: string,
+    @Query('isVideoCandidate') isVideoCandidate?: string,
+    @Query('nextAppointmentKind') nextAppointmentKind?: string,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
@@ -117,11 +149,15 @@ export class PatientController {
       Number(limit),
       includeInactive === 'true',
       search,
-      nextAppointmentMonth,
+      parseList(nextAppointmentMonth),
       {
         statuses: parseStatuses(status),
-        branchUuid: branchUuid || undefined,
-        appointmentTypeUuid: appointmentTypeUuid || undefined,
+        branchUuids: parseList(branchUuid),
+        appointmentTypeUuids: parseList(appointmentTypeUuid),
+        hearingAidsInLab: hearingAidsInLab === 'true',
+        hasActiveWarranty: hasActiveWarranty === 'true',
+        isVideoCandidate: isVideoCandidate === 'true',
+        nextAppointmentKinds: parseKinds(nextAppointmentKind),
       },
     );
   }
@@ -155,6 +191,16 @@ export class PatientController {
     @CurrentUser() user: JwtPayload,
   ): Promise<Patient> {
     return await this.updatePatientStatusUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
+  }
+
+  @Put(':uuid/flags')
+  @UsePipes(new ZodValidationPipe(UpdatePatientFlagsSchema))
+  async updateFlags(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpdatePatientFlagsDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<Patient> {
+    return await this.updatePatientFlagsUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 
   @Get(':uuid/background')

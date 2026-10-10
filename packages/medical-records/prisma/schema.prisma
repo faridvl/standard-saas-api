@@ -30,6 +30,25 @@ model User {
   @@index([tenantUuid])
 }
 
+/// Enlace de calendario suscrito (webcal) de un usuario: su app de
+/// calendario (iPhone, Outlook, Google) lee las citas con este token, porque
+/// no puede iniciar sesión. Uno por usuario; regenerarlo invalida el anterior
+/// y borrarlo lo desconecta.
+model CalendarFeed {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  token      String   @unique
+  tenantUuid String
+  userUuid   String   @unique
+  /// Calendarios ("sede" o "sede:tipo") quitados desde el back-office: se publican vacíos.
+  removedCalendarKeys String[] @default([])
+  /// Última vez que el teléfono pidió cada calendario: { "sede[:tipo]": ISO }.
+  fetchedCalendars    Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([tenantUuid])
+}
+
 model Branch {
   id         Int      @id @default(autoincrement())
   uuid       String   @unique @default(uuid())
@@ -51,6 +70,10 @@ model Patient {
   lastName     String
   phone        String?
   address      String?
+  // Indicadores que se prenden y apagan: desde cuándo están prendidos, null si no.
+  hearingAidsInLabSince DateTime?
+  warrantyActiveSince   DateTime?
+  videoCandidateSince   DateTime?
   birthDate    DateTime
   email        String?
   gender              String?

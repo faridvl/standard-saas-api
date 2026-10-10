@@ -15,7 +15,17 @@ export enum PatientActivityAction {
   DOCUMENT_DELETED = 'DOCUMENT_DELETED',
   APPOINTMENT_TENTATIVE = 'APPOINTMENT_TENTATIVE',
   APPOINTMENT_CONFIRMED = 'APPOINTMENT_CONFIRMED',
+  /** El paciente llegó a la cita (pasa a WAITING, "en sala"). */
+  APPOINTMENT_ARRIVED = 'APPOINTMENT_ARRIVED',
+  /** La cita se dio por atendida (pasa a COMPLETED). */
+  APPOINTMENT_COMPLETED = 'APPOINTMENT_COMPLETED',
   STATUS_CHANGED = 'STATUS_CHANGED',
+  /** Se marcó o desmarcó que los audífonos están en el laboratorio. */
+  HEARING_AIDS_LAB_CHANGED = 'HEARING_AIDS_LAB_CHANGED',
+  /** Se activó o desactivó la garantía. */
+  WARRANTY_CHANGED = 'WARRANTY_CHANGED',
+  /** Se marcó o desmarcó como candidato a video. */
+  VIDEO_CANDIDATE_CHANGED = 'VIDEO_CANDIDATE_CHANGED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */
@@ -37,7 +47,8 @@ export type PatientActivityDetail =
   | { documentUuid: string; before: string; after: string }
   | { month: string; typeUuid: string | null; typeName: string | null }
   | { appointmentUuid: string; date: string; typeUuid: string | null; typeName: string | null }
-  | { before: string; after: string; reason: string | null; date: string | null };
+  | { before: string; after: string; reason: string | null; date: string | null }
+  | { isOn: boolean };
 
 export interface RecordPatientActivityInput {
   tenantUuid: string;

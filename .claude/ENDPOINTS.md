@@ -274,6 +274,9 @@ Meses (`YYYY-MM`, UTC), ordenados ascendente, que tienen al menos una cita con `
 }
 ```
 **Response 200:** Updated appointment.  
+Pasar `status` a `WAITING` (llegó) o `COMPLETED` (atendido) anota
+`APPOINTMENT_ARRIVED` / `APPOINTMENT_COMPLETED` en la bitácora del paciente,
+solo si el estado cambia. Volver a `CONFIRMED` no se anota.  
 **Status:** Implemented.
 
 ---
@@ -612,7 +615,7 @@ historial reconstruido. Registrar una acción nunca hace fallar la operación
 original (si falla, queda un warning en el log).
 
 `action` es uno de:
-`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | STATUS_CHANGED`
+`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED`
 
 `detail` según la acción:
 
@@ -627,6 +630,7 @@ original (si falla, queda un warning en el log).
 | DOCUMENT_RENAMED | `{ documentUuid, before, after }` |
 | APPOINTMENT_TENTATIVE | `{ month: "YYYY-MM", typeUuid, typeName }` — limpiar el mes no se registra |
 | APPOINTMENT_CONFIRMED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` |
+| APPOINTMENT_ARRIVED / APPOINTMENT_COMPLETED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` — `PATCH /appointments/:uuid` con `status` `WAITING` o `COMPLETED` (solo si el estado cambia) |
 | STATUS_CHANGED | `{ before, after, reason, date }` — estados `ACTIVE/INACTIVE/DECEASED`; `date` = fecha de fallecimiento `YYYY-MM-DD` o `null` |
 
 `typeName` y `patientName` son copias al momento de la acción.
@@ -733,3 +737,61 @@ existentes quedan `ACTIVE`.
 - `appointmentTypeUuid` — tipo de la **próxima cita**: la CONFIRMED futura más cercana, o el tipo del mes tentativo.
 
 Se combinan entre sí y con `search` y `nextAppointmentMonth`.
+
+## Calendar Feed (Medical Records Service, port 7071)
+
+Calendario suscrito (webcal) para que las citas aparezcan solas en el
+calendario del teléfono (iPhone, Outlook, Google). Un enlace por usuario; la app
+de calendario no puede iniciar sesión, así que un token secreto en el enlace
+hace de llave. Tabla `CalendarFeed` (migración `20260930120000_add_calendar_feed`).
+
+Un **calendario** es una sede, o una sede y un tipo de cita. Su clave es
+`"<sede>"` o `"<sede>:<tipo>"` (`buildCalendarKey`).
+
+### GET /calendar-feed
+**Auth:** Bearer. **Response 200:**
+```json
+{
+  "token": "string | null",
+  "removedCalendarKeys": ["<sede>", "<sede>:<tipo>"],
+  "fetchedCalendars": { "<sede>[:<tipo>]": "ISO de la última vez que el teléfono lo pidió" }
+}
+```
+`token` es `null` si el usuario no tiene calendario conectado. `fetchedCalendars` es lo que permite saber qué calendarios ya agregó al teléfono: el servidor no tiene otra forma de saberlo.
+**Status:** Implemented.
+
+### POST /calendar-feed
+**Auth:** Bearer. **Body:** vacío. Crea el enlace del usuario; **si ya tiene uno lo devuelve sin cambiarlo** (cambiar el token dejaría sin citas a todo lo que ya agregó al teléfono).
+**Response 201:** igual que `GET /calendar-feed` (token de 32 caracteres base64url).
+**Status:** Implemented.
+
+### PATCH /calendar-feed/calendars
+**Auth:** Bearer. **Body:** `{ "branchUuid": uuid, "typeUuid"?: uuid | null, "isRemoved": boolean }`.
+`isRemoved: true` quita el calendario: el `.ics` pasa a responder **vacío** (con su nombre). El servidor no puede borrar la suscripción del teléfono; queda en el iPhone sin citas. `false` lo vuelve a mostrar.
+**Response 200:** igual que `GET /calendar-feed`. **404** si el usuario no tiene calendario, o la sede o el tipo no son de su clínica. **400** si el body es inválido.
+Columnas `removedCalendarKeys` y `fetchedCalendars` (migración `20261009120000_calendar_feed_calendar_keys`).
+**Status:** Implemented.
+
+### DELETE /calendar-feed
+**Auth:** Bearer. Desconecta el calendario del usuario.
+**Response 200:** `{ "success": true }`.
+**Status:** Implemented.
+
+### GET /calendar-feed/:token.ics
+**Auth:** ninguna (público; el token es la llave).
+**Query:**
+- `branch` (uuid, opcional) — solo las citas de esa sede; el calendario se llama `Citas · <sede>`.
+- `type` (uuid, opcional, solo junto a `branch`) — además, solo las de ese tipo; el calendario se llama `<sede> · <tipo>`.
+- `color` (`#rrggbb`, opcional) — color del calendario (`X-APPLE-CALENDAR-COLOR`). El iPhone colorea calendarios enteros, no eventos: por eso el back-office ofrece un enlace por calendario, cada uno con su color.
+
+Una sede o un tipo de otra clínica, o un calendario quitado, devuelven el calendario vacío. Cada consulta con `branch` anota la hora en `fetchedCalendars`; si eso falla, el calendario se responde igual.
+
+**Response 200:** `text/calendar; charset=utf-8` (iCalendar, RFC 5545).
+- Citas de la clínica del dueño del token, de 30 días atrás a 365 adelante, sin `CANCELLED` ni `TENTATIVE`.
+- `SUMMARY`: `<nombre completo del paciente>`, más ` · <tipo>` si el calendario no es de un tipo y ` · <sede>` si no es de una sede. **Lleva el nombre completo por decisión de la clínica**, aunque el calendario vive en teléfonos personales.
+- Cita a las 08:00:00 UTC exactas (`DEFAULT_APPOINTMENT_HOUR_UTC`, "solo día") → evento de día completo.
+- `UID` estable (`<uuid de la cita>@standard-saas.com`): el teléfono actualiza en vez de duplicar.
+- `REFRESH-INTERVAL` y `X-PUBLISHED-TTL`: 15 minutos (sugerencia; cada app decide).
+
+Un token que no existe (revocado o inventado) responde **200 con un calendario vacío**, no 404: así el teléfono borra las citas que tenía.
+**Status:** Implemented.

@@ -35,6 +35,7 @@ import {
 import { DeletePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/delete-patient-document.use-case';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 import { RenamePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/rename-patient-document.use-case';
+import { decodeUploadedFileName } from '@medical-records/domain/utils/file-name.util';
 
 const UPLOAD_OPTIONS = {
   storage: memoryStorage(),
@@ -79,7 +80,7 @@ export class PatientDocumentController {
     return await this.createUseCase.execute({
       patientUuid,
       tenantUuid: user.tenantUuid,
-      originalName: file.originalname,
+      originalName: decodeUploadedFileName(file.originalname),
       url,
       category,
       size: file.size,

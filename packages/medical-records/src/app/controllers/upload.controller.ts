@@ -19,6 +19,7 @@ import {
 } from '@project/core';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 import { PatientDocumentWithUploader } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
+import { decodeUploadedFileName } from '@medical-records/domain/utils/file-name.util';
 
 const UPLOAD_OPTIONS = {
   storage: memoryStorage(),
@@ -52,7 +53,7 @@ export class UploadController {
     const document = await this.createDocumentUseCase.execute({
       patientUuid,
       tenantUuid,
-      originalName: file.originalname,
+      originalName: decodeUploadedFileName(file.originalname),
       url,
       category,
       size: file.size,
