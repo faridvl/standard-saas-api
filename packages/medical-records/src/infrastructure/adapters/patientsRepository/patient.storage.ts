@@ -50,9 +50,13 @@ import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 export interface PatientListFilters {
   /** Estados (PatientStatus) a incluir; vacío o ausente = todos. */
   statuses?: string[];
-  branchUuid?: string;
-  /** Tipo de la próxima cita: la confirmada o, si no hay, la tentativa. */
-  appointmentTypeUuid?: string;
+  /** Sedes a incluir (cualquiera de ellas). */
+  branchUuids?: string[];
+  /** Tipos de la próxima cita: la confirmada o, si no hay, la tentativa. */
+  appointmentTypeUuids?: string[];
+  /** Solo pacientes con el indicador prendido. */
+  hearingAidsInLab?: boolean;
+  hasActiveWarranty?: boolean;
 }
 
 export type PatientWithNextAppointment = Patient & {
@@ -277,14 +281,11 @@ export class PatientStorage {
       .filter((month): month is string => month !== null);
   }
 
-  /** UUIDs de pacientes cuya próxima cita CONFIRMED cae dentro del mes dado (YYYY-MM). */
-  private async findPatientUuidsWithNextAppointmentInMonth(
+  /** UUIDs de pacientes cuya próxima cita CONFIRMED cae en alguno de los meses (YYYY-MM, UTC). */
+  private async findPatientUuidsWithNextAppointmentInMonths(
     tenantUUID: string,
-    month: string,
+    months: string[],
   ): Promise<string[]> {
-    const monthStart = new Date(`${month}-01T00:00:00.000Z`);
-    const monthEnd = new Date(monthStart);
-    monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
 
     const rows = await this.prisma.appointment.findMany({
       where: {
@@ -298,14 +299,14 @@ export class PatientStorage {
     });
 
     return rows
-      .filter((row) => row.startTime >= monthStart && row.startTime < monthEnd)
+      .filter((row) => months.includes(row.startTime.toISOString().slice(0, 7)))
       .map((row) => row.patientUUID);
   }
 
-  /** UUIDs de pacientes cuya próxima cita CONFIRMED futura es del tipo dado. */
-  private async findPatientUuidsWithNextAppointmentOfType(
+  /** UUIDs de pacientes cuya próxima cita CONFIRMED futura es de alguno de los tipos. */
+  private async findPatientUuidsWithNextAppointmentOfTypes(
     tenantUUID: string,
-    typeUuid: string,
+    typeUuids: string[],
   ): Promise<string[]> {
     const rows = await this.prisma.appointment.findMany({
       where: { tenantUUID, status: 'CONFIRMED', startTime: { gte: new Date() } },
@@ -314,7 +315,9 @@ export class PatientStorage {
       select: { patientUUID: true, typeUUID: true },
     });
 
-    return rows.filter((row) => row.typeUUID === typeUuid).map((row) => row.patientUUID);
+    return rows
+      .filter((row) => row.typeUUID !== null && typeUuids.includes(row.typeUUID))
+      .map((row) => row.patientUUID);
   }
 
   async findAllByTenant(
@@ -323,7 +326,7 @@ export class PatientStorage {
     limit: number = 10,
     includeInactive = false,
     search?: string,
-    nextAppointmentMonth?: string,
+    nextAppointmentMonths?: string[],
     filters: PatientListFilters = {},
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     const skip = (page - 1) * limit;
@@ -345,25 +348,27 @@ export class PatientStorage {
     // pisar el OR de la búsqueda por texto (ver el comentario del mes).
     const and: Prisma.PatientWhereInput[] = [];
     if (filters.statuses?.length) and.push({ status: { in: filters.statuses } });
-    if (filters.branchUuid) and.push({ branchUuid: filters.branchUuid });
-    if (filters.appointmentTypeUuid) {
-      const withConfirmedOfType = await this.findPatientUuidsWithNextAppointmentOfType(
+    if (filters.branchUuids?.length) and.push({ branchUuid: { in: filters.branchUuids } });
+    if (filters.appointmentTypeUuids?.length) {
+      const withConfirmedOfType = await this.findPatientUuidsWithNextAppointmentOfTypes(
         tenantUUID,
-        filters.appointmentTypeUuid,
+        filters.appointmentTypeUuids,
       );
       and.push({
         OR: [
           { uuid: { in: withConfirmedOfType } },
-          { tentativeAppointmentTypeUuid: filters.appointmentTypeUuid },
+          { tentativeAppointmentTypeUuid: { in: filters.appointmentTypeUuids } },
         ],
       });
     }
+    if (filters.hearingAidsInLab) and.push({ hearingAidsInLabSince: { not: null } });
+    if (filters.hasActiveWarranty) and.push({ warrantyActiveSince: { not: null } });
     if (and.length > 0) where.AND = and;
 
-    if (nextAppointmentMonth) {
-      const matchingUuids = await this.findPatientUuidsWithNextAppointmentInMonth(
+    if (nextAppointmentMonths?.length) {
+      const matchingUuids = await this.findPatientUuidsWithNextAppointmentInMonths(
         tenantUUID,
-        nextAppointmentMonth,
+        nextAppointmentMonths,
       );
 
       // El mes filtra dos cosas a la vez: quien tiene cita confirmada ese mes
@@ -381,7 +386,7 @@ export class PatientStorage {
             {
               OR: [
                 { uuid: { in: matchingUuids } },
-                { tentativeAppointmentMonth: nextAppointmentMonth },
+                { tentativeAppointmentMonth: { in: nextAppointmentMonths } },
               ],
             },
           ],

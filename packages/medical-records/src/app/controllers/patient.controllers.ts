@@ -51,6 +51,15 @@ import { PatientBackgroundEntity } from '@medical-records/domain/entities/patien
 // sensibles (Ley 8968), no información administrativa.
 const STAFF_ROLE = 'STAFF';
 
+/** "a,b" -> ['a', 'b']; vacío o ausente = sin filtrar. */
+function parseList(value: string | undefined): string[] | undefined {
+  const items = value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items?.length ? items : undefined;
+}
+
 /** "ACTIVE,INACTIVE" -> ['ACTIVE', 'INACTIVE']; 400 si alguno no existe. */
 function parseStatuses(value: string | undefined): PatientStatus[] | undefined {
   if (!value) return undefined;
@@ -111,8 +120,11 @@ export class PatientController {
     @Query('search') search?: string,
     @Query('nextAppointmentMonth') nextAppointmentMonth?: string,
     @Query('status') status?: string,
+    // Sedes, tipos y meses aceptan varios valores separados por coma.
     @Query('branchUuid') branchUuid?: string,
     @Query('appointmentTypeUuid') appointmentTypeUuid?: string,
+    @Query('hearingAidsInLab') hearingAidsInLab?: string,
+    @Query('hasActiveWarranty') hasActiveWarranty?: string,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
       user.tenantUuid,
@@ -120,11 +132,13 @@ export class PatientController {
       Number(limit),
       includeInactive === 'true',
       search,
-      nextAppointmentMonth,
+      parseList(nextAppointmentMonth),
       {
         statuses: parseStatuses(status),
-        branchUuid: branchUuid || undefined,
-        appointmentTypeUuid: appointmentTypeUuid || undefined,
+        branchUuids: parseList(branchUuid),
+        appointmentTypeUuids: parseList(appointmentTypeUuid),
+        hearingAidsInLab: hearingAidsInLab === 'true',
+        hasActiveWarranty: hasActiveWarranty === 'true',
       },
     );
   }

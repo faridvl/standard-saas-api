@@ -16,7 +16,7 @@ export class GetPatientsUseCase {
     limit: number,
     includeInactive = false,
     search?: string,
-    nextAppointmentMonth?: string,
+    nextAppointmentMonths?: string[],
     filters: PatientListFilters = {},
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.patientStorage.findAllByTenant(
@@ -25,7 +25,7 @@ export class GetPatientsUseCase {
       limit,
       includeInactive,
       search,
-      nextAppointmentMonth,
+      nextAppointmentMonths,
       filters,
     );
   }
