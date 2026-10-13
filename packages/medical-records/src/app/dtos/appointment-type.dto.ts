@@ -8,3 +8,10 @@ export const CreateAppointmentTypeSchema = z.object({
 });
 
 export type CreateAppointmentTypeDto = z.infer<typeof CreateAppointmentTypeSchema>;
+
+export const UpdateAppointmentTypeSchema = CreateAppointmentTypeSchema.partial().refine(
+  (dto) => Object.values(dto).some((value) => value !== undefined),
+  { message: 'Indica al menos un campo para actualizar' },
+);
+
+export type UpdateAppointmentTypeDto = z.infer<typeof UpdateAppointmentTypeSchema>;

@@ -6,6 +6,7 @@ import {
   CreateAppointmentTypeUseCase,
   InitializeAppointmentTypesUseCase,
   DeleteAppointmentTypeUseCase,
+  UpdateAppointmentTypeUseCase,
 } from '@medical-records/domain/use-cases/appointment-types';
 
 const CONTROLLERS = [AppointmentTypeController];
@@ -14,6 +15,7 @@ const USE_CASES = [
   CreateAppointmentTypeUseCase,
   InitializeAppointmentTypesUseCase,
   DeleteAppointmentTypeUseCase,
+  UpdateAppointmentTypeUseCase,
 ];
 const STORAGES = [AppointmentTypeStorage];
 
