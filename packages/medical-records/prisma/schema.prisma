@@ -74,6 +74,11 @@ model Patient {
   hearingAidsInLabSince DateTime?
   warrantyActiveSince   DateTime?
   videoCandidateSince   DateTime?
+  warrantyExpiredSince  DateTime?
+  renewPrescriptionSince DateTime?
+  // Documento del expediente (PatientDocument) elegido como garantía. Sin FK:
+  // al borrar el documento el caso de uso lo deja en null.
+  warrantyDocumentUuid  String?
   birthDate    DateTime
   email        String?
   gender              String?

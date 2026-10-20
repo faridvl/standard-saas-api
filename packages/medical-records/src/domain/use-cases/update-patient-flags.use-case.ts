@@ -29,11 +29,21 @@ const FLAGS: {
     sinceField: 'videoCandidateSince',
     action: PatientActivityAction.VIDEO_CANDIDATE_CHANGED,
   },
+  {
+    key: 'warrantyExpired',
+    sinceField: 'warrantyExpiredSince',
+    action: PatientActivityAction.WARRANTY_EXPIRED_CHANGED,
+  },
+  {
+    key: 'renewPrescription',
+    sinceField: 'renewPrescriptionSince',
+    action: PatientActivityAction.RENEW_PRESCRIPTION_CHANGED,
+  },
 ];
 
 /**
  * Indicadores del paciente que se prenden y apagan (audífonos en laboratorio,
- * garantía activa, candidato a video). Son independientes del estado
+ * garantía activa, candidato a video, garantía vencida, renovar receta). Son independientes del estado
  * activo/inactivo/fallecido. Cada uno se guarda como "desde cuándo", null si
  * está apagado.
  */

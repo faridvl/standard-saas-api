@@ -141,6 +141,8 @@ export class PatientController {
     @Query('hearingAidsInLab') hearingAidsInLab?: string,
     @Query('hasActiveWarranty') hasActiveWarranty?: string,
     @Query('isVideoCandidate') isVideoCandidate?: string,
+    @Query('warrantyExpired') warrantyExpired?: string,
+    @Query('renewPrescription') renewPrescription?: string,
     @Query('nextAppointmentKind') nextAppointmentKind?: string,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
@@ -157,6 +159,8 @@ export class PatientController {
         hearingAidsInLab: hearingAidsInLab === 'true',
         hasActiveWarranty: hasActiveWarranty === 'true',
         isVideoCandidate: isVideoCandidate === 'true',
+        warrantyExpired: warrantyExpired === 'true',
+        renewPrescription: renewPrescription === 'true',
         nextAppointmentKinds: parseKinds(nextAppointmentKind),
       },
     );

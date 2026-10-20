@@ -21,6 +21,8 @@
 - PrismaService per-service (identity uses IDENTITY_DB_URL, medical-records uses MEDICAL_RECORDS_DB_URL)
 - Medical records service: calendario suscrito (`CalendarFeed` + `GET/POST/DELETE /calendar-feed`, público `GET /calendar-feed/:token.ics` con `branch` y `color`). Un enlace por usuario; el evento lleva el nombre completo del paciente. `DEFAULT_APPOINTMENT_HOUR_UTC` pasa a `appointment.types.ts` (lo comparten `next-appointment` y el calendario). Tabla nueva vacía
 
+- Medical records service: indicadores `warrantyExpired` y `renewPrescription` (columnas `warrantyExpiredSince`/`renewPrescriptionSince`, filtros en `GET /patients`, acciones `WARRANTY_EXPIRED_CHANGED`/`RENEW_PRESCRIPTION_CHANGED`); `warrantyDocumentUuid` en el paciente vía `PATCH /patients/:uuid` (se limpia al borrar el documento); `PATCH` de documentos acepta `category` (acción `DOCUMENT_CATEGORY_CHANGED`). Migración `20261020120000_add_warranty_expired_renew_prescription`, sin aplicar
+
 ## 🔄 EN PROGRESO
 
 _(nothing currently marked as in-progress in code)_
