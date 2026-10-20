@@ -9,6 +9,7 @@ import {
   ForbiddenException,
   Delete,
   Param,
+  Patch,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -17,9 +18,12 @@ import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-case
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
 import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/initialize-appointment-types.use-case';
 import { DeleteAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/delete-appointment-type.use-case';
+import { UpdateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/update-appointment-type.use-case';
 import {
   CreateAppointmentTypeDto,
   CreateAppointmentTypeSchema,
+  UpdateAppointmentTypeDto,
+  UpdateAppointmentTypeSchema,
 } from '@medical-records/app/dtos/appointment-type.dto';
 import { z } from 'zod';
 import { AppointmentTypeEntity } from '@medical-records/domain/entities/appointment-type.entity';
@@ -37,6 +41,7 @@ export class AppointmentTypeController {
     private readonly createUseCase: CreateAppointmentTypeUseCase,
     private readonly initializeUseCase: InitializeAppointmentTypesUseCase,
     private readonly deleteUseCase: DeleteAppointmentTypeUseCase,
+    private readonly updateUseCase: UpdateAppointmentTypeUseCase,
   ) {}
 
   @Get()
@@ -53,6 +58,17 @@ export class AppointmentTypeController {
     @CurrentUser() user: JwtPayload,
   ): Promise<AppointmentTypeEntity> {
     return await this.createUseCase.execute(user.tenantUuid, dto);
+  }
+
+  @Patch(':uuid')
+  @UseGuards(AuthGuard)
+  @UsePipes(new ZodValidationPipe(UpdateAppointmentTypeSchema))
+  async update(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpdateAppointmentTypeDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<AppointmentTypeEntity> {
+    return await this.updateUseCase.execute(user.tenantUuid, uuid, dto);
   }
 
   @Delete(':uuid')

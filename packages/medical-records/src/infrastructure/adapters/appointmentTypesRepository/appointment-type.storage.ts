@@ -1,7 +1,10 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentTypeEntity } from '@medical-records/domain/entities/appointment-type.entity';
-import { CreateAppointmentTypeDto } from '@medical-records/app/dtos/appointment-type.dto';
+import {
+  CreateAppointmentTypeDto,
+  UpdateAppointmentTypeDto,
+} from '@medical-records/app/dtos/appointment-type.dto';
 
 @Injectable()
 export class AppointmentTypeStorage {
@@ -49,6 +52,24 @@ export class AppointmentTypeStorage {
       },
     });
     return this.mapToDomain(row);
+  }
+
+  /** Solo cambia los campos recibidos; null limpia uno opcional. */
+  async update(
+    tenantUUID: string,
+    uuid: string,
+    dto: UpdateAppointmentTypeDto,
+  ): Promise<AppointmentTypeEntity | null> {
+    const { count } = await this.prisma.appointmentType.updateMany({
+      where: { uuid, tenantUUID },
+      data: {
+        name: dto.name,
+        duration: dto.duration,
+        color: dto.color,
+        speciality: dto.speciality,
+      },
+    });
+    return count > 0 ? this.findByUuid(tenantUUID, uuid) : null;
   }
 
   async delete(tenantUUID: string, uuid: string): Promise<void> {
