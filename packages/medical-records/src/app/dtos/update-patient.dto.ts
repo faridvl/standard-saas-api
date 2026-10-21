@@ -25,6 +25,12 @@ export const UpdatePatientSchema = z.object({
     .uuid({ message: 'ID de tipo de cita inválido' })
     .nullable()
     .optional(),
+  // Documento del expediente que hace de garantía. null lo quita.
+  warrantyDocumentUuid: z
+    .string()
+    .uuid({ message: 'ID de documento inválido' })
+    .nullable()
+    .optional(),
 });
 
 export type UpdatePatientDto = z.infer<typeof UpdatePatientSchema>;

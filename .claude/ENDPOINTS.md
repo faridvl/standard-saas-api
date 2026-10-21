@@ -615,7 +615,7 @@ historial reconstruido. Registrar una acción nunca hace fallar la operación
 original (si falla, queda un warning en el log).
 
 `action` es uno de:
-`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED`
+`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_CATEGORY_CHANGED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED | HEARING_AIDS_LAB_CHANGED | WARRANTY_CHANGED | VIDEO_CANDIDATE_CHANGED | WARRANTY_EXPIRED_CHANGED | RENEW_PRESCRIPTION_CHANGED`
 
 `detail` según la acción:
 
@@ -628,10 +628,12 @@ original (si falla, queda un warning en el log).
 | NOTE_ADDED | `{ category, excerpt }` (primeros 120 caracteres) |
 | DOCUMENT_UPLOADED / DOCUMENT_DELETED | `{ documentUuid, originalName, category }` |
 | DOCUMENT_RENAMED | `{ documentUuid, before, after }` |
+| DOCUMENT_CATEGORY_CHANGED | `{ documentUuid, before, after }` — `before`/`after` son `DocumentCategory` |
 | APPOINTMENT_TENTATIVE | `{ month: "YYYY-MM", typeUuid, typeName }` — limpiar el mes no se registra |
 | APPOINTMENT_CONFIRMED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` |
 | APPOINTMENT_ARRIVED / APPOINTMENT_COMPLETED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` — `PATCH /appointments/:uuid` con `status` `WAITING` o `COMPLETED` (solo si el estado cambia) |
 | STATUS_CHANGED | `{ before, after, reason, date }` — estados `ACTIVE/INACTIVE/DECEASED`; `date` = fecha de fallecimiento `YYYY-MM-DD` o `null` |
+| HEARING_AIDS_LAB_CHANGED / WARRANTY_CHANGED / VIDEO_CANDIDATE_CHANGED / WARRANTY_EXPIRED_CHANGED / RENEW_PRESCRIPTION_CHANGED | `{ isOn }` — solo si el indicador cambió |
 
 `typeName` y `patientName` son copias al momento de la acción.
 
@@ -737,6 +739,36 @@ existentes quedan `ACTIVE`.
 - `appointmentTypeUuid` — tipo de la **próxima cita**: la CONFIRMED futura más cercana, o el tipo del mes tentativo.
 
 Se combinan entre sí y con `search` y `nextAppointmentMonth`.
+
+Indicadores (`=true` filtra por los que lo tienen prendido; otro valor o ausente no filtra):
+`hearingAidsInLab`, `hasActiveWarranty`, `isVideoCandidate`, `warrantyExpired`, `renewPrescription`.
+
+### PUT /patients/:uuid/flags
+**Body (al menos uno):**
+```json
+{ "hearingAidsInLab": "boolean?", "hasActiveWarranty": "boolean?", "isVideoCandidate": "boolean?", "warrantyExpired": "boolean?", "renewPrescription": "boolean?" }
+```
+Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
+`hearingAidsInLabSince`, `warrantyActiveSince`, `videoCandidateSince`,
+`warrantyExpiredSince`, `renewPrescriptionSince`. Solo los que cambian se anotan
+en la bitácora. **Response 200:** `Patient`.
+Migración `20261020120000_add_warranty_expired_renew_prescription`.
+
+### PATCH /patients/:uuid — documento de garantía
+Acepta además `warrantyDocumentUuid: uuid | null` (null lo quita). Debe ser un
+documento de ese paciente y de la clínica; si no, **400**
+`"El documento de garantía no existe en el expediente"`. El `Patient` devuelto
+incluye `warrantyDocumentUuid`. Al borrar ese documento
+(`DELETE /patients/:uuid/documents/:documentUuid`) el campo vuelve a `null`.
+
+### PATCH /patients/:patientUuid/documents/:documentUuid
+**Body (al menos uno):**
+```json
+{ "originalName": "string (1-255)?", "category": "EVOLUTION_CONTROL | WARRANTY | EXTERNAL_TEST | CLINICAL_HISTORY | OTHER ?" }
+```
+**Response 200:** `PatientDocument` actualizado. **404** si el documento no es
+de la clínica. Bitácora: `DOCUMENT_RENAMED` si cambió el nombre y
+`DOCUMENT_CATEGORY_CHANGED` si cambió la sección.
 
 ## Calendar Feed (Medical Records Service, port 7071)
 

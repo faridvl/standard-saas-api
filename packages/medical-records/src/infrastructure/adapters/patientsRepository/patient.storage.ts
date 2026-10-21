@@ -58,6 +58,8 @@ export interface PatientListFilters {
   hearingAidsInLab?: boolean;
   hasActiveWarranty?: boolean;
   isVideoCandidate?: boolean;
+  warrantyExpired?: boolean;
+  renewPrescription?: boolean;
   /** Si la próxima cita es confirmada (con día) o tentativa (solo mes); ambas o ninguna = todas. */
   nextAppointmentKinds?: NextAppointmentKind[];
 }
@@ -72,6 +74,8 @@ export interface PatientFlagsUpdate {
   hearingAidsInLabSince?: Date | null;
   warrantyActiveSince?: Date | null;
   videoCandidateSince?: Date | null;
+  warrantyExpiredSince?: Date | null;
+  renewPrescriptionSince?: Date | null;
 }
 
 /** Valor del filtro de mes que pide los pacientes sin próxima cita. */
@@ -156,6 +160,9 @@ export class PatientStorage {
         ...(dto.tentativeAppointmentTypeUuid !== undefined && {
           tentativeAppointmentTypeUuid: dto.tentativeAppointmentTypeUuid,
         }),
+        ...(dto.warrantyDocumentUuid !== undefined && {
+          warrantyDocumentUuid: dto.warrantyDocumentUuid,
+        }),
       },
     });
   }
@@ -202,6 +209,18 @@ export class PatientStorage {
         : []),
     ]);
     return patient;
+  }
+
+  async documentBelongsToPatient(
+    documentUuid: string,
+    patientUuid: string,
+    tenantUuid: string,
+  ): Promise<boolean> {
+    const document = await this.prisma.patientDocument.findFirst({
+      where: { uuid: documentUuid, patientUuid, tenantUuid },
+      select: { id: true },
+    });
+    return document !== null;
   }
 
   async findByDocumentId(
@@ -378,6 +397,8 @@ export class PatientStorage {
     if (filters.hearingAidsInLab) and.push({ hearingAidsInLabSince: { not: null } });
     if (filters.hasActiveWarranty) and.push({ warrantyActiveSince: { not: null } });
     if (filters.isVideoCandidate) and.push({ videoCandidateSince: { not: null } });
+    if (filters.warrantyExpired) and.push({ warrantyExpiredSince: { not: null } });
+    if (filters.renewPrescription) and.push({ renewPrescriptionSince: { not: null } });
     // Confirmada y tentativa son excluyentes, así que pedir una sola basta para separarlas.
     const kinds = filters.nextAppointmentKinds ?? [];
     if (kinds.length === 1 && kinds[0] === NextAppointmentKind.CONFIRMED) {

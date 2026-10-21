@@ -25,8 +25,8 @@ import {
   imageAndPdfFilter,
 } from '@project/core';
 import {
-  RenamePatientDocumentDto,
-  RenamePatientDocumentSchema,
+  UpdatePatientDocumentDto,
+  UpdatePatientDocumentSchema,
 } from '@medical-records/app/dtos/patient-document.dto';
 import {
   FindPatientDocumentsUseCase,
@@ -89,18 +89,13 @@ export class PatientDocumentController {
   }
 
   @Patch(':documentUuid')
-  @UsePipes(new ZodValidationPipe(RenamePatientDocumentSchema))
-  async rename(
+  @UsePipes(new ZodValidationPipe(UpdatePatientDocumentSchema))
+  async update(
     @Param('documentUuid') documentUuid: string,
-    @Body() dto: RenamePatientDocumentDto,
+    @Body() dto: UpdatePatientDocumentDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientDocument> {
-    return await this.renameUseCase.execute(
-      documentUuid,
-      user.tenantUuid,
-      dto.originalName,
-      user.sub,
-    );
+    return await this.renameUseCase.execute(documentUuid, user.tenantUuid, dto, user.sub);
   }
 
   @Delete(':documentUuid')
