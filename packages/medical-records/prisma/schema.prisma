@@ -156,8 +156,15 @@ model PatientBackground {
   tinnitus      Boolean  @default(false)
   headacheNoise Boolean  @default(false)
   cloggedEar    Boolean  @default(false)
+  dizziness     Boolean  @default(false)
+  tinnitusTone  String?
+  otoscopyRight String?
+  otoscopyLeft  String?
   notes         String?
+  createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  createdByUuid String?
+  updatedByUuid String?
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
 }

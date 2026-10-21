@@ -14,6 +14,18 @@ export interface PatientBackgroundEntity {
   tinnitus: boolean;
   headacheNoise: boolean;
   cloggedEar: boolean;
+  dizziness: boolean;
+  tinnitusTone: string | null;
+  otoscopyRight: string | null;
+  otoscopyLeft: string | null;
   notes: string | null;
+  createdAt: string;
   updatedAt: string;
+  createdByUuid: string | null;
+  updatedByUuid: string | null;
 }
+
+export type PatientBackgroundData = Omit<
+  PatientBackgroundEntity,
+  'uuid' | 'patientUuid' | 'createdAt' | 'updatedAt' | 'createdByUuid' | 'updatedByUuid'
+>;
