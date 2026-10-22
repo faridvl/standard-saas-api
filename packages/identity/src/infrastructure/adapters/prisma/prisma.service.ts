@@ -15,10 +15,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     });
 
     const adapter = new PrismaPg(pool);
-    // Añadimos configuración de log para ver qué hace Prisma en Vercel
+    // Las queries solo se loguean a pedido: en Railway llenan los logs con cada consulta.
+    const logQueries = process.env.PRISMA_LOG_QUERIES === 'true';
     super({
       adapter,
-      log: ['query', 'error', 'warn'],
+      log: logQueries ? ['query', 'error', 'warn'] : ['error', 'warn'],
     });
   }
 
