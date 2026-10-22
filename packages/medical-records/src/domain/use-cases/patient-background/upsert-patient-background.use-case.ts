@@ -26,6 +26,8 @@ export class UpsertPatientBackgroundUseCase {
     const saved = await this.storage.upsert(patientUuid, actorUuid, {
       ...dto,
       notes: dto.notes ?? null,
+      answers: dto.answers ?? null,
+      templateSnapshot: dto.templateSnapshot ?? null,
     });
 
     await this.recordActivity.execute({
