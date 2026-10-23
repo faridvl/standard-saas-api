@@ -22,6 +22,7 @@
 - Medical records service: calendario suscrito (`CalendarFeed` + `GET/POST/DELETE /calendar-feed`, público `GET /calendar-feed/:token.ics` con `branch` y `color`). Un enlace por usuario; el evento lleva el nombre completo del paciente. `DEFAULT_APPOINTMENT_HOUR_UTC` pasa a `appointment.types.ts` (lo comparten `next-appointment` y el calendario). Tabla nueva vacía
 
 - Medical records service: indicadores `warrantyExpired` y `renewPrescription` (columnas `warrantyExpiredSince`/`renewPrescriptionSince`, filtros en `GET /patients`, acciones `WARRANTY_EXPIRED_CHANGED`/`RENEW_PRESCRIPTION_CHANGED`); `warrantyDocumentUuid` en el paciente vía `PATCH /patients/:uuid` (se limpia al borrar el documento); `PATCH` de documentos acepta `category` (acción `DOCUMENT_CATEGORY_CHANGED`). Migración `20261020120000_add_warranty_expired_renew_prescription`, sin aplicar
+- Prisma: el log de cada query pasa a ser opcional (`PRISMA_LOG_QUERIES=true`); por defecto solo `error` y `warn`
 - Medical records service: historia clínica en `PatientBackground` — campos `dizziness`, `tinnitusTone`, `otoscopyRight`, `otoscopyLeft`, `createdAt`, `createdByUuid`, `updatedByUuid`; `GET/PUT /patients/:uuid/background` ahora comprueban que el paciente sea de la clínica (404 si no); acciones `CLINICAL_HISTORY_CREATED`/`CLINICAL_HISTORY_UPDATED`. Migración `20261021120000_add_clinical_history_fields`, sin aplicar
 
 ## 🔄 EN PROGRESO

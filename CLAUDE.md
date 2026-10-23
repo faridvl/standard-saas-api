@@ -60,7 +60,7 @@ Each service has its own `.env` file.
 - `JWT_SECRET` — must match identity service value
 - `PORT` — optional, defaults to 7071
 
-Both services read `NODE_ENV`.
+Both services read `NODE_ENV`, and `PRISMA_LOG_QUERIES=true` (optional) to log every SQL query — leave it unset on Railway.
 
 ## .claude/ index
 
