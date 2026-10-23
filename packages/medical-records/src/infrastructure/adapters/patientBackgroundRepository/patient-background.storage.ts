@@ -1,30 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { PatientBackground, Prisma } from '@prisma/client';
+import { ClinicalFieldDefinition } from '@medical-records/domain/entities/clinical-template.entity';
 import { PrismaService } from '../prisma/prisma.service';
-import { PatientBackgroundEntity } from '@medical-records/domain/entities/patient-background.entity';
+import {
+  PatientBackgroundAnswer,
+  PatientBackgroundData,
+  PatientBackgroundEntity,
+} from '@medical-records/domain/entities/patient-background.entity';
 
 @Injectable()
 export class PatientBackgroundStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapToEntity(record: {
-    uuid: string;
-    patientUuid: string;
-    earInfections: boolean;
-    nasalSurgery: boolean;
-    throatSurgery: boolean;
-    earSurgery: boolean;
-    diabetes: boolean;
-    cholesterol: boolean;
-    highPressure: boolean;
-    allergies: boolean;
-    rhinitis: boolean;
-    vertigo: boolean;
-    tinnitus: boolean;
-    headacheNoise: boolean;
-    cloggedEar: boolean;
-    notes: string | null;
-    updatedAt: Date;
-  }): PatientBackgroundEntity {
+  private mapToEntity(record: PatientBackground): PatientBackgroundEntity {
     return {
       uuid: record.uuid,
       patientUuid: record.patientUuid,
@@ -41,9 +29,28 @@ export class PatientBackgroundStorage {
       tinnitus: record.tinnitus,
       headacheNoise: record.headacheNoise,
       cloggedEar: record.cloggedEar,
+      dizziness: record.dizziness,
+      tinnitusTone: record.tinnitusTone,
+      otoscopyRight: record.otoscopyRight,
+      otoscopyLeft: record.otoscopyLeft,
       notes: record.notes,
+      answers: (record.answers as Record<string, PatientBackgroundAnswer> | null) ?? null,
+      templateSnapshot: (record.templateSnapshot as unknown as ClinicalFieldDefinition[] | null) ?? null,
+      createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
+      createdByUuid: record.createdByUuid,
+      updatedByUuid: record.updatedByUuid,
     };
+  }
+
+  // PatientBackground no tiene tenantUuid: la pertenencia a la clínica se
+  // comprueba siempre sobre el paciente.
+  async patientExists(patientUuid: string, tenantUuid: string): Promise<boolean> {
+    const patient = await this.prisma.patient.findFirst({
+      where: { uuid: patientUuid, tenantUuid },
+      select: { id: true },
+    });
+    return patient !== null;
   }
 
   async findByPatient(patientUuid: string): Promise<PatientBackgroundEntity | null> {
@@ -56,12 +63,19 @@ export class PatientBackgroundStorage {
 
   async upsert(
     patientUuid: string,
-    data: Omit<PatientBackgroundEntity, 'uuid' | 'patientUuid' | 'updatedAt'>,
+    actorUuid: string,
+    data: PatientBackgroundData,
   ): Promise<PatientBackgroundEntity> {
+    // Prisma no acepta null en columnas Json: se guarda como NULL de la base.
+    const values = {
+      ...data,
+      answers: data.answers ?? Prisma.DbNull,
+      templateSnapshot: (data.templateSnapshot as unknown as Prisma.InputJsonValue) ?? Prisma.DbNull,
+    };
     const record = await this.prisma.patientBackground.upsert({
       where: { patientUuid },
-      create: { patientUuid, ...data },
-      update: { ...data },
+      create: { patientUuid, ...values, createdByUuid: actorUuid, updatedByUuid: actorUuid },
+      update: { ...values, updatedByUuid: actorUuid },
     });
     return this.mapToEntity(record);
   }

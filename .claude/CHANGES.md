@@ -23,6 +23,7 @@
 
 - Medical records service: indicadores `warrantyExpired` y `renewPrescription` (columnas `warrantyExpiredSince`/`renewPrescriptionSince`, filtros en `GET /patients`, acciones `WARRANTY_EXPIRED_CHANGED`/`RENEW_PRESCRIPTION_CHANGED`); `warrantyDocumentUuid` en el paciente vía `PATCH /patients/:uuid` (se limpia al borrar el documento); `PATCH` de documentos acepta `category` (acción `DOCUMENT_CATEGORY_CHANGED`). Migración `20261020120000_add_warranty_expired_renew_prescription`, sin aplicar
 - Prisma: el log de cada query pasa a ser opcional (`PRISMA_LOG_QUERIES=true`); por defecto solo `error` y `warn`
+- Medical records service: historia clínica en `PatientBackground` — campos `dizziness`, `tinnitusTone`, `otoscopyRight`, `otoscopyLeft`, `createdAt`, `createdByUuid`, `updatedByUuid`; `GET/PUT /patients/:uuid/background` ahora comprueban que el paciente sea de la clínica (404 si no); acciones `CLINICAL_HISTORY_CREATED`/`CLINICAL_HISTORY_UPDATED`. Migración `20261021120000_add_clinical_history_fields`, sin aplicar
 
 ## 🔄 EN PROGRESO
 
@@ -35,6 +36,18 @@ _(nothing currently marked as in-progress in code)_
 - **Delete appointment endpoint**: `DeleteAppointmentUseCase` is referenced but commented out in `AppointmentController` constructor and the `@Delete` route is commented out. The use case file likely doesn't exist yet.
 - **FollowUp persistence**: `CreateMedicalControlUseCase` accepts `followUp` in the DTO and validates it, but the storage call is commented out (`// if (dto.followUp?.hasFollowUp) { ... }`). A FollowUp table/storage needs to be built.
 - **RolesGuard wiring**: `RolesGuard` is exported from core but not used in any controller. Role-based access control is not enforced beyond having the `role` in the JWT.
+
+### Decidido para más adelante (2026-10-22)
+- **Permisos configurables por el administrador de cada clínica.** Roles fijos
+  (`OWNER`, `ADMIN`, `DOCTOR`, `STAFF`) con permisos por defecto; el admin del
+  tenant prende y apaga permisos por rol para su clínica. Los endpoints revisan
+  **permisos**, nunca el rol suelto (hoy: `CLINICAL_ACCESS_ROLES` + `RolesGuard`,
+  a reemplazar por la configuración del tenant). Cuidados: leer los permisos en
+  cada request con cache corto (no en el JWT, o un cambio no aplica hasta
+  reloguear); permisos que el admin no puede quitarse; aviso al dar acceso
+  clínico a `STAFF` (Ley 8968); cada cambio en la bitácora; un permiso nuevo
+  arranca con su valor por defecto sin migrar datos. Detalle en
+  `audiocolors-backoffice/.claude/DECISIONS.md` D20.
 
 ### Media prioridad
 
