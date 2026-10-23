@@ -97,7 +97,7 @@ export class CreateResourceUseCase {
 - **Acceso clínico** = `CLINICAL_ACCESS_ROLES` (`OWNER`, `ADMIN`, `DOCTOR`), en
   `domain/policies/clinical-access.policy.ts`. `STAFF` recibe 403 en: historia clínica
   (`/patients/:uuid/background`), Control de evolución (`/patients/:patientUuid/notes`),
-  bitácora (`/patient-activity`), encounters, medical-controls, studies, y al cambiar la
+  bitácora (`/patient-activity`, salvo `/actors`), encounters, medical-controls, studies, y al cambiar la
   plantilla `CLINICAL_HISTORY`. Sí ve pacientes, contactos, citas y archivos.
 - Para restringir un controller entero: `@UseGuards(AuthGuard, RolesGuard)` +
   `@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)` (`RolesGuard` de `@project/core`).

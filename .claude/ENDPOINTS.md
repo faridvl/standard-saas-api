@@ -642,7 +642,7 @@ original (si falla, queda un warning en el log).
 `typeName` y `patientName` son copias al momento de la acción.
 
 ### GET /patient-activity
-**Auth:** Required. 403 para el rol `STAFF` en todas las rutas de `/patient-activity`.  
+**Auth:** Required. 403 para el rol `STAFF` en `/patient-activity`, `/months` y `/summary`; `/actors` queda abierto (solo nombres, lo usa la agenda).  
 **Query:**
 - `page` (default `1`), `limit` (default `20`, máx `100`)
 - `actorUuid` — solo acciones de ese usuario

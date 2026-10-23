@@ -47,10 +47,13 @@ function parseActions(value: string | undefined): PatientActivityAction[] | unde
   return actions as PatientActivityAction[];
 }
 
-/** Bitácora de acciones sobre los pacientes del tenant (solo lectura). Nombra datos clínicos: STAFF no la ve. */
+/**
+ * Bitácora de acciones sobre los pacientes del tenant (solo lectura). Nombra
+ * datos clínicos: STAFF no la ve. `actors` queda abierto porque solo da nombres
+ * de usuarios y la agenda lo usa para mostrar quién agendó.
+ */
 @Controller('patient-activity')
 @UseGuards(AuthGuard, RolesGuard)
-@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
 export class PatientActivityController {
   constructor(
     private readonly findUseCase: FindPatientActivityUseCase,
@@ -60,6 +63,7 @@ export class PatientActivityController {
   ) {}
 
   @Get()
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
   async findAll(
     @CurrentUser() user: JwtPayload,
     @Query('page') page: string = '1',
@@ -91,6 +95,7 @@ export class PatientActivityController {
   }
 
   @Get('months')
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
   async findMonths(
     @CurrentUser() user: JwtPayload,
     @Query('timeZone') timeZone?: string,
@@ -100,6 +105,7 @@ export class PatientActivityController {
   }
 
   @Get('summary')
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
   async summary(
     @CurrentUser() user: JwtPayload,
     @Query('from') from?: string,
