@@ -156,8 +156,18 @@ model PatientBackground {
   tinnitus      Boolean  @default(false)
   headacheNoise Boolean  @default(false)
   cloggedEar    Boolean  @default(false)
+  dizziness     Boolean  @default(false)
+  tinnitusTone  String?
+  otoscopyRight String?
+  otoscopyLeft  String?
   notes         String?
+  /// Respuestas por id de pregunta, con las preguntas tal como estaban al llenarla.
+  answers          Json?
+  templateSnapshot Json?
+  createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  createdByUuid String?
+  updatedByUuid String?
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
 }
@@ -188,7 +198,7 @@ model PatientNote {
   tenantUuid  String
   authorUuid  String
   category    DocumentCategory @default(EVOLUTION_CONTROL)
-  text        String           @db.VarChar(500)
+  text        String           @db.VarChar(2500)
   createdAt   DateTime         @default(now())
 
   patient     Patient          @relation(fields: [patientUuid], references: [uuid])

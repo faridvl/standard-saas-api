@@ -615,7 +615,7 @@ historial reconstruido. Registrar una acción nunca hace fallar la operación
 original (si falla, queda un warning en el log).
 
 `action` es uno de:
-`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_CATEGORY_CHANGED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED | HEARING_AIDS_LAB_CHANGED | WARRANTY_CHANGED | VIDEO_CANDIDATE_CHANGED | WARRANTY_EXPIRED_CHANGED | RENEW_PRESCRIPTION_CHANGED`
+`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_CATEGORY_CHANGED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED | HEARING_AIDS_LAB_CHANGED | WARRANTY_CHANGED | VIDEO_CANDIDATE_CHANGED | WARRANTY_EXPIRED_CHANGED | RENEW_PRESCRIPTION_CHANGED | CLINICAL_HISTORY_CREATED | CLINICAL_HISTORY_UPDATED`
 
 `detail` según la acción:
 
@@ -634,6 +634,7 @@ original (si falla, queda un warning en el log).
 | APPOINTMENT_ARRIVED / APPOINTMENT_COMPLETED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` — `PATCH /appointments/:uuid` con `status` `WAITING` o `COMPLETED` (solo si el estado cambia) |
 | STATUS_CHANGED | `{ before, after, reason, date }` — estados `ACTIVE/INACTIVE/DECEASED`; `date` = fecha de fallecimiento `YYYY-MM-DD` o `null` |
 | HEARING_AIDS_LAB_CHANGED / WARRANTY_CHANGED / VIDEO_CANDIDATE_CHANGED / WARRANTY_EXPIRED_CHANGED / RENEW_PRESCRIPTION_CHANGED | `{ isOn }` — solo si el indicador cambió |
+| CLINICAL_HISTORY_CREATED / CLINICAL_HISTORY_UPDATED | `null` — `PUT /patients/:uuid/background`: CREATED si el paciente no tenía antecedentes, UPDATED si ya tenía |
 
 `typeName` y `patientName` son copias al momento de la acción.
 
@@ -769,6 +770,54 @@ incluye `warrantyDocumentUuid`. Al borrar ese documento
 **Response 200:** `PatientDocument` actualizado. **404** si el documento no es
 de la clínica. Bitácora: `DOCUMENT_RENAMED` si cambió el nombre y
 `DOCUMENT_CATEGORY_CHANGED` si cambió la sección.
+
+## Historia clínica / antecedentes (Medical Records Service, port 7071)
+
+STAFF recibe **403**. Si el paciente no existe en la clínica del usuario
+(`tenantUuid` del JWT): **404** `"Paciente no encontrado"`.
+
+### GET /patients/:uuid/background
+**Response 200:** `PatientBackground | null` (null si el paciente no tiene antecedentes).
+
+### PUT /patients/:uuid/background
+Crea o reemplaza los antecedentes. **Body:**
+```json
+{
+  "earInfections": "boolean (default false)", "nasalSurgery": "boolean", "throatSurgery": "boolean",
+  "earSurgery": "boolean", "diabetes": "boolean", "cholesterol": "boolean", "highPressure": "boolean",
+  "allergies": "boolean", "rhinitis": "boolean", "vertigo": "boolean", "tinnitus": "boolean",
+  "headacheNoise": "boolean", "cloggedEar": "boolean",
+  "dizziness": "boolean (default false) — mareo, distinto de vertigo",
+  "tinnitusTone": "string (máx. 120) | null ?",
+  "otoscopyRight": "string (máx. 1000) | null ?",
+  "otoscopyLeft": "string (máx. 1000) | null ?",
+  "notes": "string | null ?"
+}
+```
+Todos los booleanos tienen default `false`. `tinnitusTone`, `otoscopyRight` y
+`otoscopyLeft` se guardan recortados; vacío pasa a `null`. Más largo que el
+máximo → **400** `"Máximo N caracteres"`.
+
+**Response 200 (GET y PUT):**
+```json
+{
+  "uuid": "string", "patientUuid": "string",
+  "earInfections": false, "nasalSurgery": false, "throatSurgery": false, "earSurgery": false,
+  "diabetes": false, "cholesterol": false, "highPressure": false, "allergies": false,
+  "rhinitis": false, "vertigo": false, "tinnitus": false, "headacheNoise": false,
+  "cloggedEar": false, "dizziness": false,
+  "tinnitusTone": "string | null", "otoscopyRight": "string | null", "otoscopyLeft": "string | null",
+  "notes": "string | null",
+  "createdAt": "ISO", "updatedAt": "ISO",
+  "createdByUuid": "string | null", "updatedByUuid": "string | null"
+}
+```
+`createdByUuid`/`updatedByUuid` son el `sub` del JWT de quien la llenó y de quien
+la modificó por última vez (null en antecedentes anteriores a la migración).
+Bitácora: `CLINICAL_HISTORY_CREATED` o `CLINICAL_HISTORY_UPDATED`.
+Migración `20261021120000_add_clinical_history_fields`.
+
+---
 
 ## Calendar Feed (Medical Records Service, port 7071)
 

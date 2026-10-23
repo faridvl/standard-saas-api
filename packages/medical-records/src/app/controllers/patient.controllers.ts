@@ -217,7 +217,7 @@ export class PatientController {
         'El personal administrativo no tiene acceso a antecedentes clínicos',
       );
     }
-    return await this.findBackgroundUseCase.execute(uuid);
+    return await this.findBackgroundUseCase.execute(uuid, user.tenantUuid);
   }
 
   @Put(':uuid/background')
@@ -232,6 +232,6 @@ export class PatientController {
         'El personal administrativo no tiene acceso a antecedentes clínicos',
       );
     }
-    return await this.upsertBackgroundUseCase.execute(uuid, dto);
+    return await this.upsertBackgroundUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 }

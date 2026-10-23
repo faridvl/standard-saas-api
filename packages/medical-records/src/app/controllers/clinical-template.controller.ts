@@ -65,7 +65,7 @@ export class ClinicalTemplateController {
     @Body() dto: CreateClinicalTemplateDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<ClinicalTemplateEntity> {
-    return await this.createUseCase.execute(user.tenantUuid, dto);
+    return await this.createUseCase.execute(user.tenantUuid, dto, user.role);
   }
 
   @Patch(':uuid')
@@ -75,7 +75,7 @@ export class ClinicalTemplateController {
     @Body() dto: UpdateClinicalTemplateDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<ClinicalTemplateEntity> {
-    return await this.updateUseCase.execute(uuid, user.tenantUuid, dto);
+    return await this.updateUseCase.execute(uuid, user.tenantUuid, dto, user.role);
   }
 
   @Delete(':uuid')
@@ -84,6 +84,6 @@ export class ClinicalTemplateController {
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<{ success: boolean }> {
-    return await this.deleteUseCase.execute(uuid, user.tenantUuid);
+    return await this.deleteUseCase.execute(uuid, user.tenantUuid, user.role);
   }
 }

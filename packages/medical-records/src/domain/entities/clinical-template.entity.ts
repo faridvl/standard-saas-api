@@ -5,6 +5,8 @@ export interface ClinicalFieldDefinition {
   required: boolean;
   options?: string[];
   order: number;
+  section?: string;
+  detailLabel?: string;
 }
 
 export interface ClinicalTemplateEntity {

@@ -1,12 +1,16 @@
 import { z } from 'zod';
 
-const ClinicalFieldDefinitionSchema = z.object({
+export const ClinicalFieldDefinitionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   fieldType: z.enum(['text', 'textarea', 'number', 'boolean', 'date', 'select']),
   required: z.boolean(),
   options: z.array(z.string()).optional(),
   order: z.number().int().nonnegative(),
+  /** Grupo en que se muestra el campo (p. ej. "Cirugías"); sin grupo va suelto. */
+  section: z.string().trim().max(60).optional(),
+  /** Solo para `boolean`: texto que se pide cuando la respuesta es Sí. */
+  detailLabel: z.string().trim().max(120).optional(),
 });
 
 export const CreateClinicalTemplateSchema = z.object({
