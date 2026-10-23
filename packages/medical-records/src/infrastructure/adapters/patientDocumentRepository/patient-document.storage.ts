@@ -31,16 +31,26 @@ export class PatientDocumentStorage {
     return await this.prisma.patientDocument.findFirst({ where: { uuid, tenantUuid } });
   }
 
-  async rename(uuid: string, tenantUuid: string, originalName: string): Promise<PatientDocument> {
+  async update(
+    uuid: string,
+    tenantUuid: string,
+    data: { originalName?: string; category?: DocumentCategory },
+  ): Promise<PatientDocument> {
     return await this.prisma.patientDocument.update({
       where: { uuid, tenantUuid },
-      data: { originalName },
+      data,
     });
   }
 
+  /** Si el documento era la garantía elegida de un paciente, el paciente queda sin ella. */
   async delete(uuid: string, tenantUuid: string): Promise<PatientDocument> {
-    return await this.prisma.patientDocument.delete({
-      where: { uuid, tenantUuid },
-    });
+    const [document] = await this.prisma.$transaction([
+      this.prisma.patientDocument.delete({ where: { uuid, tenantUuid } }),
+      this.prisma.patient.updateMany({
+        where: { tenantUuid, warrantyDocumentUuid: uuid },
+        data: { warrantyDocumentUuid: null },
+      }),
+    ]);
+    return document;
   }
 }

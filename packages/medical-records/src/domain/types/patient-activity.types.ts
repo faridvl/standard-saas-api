@@ -26,6 +26,16 @@ export enum PatientActivityAction {
   WARRANTY_CHANGED = 'WARRANTY_CHANGED',
   /** Se marcó o desmarcó como candidato a video. */
   VIDEO_CANDIDATE_CHANGED = 'VIDEO_CANDIDATE_CHANGED',
+  /** Se marcó o desmarcó la garantía como vencida. */
+  WARRANTY_EXPIRED_CHANGED = 'WARRANTY_EXPIRED_CHANGED',
+  /** Se marcó o desmarcó que hay que renovar la receta. */
+  RENEW_PRESCRIPTION_CHANGED = 'RENEW_PRESCRIPTION_CHANGED',
+  /** Un documento pasó a otra sección (DocumentCategory). */
+  DOCUMENT_CATEGORY_CHANGED = 'DOCUMENT_CATEGORY_CHANGED',
+  /** Se llenó la historia clínica (antecedentes) por primera vez. */
+  CLINICAL_HISTORY_CREATED = 'CLINICAL_HISTORY_CREATED',
+  /** Se modificó la historia clínica (antecedentes). */
+  CLINICAL_HISTORY_UPDATED = 'CLINICAL_HISTORY_UPDATED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */

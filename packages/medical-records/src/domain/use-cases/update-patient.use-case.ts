@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Patient } from '@prisma/client';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
@@ -54,6 +59,17 @@ export class UpdatePatientUseCase {
         throw new ConflictException(
           `La cédula ${dto.documentId} ya está registrada para otro paciente (${duplicate.firstName} ${duplicate.lastName})`,
         );
+      }
+    }
+
+    if (dto.warrantyDocumentUuid) {
+      const belongs = await this.storage.documentBelongsToPatient(
+        dto.warrantyDocumentUuid,
+        uuid,
+        tenantUuid,
+      );
+      if (!belongs) {
+        throw new BadRequestException('El documento de garantía no existe en el expediente');
       }
     }
 

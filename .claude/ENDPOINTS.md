@@ -404,6 +404,9 @@ solo si el estado cambia. Volver a `CONFIRMED` no se anota.
 
 ## Patient Documents & Notes (Medical Records Service, port 7071)
 
+**Acceso:** `/patients/:patientUuid/notes` (Control de evolución) responde 403 al rol
+`STAFF`; los documentos sí los ve y sube.
+
 `GET`/`POST` en `/patients/:patientUuid/documents` y `/patients/:patientUuid/notes`
 devuelven cada item con `uploadedByName` (documentos) / `authorName` (notas):
 el nombre completo de quien lo creó, resuelto contra identity vía un cache
@@ -591,7 +594,7 @@ paginar. Sin filtro por especialidad — expediente único por paciente (NOM-004
 ---
 
 ### PATCH /clinical-templates/:uuid
-**Auth:** Required  
+**Auth:** Required. Con `speciality = CLINICAL_HISTORY`, crear, cambiar o borrar responde 403 al rol `STAFF` (lo pueden hacer `OWNER`, `ADMIN` y `DOCTOR`).  
 **Body:** Partial — same fields as POST, all optional.  
 **Response 200:** Updated clinical template.  
 **Status:** Implemented.
@@ -615,7 +618,7 @@ historial reconstruido. Registrar una acción nunca hace fallar la operación
 original (si falla, queda un warning en el log).
 
 `action` es uno de:
-`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED`
+`PATIENT_CREATED | PATIENT_UPDATED | CONTACT_ADDED | CONTACT_UPDATED | CONTACT_REMOVED | NOTE_ADDED | DOCUMENT_UPLOADED | DOCUMENT_RENAMED | DOCUMENT_CATEGORY_CHANGED | DOCUMENT_DELETED | APPOINTMENT_TENTATIVE | APPOINTMENT_CONFIRMED | APPOINTMENT_ARRIVED | APPOINTMENT_COMPLETED | STATUS_CHANGED | HEARING_AIDS_LAB_CHANGED | WARRANTY_CHANGED | VIDEO_CANDIDATE_CHANGED | WARRANTY_EXPIRED_CHANGED | RENEW_PRESCRIPTION_CHANGED | CLINICAL_HISTORY_CREATED | CLINICAL_HISTORY_UPDATED`
 
 `detail` según la acción:
 
@@ -628,15 +631,18 @@ original (si falla, queda un warning en el log).
 | NOTE_ADDED | `{ category, excerpt }` (primeros 120 caracteres) |
 | DOCUMENT_UPLOADED / DOCUMENT_DELETED | `{ documentUuid, originalName, category }` |
 | DOCUMENT_RENAMED | `{ documentUuid, before, after }` |
+| DOCUMENT_CATEGORY_CHANGED | `{ documentUuid, before, after }` — `before`/`after` son `DocumentCategory` |
 | APPOINTMENT_TENTATIVE | `{ month: "YYYY-MM", typeUuid, typeName }` — limpiar el mes no se registra |
 | APPOINTMENT_CONFIRMED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` |
 | APPOINTMENT_ARRIVED / APPOINTMENT_COMPLETED | `{ appointmentUuid, date: "YYYY-MM-DD", typeUuid, typeName }` — `PATCH /appointments/:uuid` con `status` `WAITING` o `COMPLETED` (solo si el estado cambia) |
 | STATUS_CHANGED | `{ before, after, reason, date }` — estados `ACTIVE/INACTIVE/DECEASED`; `date` = fecha de fallecimiento `YYYY-MM-DD` o `null` |
+| HEARING_AIDS_LAB_CHANGED / WARRANTY_CHANGED / VIDEO_CANDIDATE_CHANGED / WARRANTY_EXPIRED_CHANGED / RENEW_PRESCRIPTION_CHANGED | `{ isOn }` — solo si el indicador cambió |
+| CLINICAL_HISTORY_CREATED / CLINICAL_HISTORY_UPDATED | `null` — `PUT /patients/:uuid/background`: CREATED si el paciente no tenía antecedentes, UPDATED si ya tenía |
 
 `typeName` y `patientName` son copias al momento de la acción.
 
 ### GET /patient-activity
-**Auth:** Required  
+**Auth:** Required. 403 para el rol `STAFF` en `/patient-activity`, `/months` y `/summary`; `/actors` queda abierto (solo nombres, lo usa la agenda).  
 **Query:**
 - `page` (default `1`), `limit` (default `20`, máx `100`)
 - `actorUuid` — solo acciones de ese usuario
@@ -737,6 +743,84 @@ existentes quedan `ACTIVE`.
 - `appointmentTypeUuid` — tipo de la **próxima cita**: la CONFIRMED futura más cercana, o el tipo del mes tentativo.
 
 Se combinan entre sí y con `search` y `nextAppointmentMonth`.
+
+Indicadores (`=true` filtra por los que lo tienen prendido; otro valor o ausente no filtra):
+`hearingAidsInLab`, `hasActiveWarranty`, `isVideoCandidate`, `warrantyExpired`, `renewPrescription`.
+
+### PUT /patients/:uuid/flags
+**Body (al menos uno):**
+```json
+{ "hearingAidsInLab": "boolean?", "hasActiveWarranty": "boolean?", "isVideoCandidate": "boolean?", "warrantyExpired": "boolean?", "renewPrescription": "boolean?" }
+```
+Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
+`hearingAidsInLabSince`, `warrantyActiveSince`, `videoCandidateSince`,
+`warrantyExpiredSince`, `renewPrescriptionSince`. Solo los que cambian se anotan
+en la bitácora. **Response 200:** `Patient`.
+Migración `20261020120000_add_warranty_expired_renew_prescription`.
+
+### PATCH /patients/:uuid — documento de garantía
+Acepta además `warrantyDocumentUuid: uuid | null` (null lo quita). Debe ser un
+documento de ese paciente y de la clínica; si no, **400**
+`"El documento de garantía no existe en el expediente"`. El `Patient` devuelto
+incluye `warrantyDocumentUuid`. Al borrar ese documento
+(`DELETE /patients/:uuid/documents/:documentUuid`) el campo vuelve a `null`.
+
+### PATCH /patients/:patientUuid/documents/:documentUuid
+**Body (al menos uno):**
+```json
+{ "originalName": "string (1-255)?", "category": "EVOLUTION_CONTROL | WARRANTY | EXTERNAL_TEST | CLINICAL_HISTORY | OTHER ?" }
+```
+**Response 200:** `PatientDocument` actualizado. **404** si el documento no es
+de la clínica. Bitácora: `DOCUMENT_RENAMED` si cambió el nombre y
+`DOCUMENT_CATEGORY_CHANGED` si cambió la sección.
+
+## Historia clínica / antecedentes (Medical Records Service, port 7071)
+
+STAFF recibe **403**. Si el paciente no existe en la clínica del usuario
+(`tenantUuid` del JWT): **404** `"Paciente no encontrado"`.
+
+### GET /patients/:uuid/background
+**Response 200:** `PatientBackground | null` (null si el paciente no tiene antecedentes).
+
+### PUT /patients/:uuid/background
+Crea o reemplaza los antecedentes. **Body:**
+```json
+{
+  "earInfections": "boolean (default false)", "nasalSurgery": "boolean", "throatSurgery": "boolean",
+  "earSurgery": "boolean", "diabetes": "boolean", "cholesterol": "boolean", "highPressure": "boolean",
+  "allergies": "boolean", "rhinitis": "boolean", "vertigo": "boolean", "tinnitus": "boolean",
+  "headacheNoise": "boolean", "cloggedEar": "boolean",
+  "dizziness": "boolean (default false) — mareo, distinto de vertigo",
+  "tinnitusTone": "string (máx. 120) | null ?",
+  "otoscopyRight": "string (máx. 1000) | null ?",
+  "otoscopyLeft": "string (máx. 1000) | null ?",
+  "notes": "string | null ?"
+}
+```
+Todos los booleanos tienen default `false`. `tinnitusTone`, `otoscopyRight` y
+`otoscopyLeft` se guardan recortados; vacío pasa a `null`. Más largo que el
+máximo → **400** `"Máximo N caracteres"`.
+
+**Response 200 (GET y PUT):**
+```json
+{
+  "uuid": "string", "patientUuid": "string",
+  "earInfections": false, "nasalSurgery": false, "throatSurgery": false, "earSurgery": false,
+  "diabetes": false, "cholesterol": false, "highPressure": false, "allergies": false,
+  "rhinitis": false, "vertigo": false, "tinnitus": false, "headacheNoise": false,
+  "cloggedEar": false, "dizziness": false,
+  "tinnitusTone": "string | null", "otoscopyRight": "string | null", "otoscopyLeft": "string | null",
+  "notes": "string | null",
+  "createdAt": "ISO", "updatedAt": "ISO",
+  "createdByUuid": "string | null", "updatedByUuid": "string | null"
+}
+```
+`createdByUuid`/`updatedByUuid` son el `sub` del JWT de quien la llenó y de quien
+la modificó por última vez (null en antecedentes anteriores a la migración).
+Bitácora: `CLINICAL_HISTORY_CREATED` o `CLINICAL_HISTORY_UPDATED`.
+Migración `20261021120000_add_clinical_history_fields`.
+
+---
 
 ## Calendar Feed (Medical Records Service, port 7071)
 
