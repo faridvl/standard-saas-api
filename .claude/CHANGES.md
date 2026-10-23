@@ -36,6 +36,18 @@ _(nothing currently marked as in-progress in code)_
 - **FollowUp persistence**: `CreateMedicalControlUseCase` accepts `followUp` in the DTO and validates it, but the storage call is commented out (`// if (dto.followUp?.hasFollowUp) { ... }`). A FollowUp table/storage needs to be built.
 - **RolesGuard wiring**: `RolesGuard` is exported from core but not used in any controller. Role-based access control is not enforced beyond having the `role` in the JWT.
 
+### Decidido para más adelante (2026-10-22)
+- **Permisos configurables por el administrador de cada clínica.** Roles fijos
+  (`OWNER`, `ADMIN`, `DOCTOR`, `STAFF`) con permisos por defecto; el admin del
+  tenant prende y apaga permisos por rol para su clínica. Los endpoints revisan
+  **permisos**, nunca el rol suelto (hoy: `CLINICAL_ACCESS_ROLES` + `RolesGuard`,
+  a reemplazar por la configuración del tenant). Cuidados: leer los permisos en
+  cada request con cache corto (no en el JWT, o un cambio no aplica hasta
+  reloguear); permisos que el admin no puede quitarse; aviso al dar acceso
+  clínico a `STAFF` (Ley 8968); cada cambio en la bitácora; un permiso nuevo
+  arranca con su valor por defecto sin migrar datos. Detalle en
+  `audiocolors-backoffice/.claude/DECISIONS.md` D20.
+
 ### Media prioridad
 
 - **`CreateUserPersistence` type**: There's a `//TODO(!): mover esto` in `packages/identity/src/infrastructure/adapters/user.storage.ts:8` — the type is defined inline and should be moved to the domain layer.

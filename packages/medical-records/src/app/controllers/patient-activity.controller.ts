@@ -1,5 +1,16 @@
-import { BadRequestException, Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload } from '@project/core';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Query,
+  SetMetadata,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard, CurrentUser, JwtPayload, RolesGuard } from '@project/core';
+import {
+  CLINICAL_ACCESS_ROLES,
+  ROLES_METADATA_KEY,
+} from '@medical-records/domain/policies/clinical-access.policy';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import {
   FindPatientActivityActorsUseCase,
@@ -36,9 +47,13 @@ function parseActions(value: string | undefined): PatientActivityAction[] | unde
   return actions as PatientActivityAction[];
 }
 
-/** Bitácora de acciones sobre los pacientes del tenant (solo lectura). */
+/**
+ * Bitácora de acciones sobre los pacientes del tenant (solo lectura). Nombra
+ * datos clínicos: STAFF no la ve. `actors` queda abierto porque solo da nombres
+ * de usuarios y la agenda lo usa para mostrar quién agendó.
+ */
 @Controller('patient-activity')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 export class PatientActivityController {
   constructor(
     private readonly findUseCase: FindPatientActivityUseCase,
@@ -48,6 +63,7 @@ export class PatientActivityController {
   ) {}
 
   @Get()
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
   async findAll(
     @CurrentUser() user: JwtPayload,
     @Query('page') page: string = '1',
@@ -79,6 +95,7 @@ export class PatientActivityController {
   }
 
   @Get('months')
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
   async findMonths(
     @CurrentUser() user: JwtPayload,
     @Query('timeZone') timeZone?: string,
@@ -88,6 +105,7 @@ export class PatientActivityController {
   }
 
   @Get('summary')
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
   async summary(
     @CurrentUser() user: JwtPayload,
     @Query('from') from?: string,

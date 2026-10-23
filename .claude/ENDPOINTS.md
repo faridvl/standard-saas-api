@@ -404,6 +404,9 @@ solo si el estado cambia. Volver a `CONFIRMED` no se anota.
 
 ## Patient Documents & Notes (Medical Records Service, port 7071)
 
+**Acceso:** `/patients/:patientUuid/notes` (Control de evolución) responde 403 al rol
+`STAFF`; los documentos sí los ve y sube.
+
 `GET`/`POST` en `/patients/:patientUuid/documents` y `/patients/:patientUuid/notes`
 devuelven cada item con `uploadedByName` (documentos) / `authorName` (notas):
 el nombre completo de quien lo creó, resuelto contra identity vía un cache
@@ -591,7 +594,7 @@ paginar. Sin filtro por especialidad — expediente único por paciente (NOM-004
 ---
 
 ### PATCH /clinical-templates/:uuid
-**Auth:** Required  
+**Auth:** Required. Con `speciality = CLINICAL_HISTORY`, crear, cambiar o borrar responde 403 al rol `STAFF` (lo pueden hacer `OWNER`, `ADMIN` y `DOCTOR`).  
 **Body:** Partial — same fields as POST, all optional.  
 **Response 200:** Updated clinical template.  
 **Status:** Implemented.
@@ -639,7 +642,7 @@ original (si falla, queda un warning en el log).
 `typeName` y `patientName` son copias al momento de la acción.
 
 ### GET /patient-activity
-**Auth:** Required  
+**Auth:** Required. 403 para el rol `STAFF` en `/patient-activity`, `/months` y `/summary`; `/actors` queda abierto (solo nombres, lo usa la agenda).  
 **Query:**
 - `page` (default `1`), `limit` (default `20`, máx `100`)
 - `actorUuid` — solo acciones de ese usuario
