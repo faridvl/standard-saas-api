@@ -93,7 +93,15 @@ export class CreateResourceUseCase {
 - `AuthGuard` is applied at class level on every protected controller
 - `@CurrentUser()` gives a `JwtPayload`: `{ sub (userUuid), email, role, tenantId, tenantUuid }`
 - JWT issued by identity service with `1h` expiry
-- The `role` field is in the token but `RolesGuard` is not currently wired up anywhere
+- Roles: `OWNER`, `ADMIN`, `DOCTOR` (médico; puede ser dueño) y `STAFF` (empleado: recepción, secretaría).
+- **Acceso clínico** = `CLINICAL_ACCESS_ROLES` (`OWNER`, `ADMIN`, `DOCTOR`), en
+  `domain/policies/clinical-access.policy.ts`. `STAFF` recibe 403 en: historia clínica
+  (`/patients/:uuid/background`), Control de evolución (`/patients/:patientUuid/notes`),
+  bitácora (`/patient-activity`), encounters, medical-controls, studies, y al cambiar la
+  plantilla `CLINICAL_HISTORY`. Sí ve pacientes, contactos, citas y archivos.
+- Para restringir un controller entero: `@UseGuards(AuthGuard, RolesGuard)` +
+  `@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)` (`RolesGuard` de `@project/core`).
+  Cada frontend oculta lo mismo en pantalla, pero la regla vive acá: ocultar no protege.
 
 ## Pagination
 

@@ -1,5 +1,16 @@
-import { BadRequestException, Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload } from '@project/core';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Query,
+  SetMetadata,
+  UseGuards,
+} from '@nestjs/common';
+import { AuthGuard, CurrentUser, JwtPayload, RolesGuard } from '@project/core';
+import {
+  CLINICAL_ACCESS_ROLES,
+  ROLES_METADATA_KEY,
+} from '@medical-records/domain/policies/clinical-access.policy';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import {
   FindPatientActivityActorsUseCase,
@@ -36,9 +47,10 @@ function parseActions(value: string | undefined): PatientActivityAction[] | unde
   return actions as PatientActivityAction[];
 }
 
-/** Bitácora de acciones sobre los pacientes del tenant (solo lectura). */
+/** Bitácora de acciones sobre los pacientes del tenant (solo lectura). Nombra datos clínicos: STAFF no la ve. */
 @Controller('patient-activity')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
+@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
 export class PatientActivityController {
   constructor(
     private readonly findUseCase: FindPatientActivityUseCase,
