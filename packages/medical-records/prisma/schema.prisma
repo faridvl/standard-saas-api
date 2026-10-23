@@ -376,6 +376,8 @@ model AppointmentType {
   duration    Int?
   color       String?
   speciality  String?
+  /// El tipo que cuenta como "control" (tarjeta "Controles este mes"). Uno por tenant como máximo.
+  isControl   Boolean  @default(false)
   tenantUUID  String
 
   appointments Appointment[]

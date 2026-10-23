@@ -130,3 +130,11 @@ Query params `page` (default 1) and `limit` (default 10) are strings — convert
 4. Add use case + storage to the module's `providers` array
 5. Add controller method with `@UseGuards`, `@UsePipes`, `@CurrentUser`
 6. **Update `.claude/ENDPOINTS.md`** with method, path, body, response, and status
+
+## Tipos de cita: el control
+
+`AppointmentType.isControl` marca el tipo que cuenta como "control" (tarjeta
+"Controles este mes" del back-office). Uno por tenant como máximo: `PATCH
+/appointment-types/:uuid` con `isControl: true` desmarca al anterior en la misma
+transacción. No buscar el control por el nombre del tipo: se puede renombrar.
+

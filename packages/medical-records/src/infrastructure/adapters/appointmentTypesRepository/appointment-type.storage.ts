@@ -16,6 +16,7 @@ export class AppointmentTypeStorage {
     duration: number | null;
     color: string | null;
     speciality: string | null;
+    isControl: boolean;
     tenantUUID: string;
   }): AppointmentTypeEntity {
     return {
@@ -24,6 +25,7 @@ export class AppointmentTypeStorage {
       duration: row.duration,
       color: row.color,
       speciality: row.speciality,
+      isControl: row.isControl,
       tenantUUID: row.tenantUUID,
     };
   }
@@ -48,26 +50,39 @@ export class AppointmentTypeStorage {
         duration: dto.duration ?? null,
         color: dto.color ?? null,
         speciality: dto.speciality ?? null,
+        isControl: dto.isControl ?? false,
         tenantUUID,
       },
     });
     return this.mapToDomain(row);
   }
 
-  /** Solo cambia los campos recibidos; null limpia uno opcional. */
+  /**
+   * Solo cambia los campos recibidos; null limpia uno opcional. Marcar un tipo
+   * como control desmarca al que lo era: hay uno por tenant como máximo.
+   */
   async update(
     tenantUUID: string,
     uuid: string,
     dto: UpdateAppointmentTypeDto,
   ): Promise<AppointmentTypeEntity | null> {
-    const { count } = await this.prisma.appointmentType.updateMany({
-      where: { uuid, tenantUUID },
-      data: {
-        name: dto.name,
-        duration: dto.duration,
-        color: dto.color,
-        speciality: dto.speciality,
-      },
+    const { count } = await this.prisma.$transaction(async (transaction) => {
+      if (dto.isControl) {
+        await transaction.appointmentType.updateMany({
+          where: { tenantUUID, isControl: true, NOT: { uuid } },
+          data: { isControl: false },
+        });
+      }
+      return transaction.appointmentType.updateMany({
+        where: { uuid, tenantUUID },
+        data: {
+          name: dto.name,
+          duration: dto.duration,
+          color: dto.color,
+          speciality: dto.speciality,
+          isControl: dto.isControl,
+        },
+      });
     });
     return count > 0 ? this.findByUuid(tenantUUID, uuid) : null;
   }
