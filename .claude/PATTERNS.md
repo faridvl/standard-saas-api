@@ -98,7 +98,8 @@ export class CreateResourceUseCase {
   `domain/policies/clinical-access.policy.ts`. `STAFF` recibe 403 en: historia clínica
   (`/patients/:uuid/background`), Control de evolución (`/patients/:patientUuid/notes`),
   bitácora (`/patient-activity`, salvo `/actors`), encounters, medical-controls, studies, y al cambiar la
-  plantilla `CLINICAL_HISTORY`. Sí ve pacientes, contactos, citas y archivos.
+  plantilla `CLINICAL_HISTORY`, y al crear, cambiar o borrar tipos de cita
+  (`/appointment-types`; verlos sí puede). Sí ve pacientes, contactos, citas y archivos.
 - Para restringir un controller entero: `@UseGuards(AuthGuard, RolesGuard)` +
   `@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)` (`RolesGuard` de `@project/core`).
   Cada frontend oculta lo mismo en pantalla, pero la regla vive acá: ocultar no protege.
@@ -129,3 +130,11 @@ Query params `page` (default 1) and `limit` (default 10) are strings — convert
 4. Add use case + storage to the module's `providers` array
 5. Add controller method with `@UseGuards`, `@UsePipes`, `@CurrentUser`
 6. **Update `.claude/ENDPOINTS.md`** with method, path, body, response, and status
+
+## Tipos de cita: el control
+
+`AppointmentType.isControl` marca el tipo que cuenta como "control" (tarjeta
+"Controles este mes" del back-office). Uno por tenant como máximo: `PATCH
+/appointment-types/:uuid` con `isControl: true` desmarca al anterior en la misma
+transacción. No buscar el control por el nombre del tipo: se puede renombrar.
+
