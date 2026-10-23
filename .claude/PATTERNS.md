@@ -98,7 +98,8 @@ export class CreateResourceUseCase {
   `domain/policies/clinical-access.policy.ts`. `STAFF` recibe 403 en: historia clínica
   (`/patients/:uuid/background`), Control de evolución (`/patients/:patientUuid/notes`),
   bitácora (`/patient-activity`, salvo `/actors`), encounters, medical-controls, studies, y al cambiar la
-  plantilla `CLINICAL_HISTORY`. Sí ve pacientes, contactos, citas y archivos.
+  plantilla `CLINICAL_HISTORY`, y al crear, cambiar o borrar tipos de cita
+  (`/appointment-types`; verlos sí puede). Sí ve pacientes, contactos, citas y archivos.
 - Para restringir un controller entero: `@UseGuards(AuthGuard, RolesGuard)` +
   `@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)` (`RolesGuard` de `@project/core`).
   Cada frontend oculta lo mismo en pantalla, pero la regla vive acá: ocultar no protege.
