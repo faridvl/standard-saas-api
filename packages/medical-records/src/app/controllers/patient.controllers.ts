@@ -9,13 +9,18 @@ import {
   Param,
   Patch,
   Put,
+  SetMetadata,
   Delete,
   HttpCode,
   HttpStatus,
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
+import {
+  CLINICAL_ACCESS_ROLES,
+  ROLES_METADATA_KEY,
+} from '@medical-records/domain/policies/clinical-access.policy';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
 import { GetPatientsUseCase } from '@medical-records/domain/use-cases/get-patients.use-case';
@@ -31,6 +36,15 @@ import { UpdatePatientFlagsUseCase } from '@medical-records/domain/use-cases/upd
 import { UpdatePatientFlagsDto, UpdatePatientFlagsSchema } from '../dtos/update-patient-flags.dto';
 import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
+import {
+  FindPatientPhysicalExamUseCase,
+  UpsertPatientPhysicalExamUseCase,
+} from '@medical-records/domain/use-cases/patient-physical-exam';
+import {
+  UpsertPatientPhysicalExamDto,
+  UpsertPatientPhysicalExamSchema,
+} from '../dtos/patient-physical-exam.dto';
+import { PatientPhysicalExamEntity } from '@medical-records/domain/entities/patient-physical-exam.entity';
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
 import { UpsertPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/upsert-patient-background.use-case';
 import {
@@ -99,6 +113,8 @@ export class PatientController {
     private readonly updatePatientFlagsUseCase: UpdatePatientFlagsUseCase,
     private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
     private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
+    private readonly findPhysicalExamUseCase: FindPatientPhysicalExamUseCase,
+    private readonly upsertPhysicalExamUseCase: UpsertPatientPhysicalExamUseCase,
     private readonly softDeletePatientUseCase: SoftDeletePatientUseCase,
     private readonly bulkImportUseCase: BulkImportPatientsUseCase,
   ) {}
@@ -233,5 +249,27 @@ export class PatientController {
       );
     }
     return await this.upsertBackgroundUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
+  }
+
+  @Get(':uuid/physical-exam')
+  @UseGuards(RolesGuard)
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  async getPhysicalExam(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientPhysicalExamEntity | null> {
+    return await this.findPhysicalExamUseCase.execute(uuid, user.tenantUuid);
+  }
+
+  @Put(':uuid/physical-exam')
+  @UseGuards(RolesGuard)
+  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @UsePipes(new ZodValidationPipe(UpsertPatientPhysicalExamSchema))
+  async upsertPhysicalExam(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpsertPatientPhysicalExamDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientPhysicalExamEntity | null> {
+    return await this.upsertPhysicalExamUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 }

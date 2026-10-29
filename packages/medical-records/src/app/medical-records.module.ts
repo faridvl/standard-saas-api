@@ -7,6 +7,7 @@ import { PatientsModule } from './modules/patients.module';
 import { PatientContactsModule } from './modules/patient-contacts.module';
 import { PatientNotesModule } from './modules/patient-notes.module';
 import { PatientBackgroundModule } from './modules/patient-background.module';
+import { PatientPhysicalExamModule } from './modules/patient-physical-exam.module';
 import { PatientDeviceModule } from './modules/patient-device.module';
 import { PatientDocumentsModule } from './modules/patient-documents.module';
 import { AppointmentsModule } from './modules/appointments.module';
@@ -42,6 +43,7 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     PatientContactsModule,
     PatientNotesModule,
     PatientBackgroundModule,
+    PatientPhysicalExamModule,
     PatientDeviceModule,
     PatientDocumentsModule,
     AppointmentsModule,

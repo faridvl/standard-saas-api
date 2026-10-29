@@ -36,6 +36,8 @@ export enum PatientActivityAction {
   CLINICAL_HISTORY_CREATED = 'CLINICAL_HISTORY_CREATED',
   /** Se modificó la historia clínica (antecedentes). */
   CLINICAL_HISTORY_UPDATED = 'CLINICAL_HISTORY_UPDATED',
+  /** Se modificó la exploración física (otoscopia). */
+  PHYSICAL_EXAM_UPDATED = 'PHYSICAL_EXAM_UPDATED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */
