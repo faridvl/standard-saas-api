@@ -35,3 +35,6 @@ export type PatientBackgroundData = Omit<
   PatientBackgroundEntity,
   'uuid' | 'patientUuid' | 'createdAt' | 'updatedAt' | 'createdByUuid' | 'updatedByUuid'
 >;
+
+/** Lo que se escribe: undefined no toca el campo al actualizar; null lo limpia. */
+export type PatientBackgroundWriteData = Partial<PatientBackgroundData>;

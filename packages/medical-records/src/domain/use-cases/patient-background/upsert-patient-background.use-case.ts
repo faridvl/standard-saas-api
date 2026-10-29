@@ -23,12 +23,8 @@ export class UpsertPatientBackgroundUseCase {
     }
 
     const existing = await this.storage.findByPatient(patientUuid);
-    const saved = await this.storage.upsert(patientUuid, actorUuid, {
-      ...dto,
-      notes: dto.notes ?? null,
-      answers: dto.answers ?? null,
-      templateSnapshot: dto.templateSnapshot ?? null,
-    });
+    // Lo que no viene no se toca; solo un null explícito limpia el campo.
+    const saved = await this.storage.upsert(patientUuid, actorUuid, dto);
 
     await this.recordActivity.execute({
       tenantUuid,
