@@ -60,7 +60,7 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | lastName | String | |
 | phone | String? | |
 | address | String? | |
-| birthDate | DateTime | |
+| birthDate | DateTime? | opcional |
 | email | String? | |
 | gender | String? | |
 | tenantId | Int | not FK, denormalized |

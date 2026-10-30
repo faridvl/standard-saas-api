@@ -22,6 +22,7 @@ const TRACKED_FIELDS = [
   'lastName',
   'documentId',
   'phone',
+  'birthDate',
   'email',
   'address',
   'gender',
@@ -32,6 +33,7 @@ const TRACKED_FIELDS = [
 
 function normalize(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
   return String(value);
 }
 

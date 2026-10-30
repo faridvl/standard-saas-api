@@ -1,9 +1,11 @@
 import { z } from 'zod';
+import { BirthDateSchema } from './birth-date.schema';
 
 export const UpdatePatientSchema = z.object({
   firstName: z.string().min(2, 'El nombre es muy corto').optional(),
   lastName: z.string().min(2, 'El apellido es muy corto').optional(),
   phone: z.string().optional(),
+  birthDate: BirthDateSchema.optional(),
   address: z.string().optional(),
   email: z.literal('').optional().or(z.string().email()),
   gender: z.string().optional(),

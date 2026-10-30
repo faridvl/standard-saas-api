@@ -146,6 +146,7 @@ export class PatientStorage {
         ...(dto.firstName !== undefined && { firstName: dto.firstName }),
         ...(dto.lastName !== undefined && { lastName: dto.lastName }),
         ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...(dto.birthDate !== undefined && { birthDate: dto.birthDate }),
         ...(dto.address !== undefined && { address: dto.address }),
         ...(dto.email !== undefined && { email: dto.email }),
         ...(dto.gender !== undefined && { gender: dto.gender }),

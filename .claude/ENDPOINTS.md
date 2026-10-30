@@ -169,7 +169,7 @@
   "firstName": "string (min 2)",
   "lastName": "string (min 2)",
   "phone": "string (optional)",
-  "birthDate": "ISO date string (e.g. '1990-05-20')",
+  "birthDate": "ISO date string (optional, not future; e.g. '1990-05-20')",
   "address": "string (optional)"
 }
 ```
