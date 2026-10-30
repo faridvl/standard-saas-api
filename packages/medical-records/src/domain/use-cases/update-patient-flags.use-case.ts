@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Patient } from '@prisma/client';
 import {
   PatientFlagsUpdate,
@@ -6,11 +6,26 @@ import {
 } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { UpdatePatientFlagsDto } from '@medical-records/app/dtos/update-patient-flags.dto';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
-import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
+import {
+  PatientActivityAction,
+  PatientActivityDetail,
+} from '@medical-records/domain/types/patient-activity.types';
+import {
+  isFutureClinicDay,
+  shipmentDayToSince,
+  toClinicDayKey,
+} from '@medical-records/domain/utils/lab-shipment-date.util';
+
+type FlagKey =
+  | 'hearingAidsInLab'
+  | 'hasActiveWarranty'
+  | 'isVideoCandidate'
+  | 'warrantyExpired'
+  | 'renewPrescription';
 
 /** Cada indicador: su clave en el DTO, la columna "desde cuándo" y la acción de la bitácora. */
 const FLAGS: {
-  key: keyof UpdatePatientFlagsDto;
+  key: FlagKey;
   sinceField: keyof PatientFlagsUpdate;
   action: PatientActivityAction;
 }[] = [
@@ -66,14 +81,42 @@ export class UpdatePatientFlagsUseCase {
     }
 
     const now = new Date();
+    const shipmentDay = dto.hearingAidsInLabDate;
+    if (shipmentDay && isFutureClinicDay(shipmentDay, now)) {
+      throw new BadRequestException('La fecha de envío no puede ser posterior a hoy');
+    }
+
     const changes: PatientFlagsUpdate = {};
-    const activities: { action: PatientActivityAction; isOn: boolean }[] = [];
+    const activities: { action: PatientActivityAction; detail: PatientActivityDetail }[] = [];
 
     for (const flag of FLAGS) {
       const isOn = dto[flag.key];
-      if (isOn === undefined || isOn === (existing[flag.sinceField] !== null)) continue;
+      if (isOn === undefined) continue;
+      const currentSince = existing[flag.sinceField];
+      const wasOn = currentSince !== null;
+
+      if (flag.key === 'hearingAidsInLab' && isOn && shipmentDay) {
+        const previousDay = currentSince ? toClinicDayKey(currentSince) : null;
+        if (wasOn && previousDay === shipmentDay) continue;
+        changes[flag.sinceField] = shipmentDayToSince(shipmentDay);
+        activities.push({
+          action: flag.action,
+          detail: {
+            isOn: true,
+            date: shipmentDay,
+            ...(previousDay && { previousDate: previousDay }),
+          },
+        });
+        continue;
+      }
+
+      if (isOn === wasOn) continue;
       changes[flag.sinceField] = isOn ? now : null;
-      activities.push({ action: flag.action, isOn });
+      activities.push({
+        action: flag.action,
+        detail:
+          flag.key === 'hearingAidsInLab' && isOn ? { isOn, date: toClinicDayKey(now) } : { isOn },
+      });
     }
 
     if (activities.length === 0) return existing;
@@ -86,7 +129,7 @@ export class UpdatePatientFlagsUseCase {
         patientUuid: uuid,
         actorUuid,
         action: activity.action,
-        detail: { isOn: activity.isOn },
+        detail: activity.detail,
       });
     }
 

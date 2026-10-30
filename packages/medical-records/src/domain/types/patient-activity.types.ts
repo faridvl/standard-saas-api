@@ -60,7 +60,7 @@ export type PatientActivityDetail =
   | { month: string; typeUuid: string | null; typeName: string | null }
   | { appointmentUuid: string; date: string; typeUuid: string | null; typeName: string | null }
   | { before: string; after: string; reason: string | null; date: string | null }
-  | { isOn: boolean };
+  | { isOn: boolean; date?: string; previousDate?: string };
 
 export interface RecordPatientActivityInput {
   tenantUuid: string;
