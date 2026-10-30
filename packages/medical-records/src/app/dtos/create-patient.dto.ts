@@ -9,7 +9,10 @@ export const CreatePatientSchema = z.object({
   firstName: z.string().min(2, 'El nombre es muy corto'),
   lastName: z.string().min(2, 'El apellido es muy corto'),
   phone: z.string().optional(),
-  birthDate: z.string().transform((str) => new Date(str)),
+  birthDate: z
+    .string()
+    .transform((str) => new Date(str))
+    .optional(),
   address: z.string().optional(),
   email: z.literal('').optional().or(z.string().email()),
   gender: z.string().optional(),

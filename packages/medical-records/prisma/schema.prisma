@@ -79,7 +79,8 @@ model Patient {
   // Documento del expediente (PatientDocument) elegido como garantía. Sin FK:
   // al borrar el documento el caso de uso lo deja en null.
   warrantyDocumentUuid  String?
-  birthDate    DateTime
+  // Opcional: el pre-registro rápido de la agenda no lo pide; se completa en el expediente.
+  birthDate    DateTime?
   email        String?
   gender              String?
   bloodType           String?

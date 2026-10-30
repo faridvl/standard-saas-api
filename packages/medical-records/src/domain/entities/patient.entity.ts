@@ -9,7 +9,7 @@ export type PatientEntity = {
   lastName: string;
   phone?: string;
   address?: string;
-  birthDate: Date;
+  birthDate?: Date;
   email?: string;
   gender?: string;
   bloodType?: string;
