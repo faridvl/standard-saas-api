@@ -36,10 +36,11 @@
 // }
 
 import { Injectable } from '@nestjs/common';
-import { Prisma, Patient } from '@prisma/client';
+import { MaintenanceStatus, Prisma, Patient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
+import { MaintenanceNumber } from '@medical-records/app/dtos/update-patient-maintenance.dto';
 
 /**
  * Paciente tal como lo consumen las pantallas: además de sus datos, de qué y
@@ -76,6 +77,16 @@ export interface PatientFlagsUpdate {
   videoCandidateSince?: Date | null;
   warrantyExpiredSince?: Date | null;
   renewPrescriptionSince?: Date | null;
+}
+
+type MaintenanceColumn =
+  | 'maintenance1Status'
+  | 'maintenance2Status'
+  | 'maintenance3Status'
+  | 'maintenance4Status';
+
+export function maintenanceColumn(number: MaintenanceNumber): MaintenanceColumn {
+  return `maintenance${number}Status`;
 }
 
 /** Valor del filtro de mes que pide los pacientes sin próxima cita. */
@@ -175,6 +186,18 @@ export class PatientStorage {
    */
   async updateFlags(uuid: string, tenantUuid: string, data: PatientFlagsUpdate): Promise<Patient> {
     return this.prisma.patient.update({ where: { uuid, tenantUuid }, data });
+  }
+
+  async updateMaintenance(
+    uuid: string,
+    tenantUuid: string,
+    number: MaintenanceNumber,
+    status: MaintenanceStatus | null,
+  ): Promise<Patient> {
+    return this.prisma.patient.update({
+      where: { uuid, tenantUuid },
+      data: { [maintenanceColumn(number)]: status },
+    });
   }
 
   async updateStatus(

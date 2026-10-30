@@ -34,6 +34,12 @@ import {
 import { UpdatePatientStatusUseCase } from '@medical-records/domain/use-cases/update-patient-status.use-case';
 import { UpdatePatientFlagsUseCase } from '@medical-records/domain/use-cases/update-patient-flags.use-case';
 import { UpdatePatientFlagsDto, UpdatePatientFlagsSchema } from '../dtos/update-patient-flags.dto';
+import { UpdatePatientMaintenanceUseCase } from '@medical-records/domain/use-cases/update-patient-maintenance.use-case';
+import {
+  MaintenanceNumberSchema,
+  UpdatePatientMaintenanceDto,
+  UpdatePatientMaintenanceSchema,
+} from '../dtos/update-patient-maintenance.dto';
 import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import {
@@ -111,6 +117,7 @@ export class PatientController {
     private readonly updatePatientUseCase: UpdatePatientUseCase,
     private readonly updatePatientStatusUseCase: UpdatePatientStatusUseCase,
     private readonly updatePatientFlagsUseCase: UpdatePatientFlagsUseCase,
+    private readonly updatePatientMaintenanceUseCase: UpdatePatientMaintenanceUseCase,
     private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
     private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
     private readonly findPhysicalExamUseCase: FindPatientPhysicalExamUseCase,
@@ -221,6 +228,27 @@ export class PatientController {
     @CurrentUser() user: JwtPayload,
   ): Promise<Patient> {
     return await this.updatePatientFlagsUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
+  }
+
+  @Put(':uuid/maintenances/:number')
+  @UsePipes(new ZodValidationPipe(UpdatePatientMaintenanceSchema))
+  async updateMaintenance(
+    @Param('uuid') uuid: string,
+    @Param('number') number: string,
+    @Body() dto: UpdatePatientMaintenanceDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<Patient> {
+    const parsedNumber = MaintenanceNumberSchema.safeParse(number);
+    if (!parsedNumber.success) {
+      throw new BadRequestException(parsedNumber.error.issues[0].message);
+    }
+    return await this.updatePatientMaintenanceUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      user.sub,
+      parsedNumber.data,
+      dto,
+    );
   }
 
   @Get(':uuid/background')

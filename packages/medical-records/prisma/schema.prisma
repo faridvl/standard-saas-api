@@ -7,6 +7,12 @@ generator client {
   previewFeatures = ["driverAdapters"]
 }
 
+// Mantenimientos del paciente: lo marca el personal a mano; null = sin marcar.
+enum MaintenanceStatus {
+  ATTENDED
+  MISSED
+}
+
 enum DocumentCategory {
   EVOLUTION_CONTROL
   WARRANTY
@@ -76,6 +82,10 @@ model Patient {
   videoCandidateSince   DateTime?
   warrantyExpiredSince  DateTime?
   renewPrescriptionSince DateTime?
+  maintenance1Status MaintenanceStatus?
+  maintenance2Status MaintenanceStatus?
+  maintenance3Status MaintenanceStatus?
+  maintenance4Status MaintenanceStatus?
   // Documento del expediente (PatientDocument) elegido como garantía. Sin FK:
   // al borrar el documento el caso de uso lo deja en null.
   warrantyDocumentUuid  String?

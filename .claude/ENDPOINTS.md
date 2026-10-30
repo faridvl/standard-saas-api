@@ -758,6 +758,21 @@ Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
 en la bitácora. **Response 200:** `Patient`.
 Migración `20261020120000_add_warranty_expired_renew_prescription`.
 
+### PUT /patients/:uuid/maintenances/:number
+Marca a mano el mantenimiento 1 a 4 del paciente (no se calcula desde las citas).
+Mismo acceso que `/flags` (STAFF también puede). `:number` solo acepta 1, 2, 3 o 4;
+otro valor: **400**. **Body (`status` obligatorio):**
+```json
+{ "status": "ATTENDED | MISSED | null" }
+```
+`null` desmarca el mantenimiento. Se guarda en `maintenance1Status` ...
+`maintenance4Status` del paciente (`null` = sin marcar). Si el valor no cambia
+devuelve el paciente sin escribir ni anotar en la bitácora. Si cambia, bitácora
+`MAINTENANCE_CHANGED` con detalle `{ number, status, previousStatus }`.
+**Response 200:** `Patient`. **400** si falta `status` o es otro valor; **404** si
+el paciente no es de la clínica. `GET /patients/:uuid` devuelve las cuatro columnas.
+Migración `20261030140000_patient_maintenances`.
+
 ### PATCH /patients/:uuid — documento de garantía
 Acepta además `warrantyDocumentUuid: uuid | null` (null lo quita). Debe ser un
 documento de ese paciente y de la clínica; si no, **400**
