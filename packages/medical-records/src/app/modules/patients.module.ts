@@ -9,6 +9,7 @@ import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-p
 import { UpdatePatientStatusUseCase } from '@medical-records/domain/use-cases/update-patient-status.use-case';
 import { UpdatePatientFlagsUseCase } from '@medical-records/domain/use-cases/update-patient-flags.use-case';
 import { UpdatePatientMaintenanceUseCase } from '@medical-records/domain/use-cases/update-patient-maintenance.use-case';
+import { UpdatePatientContactAttemptsUseCase } from '@medical-records/domain/use-cases/update-patient-contact-attempts.use-case';
 import { SoftDeletePatientUseCase } from '@medical-records/domain/use-cases/soft-delete-patient.use-case';
 import { BulkImportPatientsUseCase } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { PatientContactsModule } from './patient-contacts.module';
@@ -24,6 +25,7 @@ const USE_CASES = [
   UpdatePatientStatusUseCase,
   UpdatePatientFlagsUseCase,
   UpdatePatientMaintenanceUseCase,
+  UpdatePatientContactAttemptsUseCase,
   SoftDeletePatientUseCase,
   BulkImportPatientsUseCase,
 ];

@@ -200,6 +200,13 @@ export class PatientStorage {
     });
   }
 
+  async updateContactAttempts(uuid: string, tenantUuid: string, count: number): Promise<Patient> {
+    return this.prisma.patient.update({
+      where: { uuid, tenantUuid },
+      data: { contactAttempts: count },
+    });
+  }
+
   async updateStatus(
     uuid: string,
     tenantUuid: string,

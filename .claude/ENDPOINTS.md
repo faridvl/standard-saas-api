@@ -773,6 +773,22 @@ devuelve el paciente sin escribir ni anotar en la bitácora. Si cambia, bitácor
 el paciente no es de la clínica. `GET /patients/:uuid` devuelve las cuatro columnas.
 Migración `20261030140000_patient_maintenances`.
 
+### PUT /patients/:uuid/contact-attempts
+Contador de intentos de contacto del paciente (veces que se le llamó, 0 a 3): el personal
+lo sube y lo reinicia a mano; no va ligado a una cita ni a un mantenimiento. Mismo
+acceso que `/flags` (STAFF también puede, y vale en pacientes inactivos o fallecidos).
+**Body (valor absoluto, no incremento):**
+```json
+{ "count": 0 }
+```
+`count` es un entero de 0 a 3 (0 reinicia). Se guarda en `contactAttempts` del paciente
+(no nulo, por defecto 0). Si el valor no cambia devuelve el paciente sin escribir ni
+anotar en la bitácora. Si cambia, bitácora `CONTACT_ATTEMPTS_CHANGED` con detalle
+`{ count, previousCount }`. **Response 200:** `Patient`. **400** si falta `count`, no es
+entero o está fuera de 0 a 3; **404** si el paciente no es de la clínica.
+`GET /patients/:uuid` devuelve `contactAttempts`.
+Migración `20261031120000_patient_contact_attempts`.
+
 ### PATCH /patients/:uuid — documento de garantía
 Acepta además `warrantyDocumentUuid: uuid | null` (null lo quita). Debe ser un
 documento de ese paciente y de la clínica; si no, **400**

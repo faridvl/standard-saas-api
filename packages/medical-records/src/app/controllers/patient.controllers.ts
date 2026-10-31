@@ -35,6 +35,11 @@ import { UpdatePatientStatusUseCase } from '@medical-records/domain/use-cases/up
 import { UpdatePatientFlagsUseCase } from '@medical-records/domain/use-cases/update-patient-flags.use-case';
 import { UpdatePatientFlagsDto, UpdatePatientFlagsSchema } from '../dtos/update-patient-flags.dto';
 import { UpdatePatientMaintenanceUseCase } from '@medical-records/domain/use-cases/update-patient-maintenance.use-case';
+import { UpdatePatientContactAttemptsUseCase } from '@medical-records/domain/use-cases/update-patient-contact-attempts.use-case';
+import {
+  UpdatePatientContactAttemptsDto,
+  UpdatePatientContactAttemptsSchema,
+} from '../dtos/update-patient-contact-attempts.dto';
 import {
   MaintenanceNumberSchema,
   UpdatePatientMaintenanceDto,
@@ -118,6 +123,7 @@ export class PatientController {
     private readonly updatePatientStatusUseCase: UpdatePatientStatusUseCase,
     private readonly updatePatientFlagsUseCase: UpdatePatientFlagsUseCase,
     private readonly updatePatientMaintenanceUseCase: UpdatePatientMaintenanceUseCase,
+    private readonly updatePatientContactAttemptsUseCase: UpdatePatientContactAttemptsUseCase,
     private readonly findBackgroundUseCase: FindPatientBackgroundUseCase,
     private readonly upsertBackgroundUseCase: UpsertPatientBackgroundUseCase,
     private readonly findPhysicalExamUseCase: FindPatientPhysicalExamUseCase,
@@ -248,6 +254,21 @@ export class PatientController {
       user.sub,
       parsedNumber.data,
       dto,
+    );
+  }
+
+  @Put(':uuid/contact-attempts')
+  @UsePipes(new ZodValidationPipe(UpdatePatientContactAttemptsSchema))
+  async updateContactAttempts(
+    @Param('uuid') uuid: string,
+    @Body() dto: UpdatePatientContactAttemptsDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<Patient> {
+    return await this.updatePatientContactAttemptsUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      user.sub,
+      dto.count,
     );
   }
 

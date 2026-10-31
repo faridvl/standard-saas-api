@@ -86,6 +86,8 @@ model Patient {
   maintenance2Status MaintenanceStatus?
   maintenance3Status MaintenanceStatus?
   maintenance4Status MaintenanceStatus?
+  // Veces que se llamó al paciente (0 a 3), subido y reiniciado a mano.
+  contactAttempts    Int       @default(0)
   // Documento del expediente (PatientDocument) elegido como garantía. Sin FK:
   // al borrar el documento el caso de uso lo deja en null.
   warrantyDocumentUuid  String?

@@ -40,6 +40,8 @@ export enum PatientActivityAction {
   PHYSICAL_EXAM_UPDATED = 'PHYSICAL_EXAM_UPDATED',
   /** Se marcó, cambió o desmarcó un mantenimiento (1 a 4). */
   MAINTENANCE_CHANGED = 'MAINTENANCE_CHANGED',
+  /** Cambió el contador de intentos de contacto (0 a 3) del paciente. */
+  CONTACT_ATTEMPTS_CHANGED = 'CONTACT_ATTEMPTS_CHANGED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */
@@ -63,7 +65,8 @@ export type PatientActivityDetail =
   | { appointmentUuid: string; date: string; typeUuid: string | null; typeName: string | null }
   | { before: string; after: string; reason: string | null; date: string | null }
   | { isOn: boolean; date?: string; previousDate?: string }
-  | { number: number; status: string | null; previousStatus: string | null };
+  | { number: number; status: string | null; previousStatus: string | null }
+  | { count: number; previousCount: number };
 
 export interface RecordPatientActivityInput {
   tenantUuid: string;
