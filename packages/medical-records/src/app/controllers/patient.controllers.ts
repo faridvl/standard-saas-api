@@ -269,6 +269,7 @@ export class PatientController {
       user.tenantUuid,
       user.sub,
       dto.count,
+      dto.expectedCount,
     );
   }
 

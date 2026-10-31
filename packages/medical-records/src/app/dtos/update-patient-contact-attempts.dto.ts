@@ -2,13 +2,20 @@ import { z } from 'zod';
 
 export const MAX_CONTACT_ATTEMPTS = 3;
 
-/** Valor absoluto del contador: 0 lo reinicia. */
+const buildAttemptsField = (field: string) =>
+  z
+    .number({ message: `${field} debe ser un nÃºmero entero` })
+    .int({ message: `${field} debe ser un nÃºmero entero` })
+    .min(0, { message: `${field} debe estar entre 0 y ${MAX_CONTACT_ATTEMPTS}` })
+    .max(MAX_CONTACT_ATTEMPTS, { message: `${field} debe estar entre 0 y ${MAX_CONTACT_ATTEMPTS}` });
+
+/**
+ * `count` es el valor absoluto nuevo (0 reinicia). `expectedCount` es el valor
+ * que la persona vio en pantalla: si ya cambiÃ³, la escritura se rechaza.
+ */
 export const UpdatePatientContactAttemptsSchema = z.object({
-  count: z
-    .number({ message: 'count debe ser un número entero' })
-    .int({ message: 'count debe ser un número entero' })
-    .min(0, { message: `count debe estar entre 0 y ${MAX_CONTACT_ATTEMPTS}` })
-    .max(MAX_CONTACT_ATTEMPTS, { message: `count debe estar entre 0 y ${MAX_CONTACT_ATTEMPTS}` }),
+  count: buildAttemptsField('count'),
+  expectedCount: buildAttemptsField('expectedCount'),
 });
 
 export type UpdatePatientContactAttemptsDto = z.infer<typeof UpdatePatientContactAttemptsSchema>;

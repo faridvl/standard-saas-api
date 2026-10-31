@@ -200,11 +200,18 @@ export class PatientStorage {
     });
   }
 
-  async updateContactAttempts(uuid: string, tenantUuid: string, count: number): Promise<Patient> {
-    return this.prisma.patient.update({
-      where: { uuid, tenantUuid },
+  /** Devuelve cuántas filas cambió: 0 si el valor actual ya no es `expectedCount`. */
+  async updateContactAttemptsIfCurrent(
+    uuid: string,
+    tenantUuid: string,
+    count: number,
+    expectedCount: number,
+  ): Promise<number> {
+    const result = await this.prisma.patient.updateMany({
+      where: { uuid, tenantUuid, deletedAt: null, contactAttempts: expectedCount },
       data: { contactAttempts: count },
     });
+    return result.count;
   }
 
   async updateStatus(

@@ -779,13 +779,19 @@ lo sube y lo reinicia a mano; no va ligado a una cita ni a un mantenimiento. Mis
 acceso que `/flags` (STAFF también puede, y vale en pacientes inactivos o fallecidos).
 **Body (valor absoluto, no incremento):**
 ```json
-{ "count": 0 }
+{ "count": 1, "expectedCount": 0 }
 ```
-`count` es un entero de 0 a 3 (0 reinicia). Se guarda en `contactAttempts` del paciente
-(no nulo, por defecto 0). Si el valor no cambia devuelve el paciente sin escribir ni
-anotar en la bitácora. Si cambia, bitácora `CONTACT_ATTEMPTS_CHANGED` con detalle
-`{ count, previousCount }`. **Response 200:** `Patient`. **400** si falta `count`, no es
-entero o está fuera de 0 a 3; **404** si el paciente no es de la clínica.
+Ambos son enteros de 0 a 3 y obligatorios. `count` es el valor nuevo (0 reinicia);
+`expectedCount` es el valor que la persona vio en pantalla. Se guarda en
+`contactAttempts` del paciente (no nulo, por defecto 0). La escritura es atómica y
+condicionada: solo cambia si el valor actual sigue siendo `expectedCount`; si no,
+**409** sin cambiar nada ni dejar bitácora (de dos peticiones simultáneas iguales, una
+gana y la otra recibe 409). Si `count` y `expectedCount` son iguales y coinciden con el
+actual, devuelve el paciente sin escribir ni anotar en la bitácora. Si cambia, bitácora
+`CONTACT_ATTEMPTS_CHANGED` con detalle `{ count, previousCount }`. **Response 200:**
+`Patient`. **400** si falta `count` o `expectedCount`, no son enteros o están fuera de 0 a
+3; **404** si el paciente no es de la clínica o está borrado (`deletedAt`); **409** si el
+valor actual no es `expectedCount`.
 `GET /patients/:uuid` devuelve `contactAttempts`.
 Migración `20261031120000_patient_contact_attempts`.
 
