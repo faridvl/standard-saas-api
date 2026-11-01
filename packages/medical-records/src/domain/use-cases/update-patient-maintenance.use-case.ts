@@ -33,7 +33,7 @@ export class UpdatePatientMaintenanceUseCase {
     dto: UpdatePatientMaintenanceDto,
   ): Promise<Patient> {
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
-    if (!existing) {
+    if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);
     }
 
