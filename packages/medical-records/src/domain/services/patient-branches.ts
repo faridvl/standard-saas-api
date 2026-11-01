@@ -14,8 +14,9 @@ interface BranchInput {
 /**
  * Decide las sedes finales a partir de lo que mandó el cliente. Devuelve
  * undefined si no mandó ninguna de las dos (no se tocan las sedes).
- * - Solo `branchUuid` (clientes viejos): reemplaza la principal y conserva
- *   las demás; null limpia todas.
+ * - Solo `branchUuid` (clientes viejos, que solo conocen la principal):
+ *   reemplaza la principal y conserva las demás; null saca solo la principal
+ *   y, si quedan otras, la primera pasa a principal.
  * - Solo `branchUuids`: la principal actual se conserva si sigue en la lista;
  *   si no, pasa a ser la primera. Lista vacía limpia todas.
  * - Las dos: deben coincidir, la principal tiene que estar en la lista.
@@ -47,11 +48,13 @@ export function resolvePatientBranches(
     };
   }
 
-  if (!branchUuid) return { branchUuid: null, branchUuids: [] };
-
   const others = (current?.branchUuids ?? []).filter(
     (uuid) => uuid !== branchUuid && uuid !== current?.branchUuid,
   );
+  if (!branchUuid) {
+    const [principal = null] = others;
+    return { branchUuid: principal, branchUuids: others };
+  }
   return { branchUuid, branchUuids: [branchUuid, ...others] };
 }
 
@@ -62,12 +65,22 @@ export function assertBranchesExist(requested: string[], found: string[]): void 
   }
 }
 
-/** Una cita solo se agenda en una sede del paciente; sin sedes registradas, en cualquiera. */
-export function assertBranchBelongsToPatient(
+/**
+ * Una cita se agenda en una sede de la clínica y, si el paciente tiene sedes,
+ * en una de ellas. `keepBranchUuid` es la sede de una cita ya vigente del
+ * paciente: se acepta aunque el paciente ya no la tenga, para poder reagendar.
+ */
+export function assertAppointmentBranch(
   branchUuid: string | null | undefined,
   patientBranchUuids: string[],
+  branchesInTenant: string[],
+  keepBranchUuid?: string | null,
 ): void {
-  if (!branchUuid || patientBranchUuids.length === 0) return;
+  if (!branchUuid) return;
+  if (!branchesInTenant.includes(branchUuid)) {
+    throw new BadRequestException('La sede de la cita no existe en la clínica');
+  }
+  if (branchUuid === keepBranchUuid || patientBranchUuids.length === 0) return;
   if (!patientBranchUuids.includes(branchUuid)) {
     throw new BadRequestException('La sede de la cita no está entre las sedes del paciente');
   }

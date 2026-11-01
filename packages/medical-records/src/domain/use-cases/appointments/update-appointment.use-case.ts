@@ -4,8 +4,9 @@ import { PatientActivityAction } from '@medical-records/domain/types/patient-act
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
-import { assertBranchBelongsToPatient } from '@medical-records/domain/services/patient-branches';
-import { Injectable } from '@nestjs/common';
+import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
+import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 /**
  * Cambios de estado que quedan en la bitácora: los que marca recepción desde
@@ -22,6 +23,7 @@ export class UpdateAppointmentUseCase {
   constructor(
     private readonly storage: AppointmentStorage,
     private readonly patientStorage: PatientStorage,
+    private readonly branchStorage: BranchStorage,
     private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
@@ -39,7 +41,14 @@ export class UpdateAppointmentUseCase {
         previous.patientUUID,
         tenantUUID,
       );
-      assertBranchBelongsToPatient(dto.branchUUID, patientBranches ?? []);
+      if (!patientBranches) {
+        throw new NotFoundException(`Paciente con UUID ${previous.patientUUID} no encontrado`);
+      }
+      assertAppointmentBranch(
+        dto.branchUUID,
+        patientBranches,
+        await this.branchStorage.findUuidsInTenant(tenantUUID, [dto.branchUUID]),
+      );
     }
 
     const updateData: Partial<Appointment> = {

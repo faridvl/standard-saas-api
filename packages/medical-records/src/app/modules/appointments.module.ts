@@ -17,6 +17,7 @@ import {
 import { ExpireAppointmentsJob } from '@medical-records/infrastructure/jobs/expire-appointments.job';
 import { PatientsModule } from './patients.module';
 import { AppointmentTypesModule } from './appointment-types.module';
+import { BranchesModule } from './branches.module';
 
 const CONTROLLERS = [AppointmentController, NextAppointmentController];
 const USE_CASES = [
@@ -33,7 +34,7 @@ const USE_CASES = [
 const STORAGES = [AppointmentStorage];
 
 @Module({
-  imports: [PatientsModule, AppointmentTypesModule, PatientActivityModule],
+  imports: [PatientsModule, AppointmentTypesModule, PatientActivityModule, BranchesModule],
   controllers: [...CONTROLLERS],
   providers: [...USE_CASES, ...STORAGES, ExpireAppointmentsJob],
   exports: [...STORAGES],

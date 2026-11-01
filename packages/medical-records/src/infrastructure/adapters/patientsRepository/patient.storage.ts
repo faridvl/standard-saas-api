@@ -112,6 +112,8 @@ function withBranchUuids(row: PatientRow): PatientWithBranches {
 
 export type PatientWithNextAppointment = PatientWithBranches & {
   nextAppointmentAt: Date | null;
+  /** Sede de esa próxima cita; null si no hay cita o se agendó sin sede. */
+  nextAppointmentBranchUuid: string | null;
   nextAppointmentType: string | null;
   tentativeAppointmentTypeName: string | null;
 };
@@ -179,6 +181,7 @@ export class PatientStorage {
   ): Promise<
     | (PatientWithBranches & {
         nextAppointmentAt: Date | null;
+        nextAppointmentBranchUuid: string | null;
         tentativeAppointmentTypeName: string | null;
       })
     | null
@@ -205,6 +208,7 @@ export class PatientStorage {
     return {
       ...patient,
       nextAppointmentAt: nextAppointments.get(patient.uuid)?.startTime ?? null,
+      nextAppointmentBranchUuid: nextAppointments.get(patient.uuid)?.branchUuid ?? null,
       tentativeAppointmentTypeName: patient.tentativeAppointmentTypeUuid
         ? (typeNames.get(patient.tentativeAppointmentTypeUuid) ?? null)
         : null,
@@ -404,7 +408,7 @@ export class PatientStorage {
   private async findNextAppointmentsByPatient(
     tenantUUID: string,
     patientUUIDs: string[],
-  ): Promise<Map<string, { startTime: Date; typeName: string | null }>> {
+  ): Promise<Map<string, { startTime: Date; branchUuid: string | null; typeName: string | null }>> {
     if (patientUUIDs.length === 0) return new Map();
 
     const rows = await this.prisma.appointment.findMany({
@@ -419,6 +423,7 @@ export class PatientStorage {
       select: {
         patientUUID: true,
         startTime: true,
+        branchUUID: true,
         appointmentType: { select: { name: true } },
       },
     });
@@ -426,7 +431,11 @@ export class PatientStorage {
     return new Map(
       rows.map((row) => [
         row.patientUUID,
-        { startTime: row.startTime, typeName: row.appointmentType?.name ?? null },
+        {
+          startTime: row.startTime,
+          branchUuid: row.branchUUID,
+          typeName: row.appointmentType?.name ?? null,
+        },
       ]),
     );
   }
@@ -653,6 +662,7 @@ export class PatientStorage {
     return records.map((record) => ({
       ...record,
       nextAppointmentAt: nextAppointments.get(record.uuid)?.startTime ?? null,
+      nextAppointmentBranchUuid: nextAppointments.get(record.uuid)?.branchUuid ?? null,
       nextAppointmentType: nextAppointments.get(record.uuid)?.typeName ?? null,
       tentativeAppointmentTypeName: record.tentativeAppointmentTypeUuid
         ? (typeNames.get(record.tentativeAppointmentTypeUuid) ?? null)

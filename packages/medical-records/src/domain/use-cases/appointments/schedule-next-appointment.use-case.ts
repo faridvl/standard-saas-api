@@ -7,11 +7,12 @@ import {
   DEFAULT_APPOINTMENT_HOUR_UTC,
 } from '@medical-records/domain/types/appointment.types';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
+import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
-import { assertBranchBelongsToPatient } from '@medical-records/domain/services/patient-branches';
+import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
 
 const APPOINTMENT_DURATION_MINUTES = 30;
 
@@ -27,6 +28,7 @@ export class ScheduleNextAppointmentUseCase {
   constructor(
     private readonly storage: AppointmentStorage,
     private readonly patientStorage: PatientStorage,
+    private readonly branchStorage: BranchStorage,
     private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
@@ -44,7 +46,15 @@ export class ScheduleNextAppointmentUseCase {
       throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
     }
 
-    assertBranchBelongsToPatient(dto.branchUUID, patient.branchUuids);
+    // Reagendar conserva la sede de la cita vigente aunque el paciente ya no la tenga.
+    if (dto.branchUUID) {
+      assertAppointmentBranch(
+        dto.branchUUID,
+        patient.branchUuids,
+        await this.branchStorage.findUuidsInTenant(tenantUUID, [dto.branchUUID]),
+        patient.nextAppointmentBranchUuid,
+      );
+    }
 
     // La cita futura que hubiera se reemplaza por la nueva: queda CANCELLED y
     // no COMPLETED, porque el paciente no llegó a atenderse en esa fecha (la
