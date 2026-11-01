@@ -768,41 +768,27 @@ en la bitácora. **Response 200:** `Patient`.
 Migración `20261020120000_add_warranty_expired_renew_prescription`.
 
 ### PUT /patients/:uuid/maintenances/:number
-Marca a mano el mantenimiento 1 a 4 del paciente (no se calcula desde las citas).
+Mantenimiento 1 a 4 del paciente (4 gratis al entregar audífonos, uno cada 6 meses): un
+check y una nota opcional que el personal cambia a mano; no se calculan desde las citas.
 Mismo acceso que `/flags` (STAFF también puede). `:number` solo acepta 1, 2, 3 o 4;
-otro valor: **400**. **Body (`status` obligatorio):**
+otro valor: **400**. **Body (al menos uno):**
 ```json
-{ "status": "ATTENDED | MISSED | null" }
+{ "done": true, "note": "Se llamó dos veces" }
 ```
-`null` desmarca el mantenimiento. Se guarda en `maintenance1Status` ...
-`maintenance4Status` del paciente (`null` = sin marcar). Si el valor no cambia
-devuelve el paciente sin escribir ni anotar en la bitácora. Si cambia, bitácora
-`MAINTENANCE_CHANGED` con detalle `{ number, status, previousStatus }`.
-**Response 200:** `Patient`. **400** si falta `status` o es otro valor; **404** si
-el paciente no es de la clínica. `GET /patients/:uuid` devuelve las cuatro columnas.
-Migración `20261030140000_patient_maintenances`.
-
-### PUT /patients/:uuid/contact-attempts
-Contador de intentos de contacto del paciente (veces que se le llamó, 0 a 3): el personal
-lo sube y lo reinicia a mano; no va ligado a una cita ni a un mantenimiento. Mismo
-acceso que `/flags` (STAFF también puede, y vale en pacientes inactivos o fallecidos).
-**Body (valor absoluto, no incremento):**
-```json
-{ "count": 1, "expectedCount": 0 }
-```
-Ambos son enteros de 0 a 3 y obligatorios. `count` es el valor nuevo (0 reinicia);
-`expectedCount` es el valor que la persona vio en pantalla. Se guarda en
-`contactAttempts` del paciente (no nulo, por defecto 0). La escritura es atómica y
-condicionada: solo cambia si el valor actual sigue siendo `expectedCount`; si no,
-**409** sin cambiar nada ni dejar bitácora (de dos peticiones simultáneas iguales, una
-gana y la otra recibe 409). Si `count` y `expectedCount` son iguales y coinciden con el
-actual, devuelve el paciente sin escribir ni anotar en la bitácora. Si cambia, bitácora
-`CONTACT_ATTEMPTS_CHANGED` con detalle `{ count, previousCount }`. **Response 200:**
-`Patient`. **400** si falta `count` o `expectedCount`, no son enteros o están fuera de 0 a
-3; **404** si el paciente no es de la clínica o está borrado (`deletedAt`); **409** si el
-valor actual no es `expectedCount`.
-`GET /patients/:uuid` devuelve `contactAttempts`.
-Migración `20261031120000_patient_contact_attempts`.
+`done` es booleano. `note` es texto (se recorta; máx. 500 caracteres) o `null`; una nota
+vacía se guarda como `null`. Se guardan en `maintenance1Done`/`maintenance1Note` ...
+`maintenance4Done`/`maintenance4Note` del paciente (`done` por defecto `false`, `note`
+`null`). Solo lo que cambia se escribe: si nada cambia devuelve el paciente sin escribir ni
+anotar en la bitácora. Bitácora: `MAINTENANCE_CHECK_CHANGED` con detalle `{ number, done }`
+y `MAINTENANCE_NOTE_CHANGED` con `{ number, excerpt }` (los eventos históricos
+`MAINTENANCE_CHANGED` y `CONTACT_ATTEMPTS_CHANGED` se siguen leyendo). **Response 200:**
+`Patient`. **400** si el body está vacío, `done` no es booleano o la nota pasa de 500;
+**404** si el paciente no es de la clínica o está borrado. `GET /patients/:uuid` devuelve
+los ocho campos.
+El endpoint `PUT /patients/:uuid/contact-attempts` y la columna `contactAttempts` se
+retiraron: lo de "se llamó" va en la nota. Migraciones
+`20261101120000_patient_maintenance_checks` (asistido pasa a check marcado, perdido a
+sin check con la nota "Perdido") y `20261101120100_drop_patient_contact_attempts`.
 
 ### PATCH /patients/:uuid — documento de garantía
 Acepta además `warrantyDocumentUuid: uuid | null` (null lo quita). Debe ser un

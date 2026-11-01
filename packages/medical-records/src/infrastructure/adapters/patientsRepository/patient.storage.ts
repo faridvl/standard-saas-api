@@ -36,7 +36,7 @@
 // }
 
 import { Injectable } from '@nestjs/common';
-import { MaintenanceStatus, Prisma, Patient } from '@prisma/client';
+import { Prisma, Patient } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
@@ -80,14 +80,14 @@ export interface PatientFlagsUpdate {
   renewPrescriptionSince?: Date | null;
 }
 
-type MaintenanceColumn =
-  | 'maintenance1Status'
-  | 'maintenance2Status'
-  | 'maintenance3Status'
-  | 'maintenance4Status';
-
-export function maintenanceColumn(number: MaintenanceNumber): MaintenanceColumn {
-  return `maintenance${number}Status`;
+export function maintenanceColumns(number: MaintenanceNumber): {
+  done: `maintenance${MaintenanceNumber}Done`;
+  note: `maintenance${MaintenanceNumber}Note`;
+} {
+  return {
+    done: `maintenance${number}Done`,
+    note: `maintenance${number}Note`,
+  } as const;
 }
 
 /** Valor del filtro de mes que pide los pacientes sin próxima cita. */
@@ -290,28 +290,18 @@ export class PatientStorage {
     uuid: string,
     tenantUuid: string,
     number: MaintenanceNumber,
-    status: MaintenanceStatus | null,
+    changes: { done?: boolean; note?: string | null },
   ): Promise<PatientWithBranches> {
+    const columns = maintenanceColumns(number);
+    const data: Prisma.PatientUpdateInput = {};
+    if (changes.done !== undefined) data[columns.done] = changes.done;
+    if (changes.note !== undefined) data[columns.note] = changes.note;
     const row = await this.prisma.patient.update({
       where: { uuid, tenantUuid },
-      data: { [maintenanceColumn(number)]: status },
+      data,
       include: BRANCHES_INCLUDE,
     });
     return withBranchUuids(row);
-  }
-
-  /** Devuelve cuántas filas cambió: 0 si el valor actual ya no es `expectedCount`. */
-  async updateContactAttemptsIfCurrent(
-    uuid: string,
-    tenantUuid: string,
-    count: number,
-    expectedCount: number,
-  ): Promise<number> {
-    const result = await this.prisma.patient.updateMany({
-      where: { uuid, tenantUuid, deletedAt: null, contactAttempts: expectedCount },
-      data: { contactAttempts: count },
-    });
-    return result.count;
   }
 
   async updateStatus(
