@@ -3,6 +3,8 @@ import { Appointment, AppointmentStatus } from '@medical-records/domain/types/ap
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
+import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import { assertBranchBelongsToPatient } from '@medical-records/domain/services/patient-branches';
 import { Injectable } from '@nestjs/common';
 
 /**
@@ -19,6 +21,7 @@ const STATUS_ACTIVITY: Partial<Record<AppointmentStatus, PatientActivityAction>>
 export class UpdateAppointmentUseCase {
   constructor(
     private readonly storage: AppointmentStorage,
+    private readonly patientStorage: PatientStorage,
     private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
@@ -29,6 +32,15 @@ export class UpdateAppointmentUseCase {
     actorUuid?: string,
   ): Promise<Appointment> {
     const previous = await this.storage.findOne(uuid, tenantUUID);
+
+    // Solo si la sede cambia: una cita vieja en una sede que el paciente ya no tiene sigue editable.
+    if (dto.branchUUID && dto.branchUUID !== previous.branchUUID) {
+      const patientBranches = await this.patientStorage.findBranchUuids(
+        previous.patientUUID,
+        tenantUUID,
+      );
+      assertBranchBelongsToPatient(dto.branchUUID, patientBranches ?? []);
+    }
 
     const updateData: Partial<Appointment> = {
       status: dto.status,

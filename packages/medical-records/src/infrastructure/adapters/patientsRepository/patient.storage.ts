@@ -41,6 +41,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 import { MaintenanceNumber } from '@medical-records/app/dtos/update-patient-maintenance.dto';
+import { PatientBranchSelection } from '@medical-records/domain/services/patient-branches';
 
 /**
  * Paciente tal como lo consumen las pantallas: además de sus datos, de qué y
@@ -92,7 +93,24 @@ export function maintenanceColumn(number: MaintenanceNumber): MaintenanceColumn 
 /** Valor del filtro de mes que pide los pacientes sin próxima cita. */
 export const NO_APPOINTMENT_FILTER = 'none';
 
-export type PatientWithNextAppointment = Patient & {
+/** Paciente con todas sus sedes; `branchUuid` es la principal y va primera en `branchUuids`. */
+export type PatientWithBranches = Patient & { branchUuids: string[] };
+
+const BRANCHES_INCLUDE = {
+  branches: { select: { branchUuid: true }, orderBy: { id: 'asc' } },
+} satisfies Prisma.PatientInclude;
+
+type PatientRow = Prisma.PatientGetPayload<{ include: typeof BRANCHES_INCLUDE }>;
+
+function withBranchUuids(row: PatientRow): PatientWithBranches {
+  const { branches, ...patient } = row;
+  const others = branches
+    .map((branch) => branch.branchUuid)
+    .filter((uuid) => uuid !== row.branchUuid);
+  return { ...patient, branchUuids: row.branchUuid ? [row.branchUuid, ...others] : others };
+}
+
+export type PatientWithNextAppointment = PatientWithBranches & {
   nextAppointmentAt: Date | null;
   nextAppointmentType: string | null;
   tentativeAppointmentTypeName: string | null;
@@ -111,6 +129,44 @@ export class PatientStorage {
     return client.patient.create({ data });
   }
 
+  /** Crea el paciente y sus sedes en una sola transacción. */
+  async saveWithBranches(
+    data: Prisma.PatientUncheckedCreateInput,
+    branches: PatientBranchSelection,
+  ): Promise<PatientWithBranches> {
+    return this.prisma.$transaction(async (tx) => {
+      const patient = await tx.patient.create({
+        data: { ...data, branchUuid: branches.branchUuid },
+      });
+      await this.replaceBranches(tx, patient.uuid, data.tenantUuid, branches.branchUuids);
+      return { ...patient, branchUuids: branches.branchUuids };
+    });
+  }
+
+  /** Sedes del paciente, o null si no existe en la clínica. */
+  async findBranchUuids(uuid: string, tenantUuid: string): Promise<string[] | null> {
+    const row = await this.prisma.patient.findFirst({
+      where: { uuid, tenantUuid },
+      include: BRANCHES_INCLUDE,
+    });
+    return row ? withBranchUuids(row).branchUuids : null;
+  }
+
+  private async replaceBranches(
+    tx: Prisma.TransactionClient,
+    patientUuid: string,
+    tenantUuid: string,
+    branchUuids: string[],
+  ): Promise<void> {
+    await tx.patientBranch.deleteMany({
+      where: { patientUuid, branchUuid: { notIn: branchUuids } },
+    });
+    await tx.patientBranch.createMany({
+      data: branchUuids.map((branchUuid) => ({ patientUuid, branchUuid, tenantUuid })),
+      skipDuplicates: true,
+    });
+  }
+
   /**
    * El detalle devuelve la próxima cita igual que el listado. Sin esto la
    * pantalla del paciente dependía de que el dato viniera en la caché del
@@ -121,17 +177,22 @@ export class PatientStorage {
     uuid: string,
     tenantUuid: string,
   ): Promise<
-    | (Patient & { nextAppointmentAt: Date | null; tentativeAppointmentTypeName: string | null })
+    | (PatientWithBranches & {
+        nextAppointmentAt: Date | null;
+        tentativeAppointmentTypeName: string | null;
+      })
     | null
   > {
-    const patient = await this.prisma.patient.findFirst({
+    const row = await this.prisma.patient.findFirst({
       where: {
         uuid: uuid,
         tenantUuid: tenantUuid,
       },
+      include: BRANCHES_INCLUDE,
     });
 
-    if (!patient) return null;
+    if (!row) return null;
+    const patient = withBranchUuids(row);
 
     const [nextAppointments, typeNames] = await Promise.all([
       this.findNextAppointmentsByPatient(tenantUuid, [patient.uuid]),
@@ -150,32 +211,56 @@ export class PatientStorage {
     };
   }
 
-  async update(uuid: string, tenantUuid: string, dto: UpdatePatientDto): Promise<Patient> {
-    return await this.prisma.patient.update({
-      where: { uuid },
-      data: {
-        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
-        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.phone !== undefined && { phone: dto.phone }),
-        ...(dto.birthDate !== undefined && { birthDate: dto.birthDate }),
-        ...(dto.address !== undefined && { address: dto.address }),
-        ...(dto.email !== undefined && { email: dto.email }),
-        ...(dto.gender !== undefined && { gender: dto.gender }),
-        ...(dto.bloodType !== undefined && { bloodType: dto.bloodType }),
-        ...(dto.linkedProductUuid !== undefined && { linkedProductUuid: dto.linkedProductUuid }),
-        ...(dto.documentId !== undefined && { documentId: dto.documentId }),
-        ...(dto.occupation !== undefined && { occupation: dto.occupation }),
-        ...(dto.branchUuid !== undefined && { branchUuid: dto.branchUuid }),
-        ...(dto.tentativeAppointmentMonth !== undefined && {
-          tentativeAppointmentMonth: dto.tentativeAppointmentMonth,
-        }),
-        ...(dto.tentativeAppointmentTypeUuid !== undefined && {
-          tentativeAppointmentTypeUuid: dto.tentativeAppointmentTypeUuid,
-        }),
-        ...(dto.warrantyDocumentUuid !== undefined && {
-          warrantyDocumentUuid: dto.warrantyDocumentUuid,
-        }),
-      },
+  /**
+   * Con `branches` (ya resueltas) reemplaza las sedes junto con la principal,
+   * en la misma transacción; sin ellas no toca las sedes.
+   */
+  async update(
+    uuid: string,
+    tenantUuid: string,
+    dto: UpdatePatientDto,
+    branches?: PatientBranchSelection,
+  ): Promise<PatientWithBranches> {
+    const data: Prisma.PatientUncheckedUpdateInput = {
+      ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+      ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+      ...(dto.phone !== undefined && { phone: dto.phone }),
+      ...(dto.birthDate !== undefined && { birthDate: dto.birthDate }),
+      ...(dto.address !== undefined && { address: dto.address }),
+      ...(dto.email !== undefined && { email: dto.email }),
+      ...(dto.gender !== undefined && { gender: dto.gender }),
+      ...(dto.bloodType !== undefined && { bloodType: dto.bloodType }),
+      ...(dto.linkedProductUuid !== undefined && { linkedProductUuid: dto.linkedProductUuid }),
+      ...(dto.documentId !== undefined && { documentId: dto.documentId }),
+      ...(dto.occupation !== undefined && { occupation: dto.occupation }),
+      ...(dto.tentativeAppointmentMonth !== undefined && {
+        tentativeAppointmentMonth: dto.tentativeAppointmentMonth,
+      }),
+      ...(dto.tentativeAppointmentTypeUuid !== undefined && {
+        tentativeAppointmentTypeUuid: dto.tentativeAppointmentTypeUuid,
+      }),
+      ...(dto.warrantyDocumentUuid !== undefined && {
+        warrantyDocumentUuid: dto.warrantyDocumentUuid,
+      }),
+    };
+
+    if (!branches) {
+      const row = await this.prisma.patient.update({
+        where: { uuid },
+        data,
+        include: BRANCHES_INCLUDE,
+      });
+      return withBranchUuids(row);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.replaceBranches(tx, uuid, tenantUuid, branches.branchUuids);
+      const row = await tx.patient.update({
+        where: { uuid },
+        data: { ...data, branchUuid: branches.branchUuid },
+        include: BRANCHES_INCLUDE,
+      });
+      return withBranchUuids(row);
     });
   }
 
@@ -184,8 +269,17 @@ export class PatientStorage {
    * transacción se cancelan sus citas confirmadas futuras y se limpia el mes
    * tentativo: no debe seguir apareciendo en los filtros de próxima cita.
    */
-  async updateFlags(uuid: string, tenantUuid: string, data: PatientFlagsUpdate): Promise<Patient> {
-    return this.prisma.patient.update({ where: { uuid, tenantUuid }, data });
+  async updateFlags(
+    uuid: string,
+    tenantUuid: string,
+    data: PatientFlagsUpdate,
+  ): Promise<PatientWithBranches> {
+    const row = await this.prisma.patient.update({
+      where: { uuid, tenantUuid },
+      data,
+      include: BRANCHES_INCLUDE,
+    });
+    return withBranchUuids(row);
   }
 
   async updateMaintenance(
@@ -193,11 +287,13 @@ export class PatientStorage {
     tenantUuid: string,
     number: MaintenanceNumber,
     status: MaintenanceStatus | null,
-  ): Promise<Patient> {
-    return this.prisma.patient.update({
+  ): Promise<PatientWithBranches> {
+    const row = await this.prisma.patient.update({
       where: { uuid, tenantUuid },
       data: { [maintenanceColumn(number)]: status },
+      include: BRANCHES_INCLUDE,
     });
+    return withBranchUuids(row);
   }
 
   /** Devuelve cuántas filas cambió: 0 si el valor actual ya no es `expectedCount`. */
@@ -219,7 +315,7 @@ export class PatientStorage {
     tenantUuid: string,
     data: { status: string; statusReason: string | null; statusDate: Date | null },
     clearUpcomingAppointments: boolean,
-  ): Promise<Patient> {
+  ): Promise<PatientWithBranches> {
     const [patient] = await this.prisma.$transaction([
       this.prisma.patient.update({
         where: { uuid, tenantUuid },
@@ -231,6 +327,7 @@ export class PatientStorage {
             tentativeAppointmentTypeUuid: null,
           }),
         },
+        include: BRANCHES_INCLUDE,
       }),
       ...(clearUpcomingAppointments
         ? [
@@ -246,7 +343,7 @@ export class PatientStorage {
           ]
         : []),
     ]);
-    return patient;
+    return withBranchUuids(patient);
   }
 
   async documentBelongsToPatient(
@@ -359,7 +456,6 @@ export class PatientStorage {
   private async findNextConfirmedAppointments(
     tenantUUID: string,
   ): Promise<{ patientUUID: string; startTime: Date }[]> {
-
     const rows = await this.prisma.appointment.findMany({
       where: {
         tenantUUID,
@@ -419,7 +515,8 @@ export class PatientStorage {
     // pisar el OR de la búsqueda por texto (ver el comentario del mes).
     const and: Prisma.PatientWhereInput[] = [];
     if (filters.statuses?.length) and.push({ status: { in: filters.statuses } });
-    if (filters.branchUuids?.length) and.push({ branchUuid: { in: filters.branchUuids } });
+    if (filters.branchUuids?.length)
+      and.push({ branches: { some: { branchUuid: { in: filters.branchUuids } } } });
     if (filters.appointmentTypeUuids?.length) {
       const withConfirmedOfType = await this.findPatientUuidsWithNextAppointmentOfTypes(
         tenantUUID,
@@ -483,15 +580,13 @@ export class PatientStorage {
       const records = await this.prisma.patient.findMany({
         where: {
           ...where,
-          AND: [
-            ...and,
-            { OR: monthConditions },
-          ],
+          AND: [...and, { OR: monthConditions }],
         },
+        include: BRANCHES_INCLUDE,
         orderBy: { createdAt: 'desc' },
       });
 
-      const data = (await this.withNextAppointment(tenantUUID, records))
+      const data = (await this.withNextAppointment(tenantUUID, records.map(withBranchUuids)))
         // Con el filtro de mes activo se ordena por próxima cita (la más
         // cercana primero); sin filtro se mantiene el orden por createdAt.
         // Los que solo tienen mes tentativo no tienen fecha con la que
@@ -514,12 +609,13 @@ export class PatientStorage {
         where,
         skip,
         take: limit,
+        include: BRANCHES_INCLUDE,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.patient.count({ where }),
     ]);
 
-    const data = await this.withNextAppointment(tenantUUID, records);
+    const data = await this.withNextAppointment(tenantUUID, records.map(withBranchUuids));
 
     return {
       data,
@@ -539,7 +635,7 @@ export class PatientStorage {
    */
   private async withNextAppointment(
     tenantUUID: string,
-    records: Patient[],
+    records: PatientWithBranches[],
   ): Promise<PatientWithNextAppointment[]> {
     const [nextAppointments, typeNames] = await Promise.all([
       this.findNextAppointmentsByPatient(

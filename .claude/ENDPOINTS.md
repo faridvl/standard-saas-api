@@ -649,7 +649,7 @@ original (si falla, queda un warning en el log).
 - `action` — una o varias separadas por coma (`APPOINTMENT_TENTATIVE,APPOINTMENT_CONFIRMED`); 400 si alguna no existe
 - `from`, `to` — ISO 8601; filtra `createdAt >= from` y `< to`. El cliente arma el rango en su zona horaria
 - `search` — nombre del paciente (copia guardada) o cédula actual
-- `branchUuid` — sede **actual** del paciente
+- `branchUuid` — sede principal del paciente (el resto, en `branchUuids`)
 - `appointmentTypeUuid` — `detail.typeUuid` (solo acciones de cita lo tienen)
 
 **Response 200:** `PaginatedResponse`, orden `createdAt` desc:
@@ -739,13 +739,21 @@ existentes quedan `ACTIVE`.
 
 ### GET /patients — filtros nuevos
 - `status` — uno o varios separados por coma (`ACTIVE,INACTIVE`); 400 si alguno no existe. Sin el parámetro no filtra (compatibilidad con Zynka).
-- `branchUuid` — sede del paciente.
+- `branchUuid` — una o varias sedes separadas por coma: devuelve al paciente que esté en cualquiera de ellas, una sola vez. Busca en todas las sedes del paciente, no solo en la principal. El total y la paginación cuentan pacientes, no filas.
 - `appointmentTypeUuid` — tipo de la **próxima cita**: la CONFIRMED futura más cercana, o el tipo del mes tentativo.
 
 Se combinan entre sí y con `search` y `nextAppointmentMonth`.
 
 Indicadores (`=true` filtra por los que lo tienen prendido; otro valor o ausente no filtra):
 `hearingAidsInLab`, `hasActiveWarranty`, `isVideoCandidate`, `warrantyExpired`, `renewPrescription`.
+
+### Sedes del paciente (`branchUuids`)
+Un paciente tiene una o más sedes (tabla `PatientBranch`). `branchUuid` se conserva como la sede **principal** (la primera de la lista).
+- `POST /patients` y `PATCH /patients/:uuid` aceptan `branchUuids` (uuid, sin repetidos). Lectura (`GET /patients/:uuid`) y lista devuelven `branchUuids` además de `branchUuid`, con la principal primero.
+- Solo `branchUuid` (clientes viejos): reemplaza la principal y conserva las demás secundarias; `null` limpia todas. Solo `branchUuids`: la principal actual se conserva si sigue en la lista, si no pasa a ser la primera; `[]` limpia todo y deja `branchUuid` en `null`.
+- **400** si `branchUuid` y `branchUuids` no concuerdan, si hay repetidos, o si alguna sede no existe o es de otra clínica. La escritura va en una transacción.
+- `POST /appointments` y `POST /patients/:uuid/next-appointment` responden **400** si la `branchUUID` no está entre las sedes del paciente; un paciente sin sedes puede agendar en cualquiera. `PATCH /appointments/:uuid` valida solo cuando la sede cambia.
+- Bitácora: si cambian las sedes, `PATIENT_UPDATED` trae los cambios `branchUuid` y `branchUuids` (las secundarias se comparan sin importar el orden).
 
 ### PUT /patients/:uuid/flags
 **Body (al menos uno):**

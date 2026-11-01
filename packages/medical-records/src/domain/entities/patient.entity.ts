@@ -15,6 +15,7 @@ export type PatientEntity = {
   bloodType?: string;
   documentId?: string;
   branchUuid?: string;
+  branchUuids?: string[];
   contacts?: PatientContactInput[];
   tenantId: number;
   tenantUuid: string;

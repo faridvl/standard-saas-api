@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BirthDateSchema } from './birth-date.schema';
+import { BranchUuidsSchema } from './branch-uuids.schema';
 
 const CreatePatientContactSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio').max(80),
@@ -17,6 +18,7 @@ export const CreatePatientSchema = z.object({
   bloodType: z.string().optional(),
   documentId: z.string().optional(),
   branchUuid: z.string().uuid().optional(),
+  branchUuids: BranchUuidsSchema.optional(),
   contacts: z.array(CreatePatientContactSchema).optional(),
 });
 

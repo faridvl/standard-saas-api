@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BirthDateSchema } from './birth-date.schema';
+import { BranchUuidsSchema } from './branch-uuids.schema';
 
 export const UpdatePatientSchema = z.object({
   firstName: z.string().min(2, 'El nombre es muy corto').optional(),
@@ -14,6 +15,7 @@ export const UpdatePatientSchema = z.object({
   documentId: z.string().optional(),
   occupation: z.string().optional(),
   branchUuid: z.string().uuid().nullable().optional(),
+  branchUuids: BranchUuidsSchema.optional(),
   // Mes tentativo de la próxima cita ("YYYY-MM"). null lo limpia: es lo que
   // manda el front cuando el paciente confirma y se agenda la cita real.
   tentativeAppointmentMonth: z

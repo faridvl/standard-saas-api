@@ -64,8 +64,25 @@ model Branch {
   createdAt  DateTime @default(now())
 
   patients     Patient[]
+  patientBranches PatientBranch[]
   appointments Appointment[]
 
+  @@index([tenantUuid])
+}
+
+// Sedes de un paciente. Patient.branchUuid es la principal y siempre está aquí.
+model PatientBranch {
+  id          Int      @id @default(autoincrement())
+  patientUuid String
+  branchUuid  String
+  tenantUuid  String
+  createdAt   DateTime @default(now())
+
+  patient Patient @relation(fields: [patientUuid], references: [uuid])
+  branch  Branch  @relation(fields: [branchUuid], references: [uuid])
+
+  @@unique([patientUuid, branchUuid])
+  @@index([branchUuid])
   @@index([tenantUuid])
 }
 
@@ -145,6 +162,7 @@ model Patient {
   contacts        PatientContact[]
   notes           PatientNote[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
+  branches        PatientBranch[]
 
   @@index([tenantId])
   @@index([isActive])

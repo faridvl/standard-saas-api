@@ -11,9 +11,9 @@ import { AppointmentStorage } from '@medical-records/infrastructure/adapters/app
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
+import { assertBranchBelongsToPatient } from '@medical-records/domain/services/patient-branches';
 
 const APPOINTMENT_DURATION_MINUTES = 30;
-
 
 /**
  * Tipo de cita usado cuando la petición no manda `typeUUID`. Zynka sigue
@@ -43,6 +43,8 @@ export class ScheduleNextAppointmentUseCase {
     if ((patient.status as PatientStatus) === PatientStatus.DECEASED) {
       throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
     }
+
+    assertBranchBelongsToPatient(dto.branchUUID, patient.branchUuids);
 
     // La cita futura que hubiera se reemplaza por la nueva: queda CANCELLED y
     // no COMPLETED, porque el paciente no llegó a atenderse en esa fecha (la
