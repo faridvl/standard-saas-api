@@ -186,6 +186,26 @@ Index: `@@index([tenantUuid, patientUuid, sentAt])`. Máximo un envío abierto p
 solo en el SQL de la migración (Prisma no lo expresa). `Patient.hearingAidsInLabSince` sigue
 siendo el interruptor; el envío abierto lleva el mismo día.
 
+Reconciliación tras desplegar (idempotente; interruptor y envíos pueden haber quedado
+desalineados si la migración corrió antes que el código nuevo). Correrla solo con permiso y
+nunca contra una base que no sea la local de pruebas:
+```sql
+-- Cierra los envíos abiertos de pacientes con el interruptor apagado.
+UPDATE "PatientLabShipment" s
+SET "deliveredAt" = s."sentAt", "updatedAt" = CURRENT_TIMESTAMP
+FROM "Patient" p
+WHERE s."patientUuid" = p."uuid" AND s."deliveredAt" IS NULL AND p."hearingAidsInLabSince" IS NULL;
+
+-- Abre el envío que falte a los pacientes con el interruptor prendido.
+INSERT INTO "PatientLabShipment" ("uuid", "tenantUuid", "patientUuid", "sentAt", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text, p."tenantUuid", p."uuid", p."hearingAidsInLabSince", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM "Patient" p
+WHERE p."hearingAidsInLabSince" IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM "PatientLabShipment" s WHERE s."patientUuid" = p."uuid" AND s."deliveredAt" IS NULL
+  );
+```
+
 ### Migrations (medical-records)
 | Migration | Description |
 |-----------|-------------|

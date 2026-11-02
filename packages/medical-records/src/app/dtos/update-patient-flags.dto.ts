@@ -18,6 +18,11 @@ export const UpdatePatientFlagsSchema = z
       .string()
       .refine(isValidDayKey, { message: 'La fecha de envío debe ser un día válido (AAAA-MM-DD)' })
       .optional(),
+    /**
+     * Envío abierto cuya fecha se corrige. Con él, `hearingAidsInLabDate` solo corrige ese envío
+     * y nunca abre uno nuevo; sin él, prender con el interruptor apagado abre un envío.
+     */
+    shipmentUuid: z.string().uuid({ message: 'El envío debe ser un uuid válido' }).optional(),
     /** Día de entrega, "YYYY-MM-DD". Solo con `hearingAidsInLab: false`; sin él se usa hoy. */
     deliveredAt: z
       .string()
@@ -36,6 +41,10 @@ export const UpdatePatientFlagsSchema = z
   .refine((dto) => dto.hearingAidsInLabDate === undefined || dto.hearingAidsInLab === true, {
     message: 'La fecha de envío solo va al marcar los audífonos en laboratorio',
     path: ['hearingAidsInLabDate'],
+  })
+  .refine((dto) => dto.shipmentUuid === undefined || dto.hearingAidsInLabDate !== undefined, {
+    message: 'Para corregir un envío indica la fecha de envío',
+    path: ['shipmentUuid'],
   })
   .refine(
     (dto) =>

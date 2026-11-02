@@ -227,7 +227,13 @@ export class PatientController {
     @Body() dto: UpdatePatientFlagsDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.updatePatientFlagsUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
+    return await this.updatePatientFlagsUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      user.sub,
+      dto,
+      user.role,
+    );
   }
 
   @Put(':uuid/maintenances/:number')

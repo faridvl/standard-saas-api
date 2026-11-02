@@ -276,6 +276,7 @@ model PatientQuestionnaireEntryRevision {
 /// Historial de envíos de audífonos al laboratorio: cada envío tiene su día de salida y, al
 /// entregarse, su día de regreso. Máximo uno abierto (deliveredAt nulo) por paciente: el índice
 /// parcial único "PatientLabShipment_one_open_per_patient" lo garantiza y vive solo en la migración.
+/// Si una migración generada lo borra, editarla para conservarlo (20261102180000_patient_lab_shipments).
 model PatientLabShipment {
   id              Int       @id @default(autoincrement())
   uuid            String    @unique @default(uuid())

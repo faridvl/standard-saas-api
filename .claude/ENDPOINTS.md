@@ -759,7 +759,7 @@ Un paciente tiene una o más sedes (tabla `PatientBranch`). `branchUuid` se cons
 ### PUT /patients/:uuid/flags
 **Body (al menos uno):**
 ```json
-{ "hearingAidsInLab": "boolean?", "hasActiveWarranty": "boolean?", "isVideoCandidate": "boolean?", "warrantyExpired": "boolean?", "renewPrescription": "boolean?" }
+{ "hearingAidsInLab": "boolean?", "hearingAidsInLabDate": "YYYY-MM-DD?", "shipmentUuid": "uuid?", "hasActiveWarranty": "boolean?", "isVideoCandidate": "boolean?", "warrantyExpired": "boolean?", "renewPrescription": "boolean?" }
 ```
 Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
 `hearingAidsInLabSince`, `warrantyActiveSince`, `videoCandidateSince`,
@@ -767,18 +767,18 @@ Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
 en la bitácora. **Response 200:** `Patient`.
 Migración `20261020120000_add_warranty_expired_renew_prescription`.
 
-**Audífonos en laboratorio (historial de envíos).** Prender `hearingAidsInLab` abre un envío con ese `sentAt` (`hearingAidsInLabDate`, un día `YYYY-MM-DD`; por defecto hoy); cambiar la fecha mientras sigue en laboratorio corrige el `sentAt` del envío abierto. Apagarlo es la entrega y acepta, solo con `hearingAidsInLab: false` (con otro valor: 400):
+**Audífonos en laboratorio (historial de envíos).** Prender `hearingAidsInLab` abre un envío con ese `sentAt` (`hearingAidsInLabDate`, un día `YYYY-MM-DD`; por defecto hoy); cambiar la fecha mientras sigue en laboratorio corrige el `sentAt` del envío abierto. Para corregir se manda además `shipmentUuid` (uuid del envío que la pantalla muestra; exige `hearingAidsInLabDate`): si ese envío ya no es el abierto, **409** "Este envío ya fue entregado. Recarga la página.". Sin `shipmentUuid` y con el interruptor apagado, prender abre un envío nuevo. **400** si el `sentAt` (al abrir o corregir) es anterior a la entrega del último envío cerrado ("La fecha de envío no puede ser anterior a la última entrega (DD/MM/AAAA)"). Apagarlo es la entrega y acepta, solo con `hearingAidsInLab: false` (con otro valor: 400):
 ```json
 { "hearingAidsInLab": false, "deliveredAt": "YYYY-MM-DD ?", "note": "string (máx. 1000) ?" }
 ```
-`deliveredAt` por defecto es hoy (Costa Rica); **400** si es posterior a hoy ("La fecha de entrega no puede ser posterior a hoy") o anterior al día de envío del abierto ("La fecha de entrega no puede ser anterior a la de envío (DD/MM/AAAA)"). Todo ocurre en una transacción con el paciente bloqueado: cierra el envío (`deliveredAt`, `note`, `deliveredByUuid`), apaga el switch y, si hay `note`, crea además una nota de Control de evolución (`EVOLUTION_CONTROL`) con el mismo texto, mismo autor y fecha de hoy. Sin envío abierto (dato viejo) crea uno ya cerrado con `sentAt` = `deliveredAt`. Un envío abierto por paciente como máximo (índice parcial único). Bitácora: `HEARING_AIDS_DELIVERED` con `{ date, hasNote }` (sin el texto) y, si hubo nota, `NOTE_ADDED`.
+`deliveredAt` por defecto es hoy (Costa Rica); **400** si es posterior a hoy ("La fecha de entrega no puede ser posterior a hoy") o anterior al día de envío del abierto ("La fecha de entrega no puede ser anterior a la de envío (DD/MM/AAAA)"). Todo ocurre en una transacción con el paciente bloqueado: cierra el envío (`deliveredAt`, `note`, `deliveredByUuid`), apaga el switch y, si hay `note`, crea además una nota de Control de evolución (`EVOLUTION_CONTROL`) con el mismo texto, mismo autor y fecha de hoy. Sin envío abierto (dato viejo) crea uno ya cerrado con `sentAt` = el día que tenía el interruptor (`hearingAidsInLabSince`), o `deliveredAt` si no lo tenía; la misma regla de que la entrega no sea antes del envío. Un envío abierto por paciente como máximo (índice parcial único). Con `deliveredAt` o `note` y el interruptor ya apagado: **409** "Los audífonos ya se marcaron como entregados.". Con `note` y un rol fuera de OWNER, ADMIN y DOCTOR (p. ej. STAFF): **403** "Solo el personal clínico puede agregar notas."; entregar sin nota sí lo puede hacer cualquier rol (el endpoint no lleva `RolesGuard`). Bitácora, dentro de la misma transacción (si algo falla no queda evento): `HEARING_AIDS_DELIVERED` con `{ date, hasNote }` (sin el texto) y, si hubo nota, `NOTE_ADDED`.
 
 ### GET /patients/:patientUuid/lab-shipments
-`AuthGuard`, filtrado por `tenantUuid` (paciente de otro negocio o borrado: **404** "Paciente no encontrado"). **Response 200**, del más reciente al más viejo:
+`AuthGuard` (sin `RolesGuard`), filtrado por `tenantUuid` (paciente de otro negocio o borrado: **404** "Paciente no encontrado"). Solo lee: los nombres salen de la copia local de usuarios, sin crearla. `note` llega `null` a los roles fuera de OWNER, ADMIN y DOCTOR. **Response 200**, del más reciente al más viejo:
 ```json
 [{ "uuid": "", "sentAt": "YYYY-MM-DD", "deliveredAt": "YYYY-MM-DD | null", "note": "string | null", "createdByUuid": "string | null", "createdByName": "string | null", "deliveredByUuid": "string | null", "deliveredByName": "string | null" }]
 ```
-`deliveredAt: null` = sigue en laboratorio. Los nombres pueden ser `null` (envío migrado sin autor). Migración `20261102180000_patient_lab_shipments` (copia como envío abierto a quien ya tenía el switch prendido).
+`uuid` es el que se manda como `shipmentUuid` al corregir. `deliveredAt: null` = sigue en laboratorio. Los nombres pueden ser `null` (envío migrado sin autor o usuario sin copia local). Migración `20261102180000_patient_lab_shipments` (copia como envío abierto a quien ya tenía el switch prendido).
 
 ### Mantenimientos del paciente (estado e historial de notas)
 Mantenimiento 1 a 4 del paciente (4 gratis al entregar audífonos, uno cada 6 meses): un

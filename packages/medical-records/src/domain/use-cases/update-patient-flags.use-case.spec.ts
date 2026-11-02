@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { UpdatePatientFlagsUseCase } from './update-patient-flags.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
 
@@ -17,6 +22,8 @@ interface Shipment {
   deliveredByUuid: string | null;
 }
 
+const OTHER_SHIPMENT_UUID = '11111111-1111-4111-8111-111111111111';
+
 const noon = (day: string) => new Date(`${day}T12:00:00.000Z`);
 
 describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
@@ -24,7 +31,15 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
   let shipments: Shipment[];
   let notes: { authorUuid: string; text: string }[];
   let activities: Record<string, unknown>[];
-  let useCase: UpdatePatientFlagsUseCase;
+  let useCase: {
+    execute: (
+      uuid: string,
+      tenantUuid: string,
+      actorUuid: string,
+      dto: never,
+      role?: string,
+    ) => ReturnType<UpdatePatientFlagsUseCase['execute']>;
+  };
 
   const open = () => shipments.find((s) => s.deliveredAt === null);
 
@@ -59,10 +74,19 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
         // La transacción real deshace todo si falla; la copia imita ese efecto.
         const backup = { flags: { ...flags }, shipments: shipments.map((s) => ({ ...s })) };
         const notesBackup = [...notes];
+        const activitiesBackup = [...activities];
         try {
           return await work({
             currentFlags: () => Promise.resolve({ ...flags }),
             findOpenShipment: () => Promise.resolve(open() ?? null),
+            findLastClosedShipment: () => {
+              const closed = shipments
+                .filter((shipment) => shipment.deliveredAt !== null)
+                .sort(
+                  (a, b) => (b.deliveredAt as Date).getTime() - (a.deliveredAt as Date).getTime(),
+                );
+              return Promise.resolve(closed[0] ?? null);
+            },
             createShipment: (data: Record<string, unknown>) => {
               shipments.push({
                 uuid: `s-${shipments.length + 1}`,
@@ -91,6 +115,10 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
               Object.assign(flags, data);
               return Promise.resolve();
             },
+            recordActivity: (actorUuid: string, action: string, detail: unknown) => {
+              activities.push({ actorUuid, action, detail });
+              return Promise.resolve();
+            },
             createEvolutionNote: (authorUuid: string, text: string) => {
               notes.push({ authorUuid, text });
               return Promise.resolve({});
@@ -100,6 +128,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
           flags = backup.flags;
           shipments = backup.shipments;
           notes = notesBackup;
+          activities = activitiesBackup;
           throw error;
         }
       },
@@ -110,11 +139,15 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
         return Promise.resolve();
       },
     };
-    useCase = new UpdatePatientFlagsUseCase(
+    const real = new UpdatePatientFlagsUseCase(
       storage as never,
       labStorage as never,
       recordActivity as never,
     );
+    useCase = {
+      execute: (uuid, tenantUuid, actorUuid, dto, role = 'DOCTOR') =>
+        real.execute(uuid, tenantUuid, actorUuid, dto, role),
+    };
   });
 
   afterEach(() => {
@@ -228,7 +261,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     ).rejects.toThrow(new BadRequestException('La fecha de entrega no puede ser posterior a hoy'));
   });
 
-  it('sin envío abierto (dato viejo) crea uno ya cerrado con el día de la entrega', async () => {
+  it('sin envío abierto (dato viejo) crea uno ya cerrado con el día que tenía el interruptor', async () => {
     flags.hearingAidsInLabSince = noon('2026-10-20');
 
     await useCase.execute(PATIENT, TENANT, ACTOR, {
@@ -238,12 +271,239 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
 
     expect(shipments).toEqual([
       expect.objectContaining({
-        sentAt: noon('2026-11-01'),
+        sentAt: noon('2026-10-20'),
         deliveredAt: noon('2026-11-01'),
         deliveredByUuid: ACTOR,
       }),
     ]);
     expect(flags.hearingAidsInLabSince).toBeNull();
+  });
+
+  it('sin envío abierto, una entrega anterior al día que tenía el interruptor responde 400', async () => {
+    flags.hearingAidsInLabSince = noon('2026-10-20');
+
+    await expect(
+      useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        deliveredAt: '2026-10-19',
+      } as never),
+    ).rejects.toThrow(
+      new BadRequestException('La fecha de entrega no puede ser anterior a la de envío (20/10/2026)'),
+    );
+    expect(shipments).toEqual([]);
+    expect(flags.hearingAidsInLabSince).toEqual(noon('2026-10-20'));
+  });
+
+  describe('corrección con shipmentUuid', () => {
+    const openShipment = async () => {
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-30',
+      } as never);
+      return shipments[0].uuid;
+    };
+
+    it('con el uuid del envío abierto corrige su fecha', async () => {
+      const shipmentUuid = await openShipment();
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-28',
+        shipmentUuid,
+      } as never);
+
+      expect(shipments).toHaveLength(1);
+      expect(shipments[0].sentAt).toEqual(noon('2026-10-28'));
+      expect(flags.hearingAidsInLabSince).toEqual(noon('2026-10-28'));
+    });
+
+    it('con el envío ya entregado responde 409 y no lo reabre', async () => {
+      const shipmentUuid = await openShipment();
+      await useCase.execute(PATIENT, TENANT, ACTOR, { hearingAidsInLab: false } as never);
+
+      await expect(
+        useCase.execute(PATIENT, TENANT, ACTOR, {
+          hearingAidsInLab: true,
+          hearingAidsInLabDate: '2026-10-28',
+          shipmentUuid,
+        } as never),
+      ).rejects.toThrow(new ConflictException('Este envío ya fue entregado. Recarga la página.'));
+      expect(shipments).toHaveLength(1);
+      expect(shipments[0].deliveredAt).not.toBeNull();
+      expect(flags.hearingAidsInLabSince).toBeNull();
+    });
+
+    it('con un uuid que no es el del envío abierto responde 409', async () => {
+      await openShipment();
+
+      await expect(
+        useCase.execute(PATIENT, TENANT, ACTOR, {
+          hearingAidsInLab: true,
+          hearingAidsInLabDate: '2026-10-28',
+          shipmentUuid: OTHER_SHIPMENT_UUID,
+        } as never),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(shipments[0].sentAt).toEqual(noon('2026-10-30'));
+    });
+
+    it('sin shipmentUuid y con el interruptor apagado sigue abriendo un envío', async () => {
+      await openShipment();
+      await useCase.execute(PATIENT, TENANT, ACTOR, { hearingAidsInLab: false } as never);
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-11-02',
+      } as never);
+
+      expect(shipments).toHaveLength(2);
+      expect(open()?.sentAt).toEqual(noon('2026-11-02'));
+    });
+  });
+
+  describe('entrega duplicada', () => {
+    it('con deliveredAt o nota y el interruptor ya apagado responde 409', async () => {
+      await expect(
+        useCase.execute(PATIENT, TENANT, ACTOR, {
+          hearingAidsInLab: false,
+          note: 'Se perdería',
+        } as never),
+      ).rejects.toThrow(new ConflictException('Los audífonos ya se marcaron como entregados.'));
+      await expect(
+        useCase.execute(PATIENT, TENANT, ACTOR, {
+          hearingAidsInLab: false,
+          deliveredAt: '2026-11-01',
+        } as never),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(notes).toEqual([]);
+      expect(shipments).toEqual([]);
+    });
+  });
+
+  describe('envíos encimados', () => {
+    const deliveredOn = async (sent: string, delivered: string) => {
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: sent,
+      } as never);
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        deliveredAt: delivered,
+      } as never);
+    };
+
+    it('abrir un envío antes de la última entrega responde 400', async () => {
+      await deliveredOn('2026-10-20', '2026-10-25');
+
+      await expect(
+        useCase.execute(PATIENT, TENANT, ACTOR, {
+          hearingAidsInLab: true,
+          hearingAidsInLabDate: '2026-10-24',
+        } as never),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'La fecha de envío no puede ser anterior a la última entrega (25/10/2026)',
+        ),
+      );
+      expect(open()).toBeUndefined();
+      expect(flags.hearingAidsInLabSince).toBeNull();
+    });
+
+    it('abrir el mismo día de la última entrega se permite', async () => {
+      await deliveredOn('2026-10-20', '2026-10-25');
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-25',
+      } as never);
+
+      expect(open()?.sentAt).toEqual(noon('2026-10-25'));
+    });
+
+    it('corregir el envío abierto a antes de la última entrega responde 400', async () => {
+      await deliveredOn('2026-10-20', '2026-10-25');
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-28',
+      } as never);
+
+      await expect(
+        useCase.execute(PATIENT, TENANT, ACTOR, {
+          hearingAidsInLab: true,
+          hearingAidsInLabDate: '2026-10-22',
+          shipmentUuid: (open() as Shipment).uuid,
+        } as never),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(open()?.sentAt).toEqual(noon('2026-10-28'));
+    });
+  });
+
+  describe('nota de la entrega según el rol', () => {
+    const sendToLab = () =>
+      useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-30',
+      } as never);
+
+    it('STAFF con nota responde 403 y no cambia nada', async () => {
+      await sendToLab();
+
+      await expect(
+        useCase.execute(
+          PATIENT,
+          TENANT,
+          ACTOR,
+          { hearingAidsInLab: false, note: 'Texto clínico' } as never,
+          'STAFF',
+        ),
+      ).rejects.toThrow(new ForbiddenException('Solo el personal clínico puede agregar notas.'));
+      expect(open()).toBeDefined();
+      expect(notes).toEqual([]);
+    });
+
+    it('STAFF sin nota puede entregar', async () => {
+      await sendToLab();
+
+      await useCase.execute(
+        PATIENT,
+        TENANT,
+        ACTOR,
+        { hearingAidsInLab: false, deliveredAt: '2026-11-01' } as never,
+        'STAFF',
+      );
+
+      expect(shipments[0].deliveredAt).toEqual(noon('2026-11-01'));
+      expect(flags.hearingAidsInLabSince).toBeNull();
+    });
+
+    it.each(['OWNER', 'ADMIN', 'DOCTOR'])('%s puede dejar la nota', async (role) => {
+      await sendToLab();
+
+      await useCase.execute(
+        PATIENT,
+        TENANT,
+        ACTOR,
+        { hearingAidsInLab: false, note: 'Nota' } as never,
+        role,
+      );
+
+      expect(notes).toEqual([{ authorUuid: ACTOR, text: 'Nota' }]);
+    });
+  });
+
+  it('una entrega rechazada no deja eventos en la bitácora', async () => {
+    await useCase.execute(PATIENT, TENANT, ACTOR, {
+      hearingAidsInLab: true,
+      hearingAidsInLabDate: '2026-10-30',
+    } as never);
+    activities.length = 0;
+
+    await expect(
+      useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        deliveredAt: '2026-10-29',
+      } as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(activities).toEqual([]);
   });
 
   it('un paciente de otra clínica responde Paciente no encontrado y no toca envíos', async () => {

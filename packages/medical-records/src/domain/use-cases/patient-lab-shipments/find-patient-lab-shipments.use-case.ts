@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PatientLabShipmentStorage } from '@medical-records/infrastructure/adapters/patientLabShipmentRepository/patient-lab-shipment.storage';
 import { PatientLabShipmentEntity } from '@medical-records/domain/entities/patient-lab-shipment.entity';
 import { toClinicDayKey } from '@medical-records/domain/utils/lab-shipment-date.util';
-import { GetOrCreateUserUseCase } from '@medical-records/domain/use-cases/users/get-or-create-user.use-case';
+import { UserStorage } from '@medical-records/infrastructure/adapters/userRepository/user.storage';
+import { CLINICAL_ACCESS_ROLES } from '@medical-records/domain/policies/clinical-access.policy';
 
 const isString = (value: string | null): value is string => value !== null;
 
@@ -10,10 +11,14 @@ const isString = (value: string | null): value is string => value !== null;
 export class FindPatientLabShipmentsUseCase {
   constructor(
     private readonly storage: PatientLabShipmentStorage,
-    private readonly getOrCreateUser: GetOrCreateUserUseCase,
+    private readonly userStorage: UserStorage,
   ) {}
 
-  async execute(patientUuid: string, tenantUuid: string): Promise<PatientLabShipmentEntity[]> {
+  async execute(
+    patientUuid: string,
+    tenantUuid: string,
+    role: string | null | undefined,
+  ): Promise<PatientLabShipmentEntity[]> {
     if (!(await this.storage.patientExists(patientUuid, tenantUuid, { includeDeleted: false }))) {
       throw new NotFoundException('Paciente no encontrado');
     }
@@ -26,20 +31,22 @@ export class FindPatientLabShipmentsUseCase {
           .filter(isString),
       ),
     ];
+    // Solo lee la copia local de usuarios: un GET no debe escribir ni llamar a identity.
     const names = new Map(
       await Promise.all(
         authorUuids.map(
-          async (uuid) => [uuid, await this.getOrCreateUser.execute(uuid, tenantUuid)] as const,
+          async (uuid) => [uuid, (await this.userStorage.findByUuid(uuid))?.fullName ?? null] as const,
         ),
       ),
     );
+    const canSeeNotes = CLINICAL_ACCESS_ROLES.includes(role ?? '');
     const nameOf = (uuid: string | null) => (uuid ? (names.get(uuid) ?? null) : null);
 
     return records.map((record) => ({
       uuid: record.uuid,
       sentAt: toClinicDayKey(record.sentAt),
       deliveredAt: record.deliveredAt ? toClinicDayKey(record.deliveredAt) : null,
-      note: record.note,
+      note: canSeeNotes ? record.note : null,
       createdByUuid: record.createdByUuid,
       createdByName: nameOf(record.createdByUuid),
       deliveredByUuid: record.deliveredByUuid,

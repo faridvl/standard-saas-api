@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DocumentCategory } from '@prisma/client';
 import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import {
@@ -8,8 +14,10 @@ import {
 import {
   LabShipmentTransaction,
   PatientFlagsSnapshot,
+  PatientLabShipmentRecord,
   PatientLabShipmentStorage,
 } from '@medical-records/infrastructure/adapters/patientLabShipmentRepository/patient-lab-shipment.storage';
+import { CLINICAL_ACCESS_ROLES } from '@medical-records/domain/policies/clinical-access.policy';
 import { UpdatePatientFlagsDto } from '@medical-records/app/dtos/update-patient-flags.dto';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import {
@@ -83,7 +91,8 @@ function formatDay(instant: Date): string {
  * está apagado.
  *
  * Los audífonos en laboratorio además llevan un historial de envíos: prender abre un envío,
- * cambiar la fecha mientras está en laboratorio corrige el día de envío del abierto, y apagar
+ * cambiar la fecha mientras está en laboratorio corrige el día de envío del abierto (con
+ * `shipmentUuid` solo corrige, nunca abre), y apagar
  * es la entrega (cierra el envío; la nota, si hay, también queda en Control de evolución).
  */
 @Injectable()
@@ -99,7 +108,13 @@ export class UpdatePatientFlagsUseCase {
     tenantUuid: string,
     actorUuid: string,
     dto: UpdatePatientFlagsDto,
+    actorRole: string | null | undefined,
   ): Promise<PatientRecord> {
+    // La nota queda en Control de evolución, que STAFF no puede ver ni escribir.
+    if (dto.note && !CLINICAL_ACCESS_ROLES.includes(actorRole ?? '')) {
+      throw new ForbiddenException('Solo el personal clínico puede agregar notas.');
+    }
+
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);
@@ -124,31 +139,29 @@ export class UpdatePatientFlagsUseCase {
     const outcome = await this.labShipmentStorage.runLocked(uuid, tenantUuid, async (tx) => {
       // Se vuelve a leer con la fila bloqueada: otro cambio pudo haber pasado antes.
       const current = await tx.currentFlags();
-      const { changes, activities } = this.plan(current, dto, now);
-      if (activities.length === 0) return { activities, noteText: null };
+      const open = await tx.findOpenShipment();
+      this.assertShipmentRequest(current, open, dto);
 
-      const noteText = await this.syncShipment(tx, changes, dto, actorUuid, now);
+      const { changes, activities } = this.plan(current, dto, now);
+      if (activities.length === 0) return { changed: false };
+
+      const noteText = await this.syncShipment(tx, current, open, changes, dto, actorUuid, now);
       await tx.updateFlags(changes);
-      return { activities, noteText };
+      for (const activity of activities) {
+        await tx.recordActivity(actorUuid, activity.action, activity.detail);
+      }
+      if (noteText) {
+        await tx.recordActivity(actorUuid, PatientActivityAction.NOTE_ADDED, {
+          category: DocumentCategory.EVOLUTION_CONTROL,
+          excerpt: noteText.slice(0, NOTE_EXCERPT_LENGTH),
+        });
+      }
+      return { changed: true };
     });
     if (outcome === null) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);
     }
-    if (outcome.activities.length === 0) return existing;
-
-    await this.recordAll(uuid, tenantUuid, actorUuid, outcome.activities);
-    if (outcome.noteText) {
-      await this.recordActivity.execute({
-        tenantUuid,
-        patientUuid: uuid,
-        actorUuid,
-        action: PatientActivityAction.NOTE_ADDED,
-        detail: {
-          category: DocumentCategory.EVOLUTION_CONTROL,
-          excerpt: outcome.noteText.slice(0, NOTE_EXCERPT_LENGTH),
-        },
-      });
-    }
+    if (!outcome.changed) return existing;
 
     return (await this.storage.findByUuid(uuid, tenantUuid)) ?? existing;
   }
@@ -205,12 +218,39 @@ export class UpdatePatientFlagsUseCase {
     return { changes, activities };
   }
 
+  /** Rechaza lo que una pantalla desactualizada manda sobre un envío que ya cambió. */
+  private assertShipmentRequest(
+    current: PatientFlagsSnapshot,
+    open: PatientLabShipmentRecord | null,
+    dto: UpdatePatientFlagsDto,
+  ): void {
+    if (dto.shipmentUuid && open?.uuid !== dto.shipmentUuid) {
+      throw new ConflictException('Este envío ya fue entregado. Recarga la página.');
+    }
+    const isAlreadyDelivered = dto.hearingAidsInLab === false && !current.hearingAidsInLabSince;
+    if (isAlreadyDelivered && (dto.deliveredAt || dto.note)) {
+      throw new ConflictException('Los audífonos ya se marcaron como entregados.');
+    }
+  }
+
+  /** El envío nuevo (o con la fecha corregida) no puede quedar antes de la última entrega. */
+  private async assertNotBeforeLastDelivery(tx: LabShipmentTransaction, sentAt: Date) {
+    const lastClosed = await tx.findLastClosedShipment();
+    if (lastClosed?.deliveredAt && toClinicDayKey(sentAt) < toClinicDayKey(lastClosed.deliveredAt)) {
+      throw new BadRequestException(
+        `La fecha de envío no puede ser anterior a la última entrega (${formatDay(lastClosed.deliveredAt)})`,
+      );
+    }
+  }
+
   /**
    * Lleva el historial de envíos al cambio del interruptor de laboratorio. Devuelve el texto
    * de la nota de Control de evolución que se creó, o null si no hubo.
    */
   private async syncShipment(
     tx: LabShipmentTransaction,
+    current: PatientFlagsSnapshot,
+    open: PatientLabShipmentRecord | null,
     changes: PatientFlagsUpdate,
     dto: UpdatePatientFlagsDto,
     actorUuid: string,
@@ -218,11 +258,11 @@ export class UpdatePatientFlagsUseCase {
   ): Promise<string | null> {
     if (!('hearingAidsInLabSince' in changes)) return null;
 
-    const open = await tx.findOpenShipment();
     const newSince = changes.hearingAidsInLabSince;
 
     if (newSince) {
       const sentAt = shipmentDayToSince(toClinicDayKey(newSince));
+      await this.assertNotBeforeLastDelivery(tx, sentAt);
       if (open) {
         await tx.updateSentAt(open.uuid, sentAt);
       } else {
@@ -233,17 +273,18 @@ export class UpdatePatientFlagsUseCase {
 
     const deliveredAt = shipmentDayToSince(dto.deliveredAt ?? toClinicDayKey(now));
     const note = dto.note ?? null;
+    // Sin envío abierto (dato viejo) el día de envío es el que tenía el interruptor.
+    const sentAt = open?.sentAt ?? current.hearingAidsInLabSince ?? deliveredAt;
+    if (toClinicDayKey(deliveredAt) < toClinicDayKey(sentAt)) {
+      throw new BadRequestException(
+        `La fecha de entrega no puede ser anterior a la de envío (${formatDay(sentAt)})`,
+      );
+    }
     if (open) {
-      if (toClinicDayKey(deliveredAt) < toClinicDayKey(open.sentAt)) {
-        throw new BadRequestException(
-          `La fecha de entrega no puede ser anterior a la de envío (${formatDay(open.sentAt)})`,
-        );
-      }
       await tx.closeShipment(open.uuid, { deliveredAt, note, deliveredByUuid: actorUuid });
     } else {
-      // Dato viejo sin envío abierto: queda el registro de la entrega con un solo día.
       await tx.createShipment({
-        sentAt: deliveredAt,
+        sentAt,
         deliveredAt,
         note,
         createdByUuid: actorUuid,

@@ -2,6 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { DocumentCategory, PatientLabShipment, PatientNote, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientFlagsUpdate } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import {
+  PatientActivityAction,
+  PatientActivityDetail,
+} from '@medical-records/domain/types/patient-activity.types';
 
 export type PatientLabShipmentRecord = PatientLabShipment;
 
@@ -20,6 +24,8 @@ export interface NewLabShipmentData {
 export interface LabShipmentTransaction {
   currentFlags(): Promise<PatientFlagsSnapshot>;
   findOpenShipment(): Promise<PatientLabShipmentRecord | null>;
+  /** Último envío ya entregado (el de entrega más reciente), para no encimar el siguiente. */
+  findLastClosedShipment(): Promise<PatientLabShipmentRecord | null>;
   createShipment(data: NewLabShipmentData): Promise<void>;
   updateSentAt(shipmentUuid: string, sentAt: Date): Promise<void>;
   closeShipment(
@@ -28,6 +34,12 @@ export interface LabShipmentTransaction {
   ): Promise<void>;
   updateFlags(data: PatientFlagsUpdate): Promise<void>;
   createEvolutionNote(authorUuid: string, text: string): Promise<PatientNote>;
+  /** Anota en la bitácora dentro de la misma transacción: si algo falla, no queda a medias. */
+  recordActivity(
+    actorUuid: string,
+    action: PatientActivityAction,
+    detail: PatientActivityDetail,
+  ): Promise<void>;
 }
 
 @Injectable()
@@ -99,6 +111,11 @@ export class PatientLabShipmentStorage {
         await tx.patientLabShipment.findFirst({
           where: { tenantUuid, patientUuid, deliveredAt: null },
         }),
+      findLastClosedShipment: async () =>
+        await tx.patientLabShipment.findFirst({
+          where: { tenantUuid, patientUuid, deliveredAt: { not: null } },
+          orderBy: [{ deliveredAt: 'desc' }, { id: 'desc' }],
+        }),
       createShipment: async (data) => {
         await tx.patientLabShipment.create({
           data: { ...data, tenantUuid, patientUuid },
@@ -123,6 +140,22 @@ export class PatientLabShipmentStorage {
             text,
           },
         }),
+      recordActivity: async (actorUuid, action, detail) => {
+        const patient = await tx.patient.findFirstOrThrow({
+          where: { uuid: patientUuid, tenantUuid },
+          select: { firstName: true, lastName: true },
+        });
+        await tx.patientActivity.create({
+          data: {
+            tenantUuid,
+            patientUuid,
+            patientName: `${patient.firstName} ${patient.lastName}`.trim(),
+            actorUuid,
+            action,
+            detail: detail as Prisma.InputJsonValue,
+          },
+        });
+      },
     };
   }
 }
