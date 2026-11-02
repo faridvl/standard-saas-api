@@ -5,6 +5,7 @@ import { CreatePatientQuestionnaireEntryDto } from '@medical-records/app/dtos/pa
 import { PatientQuestionnaireEntryEntity } from '@medical-records/domain/entities/patient-questionnaire-entry.entity';
 import { QUESTIONNAIRE_SPECIALITY } from '@medical-records/domain/policies/clinical-history-template.policy';
 import { assertAnswersMatchFields } from '@medical-records/domain/utils/questionnaire-answers.util';
+import { canEditQuestionnaireEntry } from '@medical-records/domain/utils/questionnaire-entry-edit.util';
 import { GetOrCreateUserUseCase } from '@medical-records/domain/use-cases/users/get-or-create-user.use-case';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
@@ -23,6 +24,7 @@ export class CreatePatientQuestionnaireEntryUseCase {
     tenantUuid: string,
     actorUuid: string,
     dto: CreatePatientQuestionnaireEntryDto,
+    now: Date = new Date(),
   ): Promise<PatientQuestionnaireEntryEntity> {
     if (!(await this.storage.patientExists(patientUuid, tenantUuid, { includeDeleted: false }))) {
       throw new NotFoundException('Paciente no encontrado');
@@ -56,6 +58,11 @@ export class CreatePatientQuestionnaireEntryUseCase {
     });
 
     const createdByName = await this.getOrCreateUser.execute(actorUuid, tenantUuid);
-    return { ...saved, createdByName };
+    return {
+      ...saved,
+      createdByName,
+      updatedByName: null,
+      canEdit: canEditQuestionnaireEntry(saved.createdAt, now),
+    };
   }
 }

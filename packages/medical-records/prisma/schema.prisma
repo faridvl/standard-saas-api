@@ -229,6 +229,9 @@ model PatientQuestionnaireEntry {
   answers          Json
   createdAt        DateTime @default(now())
   createdByUuid    String
+  // Solo se llenan al corregir el registro (el mismo día en que se creó).
+  updatedAt        DateTime?
+  updatedByUuid    String?
 
   patient          Patient  @relation(fields: [patientUuid], references: [uuid])
 

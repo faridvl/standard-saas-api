@@ -7,10 +7,15 @@ import { PatientQuestionnaireEntryStorage } from '@medical-records/infrastructur
 import {
   CreatePatientQuestionnaireEntryUseCase,
   FindPatientQuestionnaireEntriesUseCase,
+  UpdatePatientQuestionnaireEntryUseCase,
 } from '@medical-records/domain/use-cases/patient-questionnaire-entries';
 
 const CONTROLLERS = [PatientQuestionnaireEntryController];
-const USE_CASES = [CreatePatientQuestionnaireEntryUseCase, FindPatientQuestionnaireEntriesUseCase];
+const USE_CASES = [
+  CreatePatientQuestionnaireEntryUseCase,
+  FindPatientQuestionnaireEntriesUseCase,
+  UpdatePatientQuestionnaireEntryUseCase,
+];
 const STORAGES = [PatientQuestionnaireEntryStorage];
 
 @Module({

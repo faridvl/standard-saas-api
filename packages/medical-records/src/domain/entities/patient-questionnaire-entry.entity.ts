@@ -17,6 +17,12 @@ export interface PatientQuestionnaireEntryEntity {
   createdByUuid: string;
   /** Quién lo llenó; null si identity no pudo resolver el nombre. */
   createdByName: string | null;
+  /** Cuándo se corrigió por última vez; null si nunca se corrigió. */
+  updatedAt: string | null;
+  updatedByUuid: string | null;
+  updatedByName: string | null;
+  /** true si aún es el día (de Costa Rica) en que se llenó; el front no recalcula la fecha. */
+  canEdit: boolean;
 }
 
 export interface CreatePatientQuestionnaireEntryData {
@@ -25,4 +31,10 @@ export interface CreatePatientQuestionnaireEntryData {
   templateSnapshot: QuestionnaireTemplateSnapshot;
   answers: Record<string, PatientBackgroundAnswer>;
   createdByUuid: string;
+}
+
+export interface UpdatePatientQuestionnaireEntryData {
+  answers: Record<string, PatientBackgroundAnswer>;
+  updatedAt: Date;
+  updatedByUuid: string;
 }

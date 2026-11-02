@@ -48,6 +48,8 @@ export enum PatientActivityAction {
   MAINTENANCE_NOTE_CHANGED = 'MAINTENANCE_NOTE_CHANGED',
   /** Se llenó una sección propia de la clínica dentro de Preguntas. */
   QUESTIONNAIRE_FILLED = 'QUESTIONNAIRE_FILLED',
+  /** Se corrigió un registro de una sección propia de Preguntas. */
+  QUESTIONNAIRE_CORRECTED = 'QUESTIONNAIRE_CORRECTED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */

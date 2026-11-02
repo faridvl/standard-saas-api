@@ -6,12 +6,19 @@ export const CreatePatientQuestionnaireEntrySchema = z.object({
   answers: z.record(z.string().max(ANSWER_ID_MAX_LENGTH), AnswerSchema),
 });
 
+export const UpdatePatientQuestionnaireEntrySchema = z.object({
+  answers: z.record(z.string().max(ANSWER_ID_MAX_LENGTH), AnswerSchema),
+});
+
 export const FindPatientQuestionnaireEntriesQuerySchema = z.object({
   templateUuid: z.string().uuid('La sección no es válida').optional(),
 });
 
 export type CreatePatientQuestionnaireEntryDto = z.infer<
   typeof CreatePatientQuestionnaireEntrySchema
+>;
+export type UpdatePatientQuestionnaireEntryDto = z.infer<
+  typeof UpdatePatientQuestionnaireEntrySchema
 >;
 export type FindPatientQuestionnaireEntriesQuery = z.infer<
   typeof FindPatientQuestionnaireEntriesQuerySchema
