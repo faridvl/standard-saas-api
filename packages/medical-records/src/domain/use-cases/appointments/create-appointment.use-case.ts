@@ -4,6 +4,7 @@ import { AppointmentStorage } from '@medical-records/infrastructure/adapters/app
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
+import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 @Injectable()
@@ -12,20 +13,22 @@ export class CreateAppointmentUseCase {
     private readonly storage: AppointmentStorage,
     private readonly patientStorage: PatientStorage,
     private readonly branchStorage: BranchStorage,
+    private readonly appointmentTypeStorage: AppointmentTypeStorage,
   ) {}
 
   async execute(
     tenantUUID: string,
     dto: CreateAppointmentDto & { userUUID: string },
   ): Promise<Appointment> {
+    const patientBranches = await this.patientStorage.findBranchUuids(dto.patientUUID, tenantUUID);
+    if (!patientBranches) {
+      throw new NotFoundException(`Paciente con UUID ${dto.patientUUID} no encontrado`);
+    }
+    if (dto.typeUUID && !(await this.appointmentTypeStorage.findByUuid(tenantUUID, dto.typeUUID))) {
+      throw new NotFoundException(`Tipo de cita con UUID ${dto.typeUUID} no encontrado`);
+    }
+
     if (dto.branchUUID) {
-      const patientBranches = await this.patientStorage.findBranchUuids(
-        dto.patientUUID,
-        tenantUUID,
-      );
-      if (!patientBranches) {
-        throw new NotFoundException(`Paciente con UUID ${dto.patientUUID} no encontrado`);
-      }
       assertAppointmentBranch(
         dto.branchUUID,
         patientBranches,

@@ -57,3 +57,17 @@ describe('AppointmentStorage.findScheduledMonths', () => {
     expect(await storage.findScheduledMonths('tenant-1')).toEqual(['2026-11', '2026-12']);
   });
 });
+
+describe('AppointmentStorage.update', () => {
+  it('filtra por uuid y tenant: una cita de otro tenant no se modifica', async () => {
+    const update = jest.fn().mockResolvedValue({});
+    const storage = new AppointmentStorage({ appointment: { update } } as never);
+
+    await storage.update('appointment-1', 'tenant-1', { notes: 'x' }).catch(() => undefined);
+
+    expect((update.mock.calls[0][0] as { where: object }).where).toEqual({
+      uuid: 'appointment-1',
+      tenantUUID: 'tenant-1',
+    });
+  });
+});

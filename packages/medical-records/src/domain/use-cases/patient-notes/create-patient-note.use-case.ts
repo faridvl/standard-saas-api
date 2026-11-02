@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   PatientNoteStorage,
   CreatePatientNoteData,
@@ -20,6 +20,10 @@ export class CreatePatientNoteUseCase {
   ) {}
 
   async execute(data: CreatePatientNoteData): Promise<PatientNoteWithAuthor> {
+    if (!(await this.storage.patientExists(data.patientUuid, data.tenantUuid))) {
+      throw new NotFoundException('Paciente no encontrado');
+    }
+
     const note = await this.storage.create(data);
 
     await this.recordActivity.execute({

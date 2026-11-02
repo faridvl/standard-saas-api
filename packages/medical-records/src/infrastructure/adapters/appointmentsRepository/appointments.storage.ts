@@ -157,7 +157,7 @@ export class AppointmentStorage {
 
   async update(uuid: string, tenantUUID: string, data: Partial<Appointment>): Promise<Appointment> {
     const updated = await this.prisma.appointment.update({
-      where: { uuid },
+      where: { uuid, tenantUUID },
       data: {
         status: data.status,
         notes: data.notes,

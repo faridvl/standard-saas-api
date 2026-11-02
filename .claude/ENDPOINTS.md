@@ -407,6 +407,8 @@ solo si el estado cambia. Volver a `CONFIRMED` no se anota.
 **Acceso:** `/patients/:patientUuid/notes` (Control de evolución) responde 403 al rol
 `STAFF`; los documentos sí los ve y sube.
 
+**404** en `POST /patients/:patientUuid/notes` si el paciente no existe en la clínica de la sesión (antes creaba la nota sobre un paciente de otra clínica).
+
 `GET`/`POST` en `/patients/:patientUuid/documents` y `/patients/:patientUuid/notes`
 devuelven cada item con `uploadedByName` (documentos) / `authorName` (notas):
 el nombre completo de quien lo creó, resuelto contra identity vía un cache
@@ -752,7 +754,7 @@ Un paciente tiene una o más sedes (tabla `PatientBranch`). `branchUuid` se cons
 - `POST /patients` y `PATCH /patients/:uuid` aceptan `branchUuids` (uuid, sin repetidos). Lectura (`GET /patients/:uuid`) y lista devuelven `branchUuids` además de `branchUuid`, con la principal primero.
 - Solo `branchUuid` (clientes viejos, que solo conocen la principal): reemplaza la principal (la anterior sale) y conserva las demás; `null` saca solo la principal y, si quedan otras, la primera pasa a principal. Solo `branchUuids`: la principal actual se conserva si sigue en la lista, si no pasa a ser la primera; `[]` limpia todo y deja `branchUuid` en `null`.
 - **400** si `branchUuid` y `branchUuids` no concuerdan, si hay repetidos, o si alguna sede no existe o es de otra clínica. La escritura va en una transacción.
-- `POST /appointments`, `POST /patients/:uuid/next-appointment` y `PATCH /appointments/:uuid` (solo cuando la sede cambia): **404** si el paciente no existe; **400** si la `branchUUID` no existe en la clínica (se valida siempre, también con un paciente sin sedes) o no está entre las sedes del paciente. Un paciente sin sedes puede agendar en cualquiera de la clínica. Excepción al reagendar con `next-appointment`: se acepta la sede de su cita futura vigente aunque el paciente ya no la tenga.
+- `POST /appointments`, `POST /patients/:uuid/next-appointment` y `PATCH /appointments/:uuid` (solo cuando la sede cambia): **404** si el paciente no existe en la clínica, o si el `typeUUID` no es de la clínica (`POST /appointments` lo valida siempre, también sin `branchUUID`); **400** si la `branchUUID` no existe en la clínica (se valida siempre, también con un paciente sin sedes) o no está entre las sedes del paciente. Un paciente sin sedes puede agendar en cualquiera de la clínica. Excepción al reagendar con `next-appointment`: se acepta la sede de su cita futura vigente aunque el paciente ya no la tenga.
 - `GET /patients/:uuid` y `GET /patients` devuelven `nextAppointmentBranchUuid`: uuid de la sede de la próxima cita `CONFIRMED` futura más cercana (la misma de `nextAppointmentAt`), o `null` si no hay cita o se agendó sin sede.
 - Bitácora: si cambian las sedes, `PATIENT_UPDATED` trae los cambios `branchUuid` y `branchUuids` (las secundarias se comparan sin importar el orden).
 
