@@ -38,14 +38,16 @@ export enum PatientActivityAction {
   CLINICAL_HISTORY_UPDATED = 'CLINICAL_HISTORY_UPDATED',
   /** Se modificó la exploración física (otoscopia). */
   PHYSICAL_EXAM_UPDATED = 'PHYSICAL_EXAM_UPDATED',
-  /** Histórico: estado asistido/perdido de un mantenimiento. Ya no se escribe; se sigue leyendo. */
+  /** Cambió el estado de un mantenimiento (sin marcar, asistido o perdido). */
   MAINTENANCE_CHANGED = 'MAINTENANCE_CHANGED',
   /** Histórico: contador de intentos de contacto. Ya no se escribe; se sigue leyendo. */
   CONTACT_ATTEMPTS_CHANGED = 'CONTACT_ATTEMPTS_CHANGED',
-  /** Se marcó o desmarcó el check de un mantenimiento (1 a 4). */
+  /** Histórico: check de un mantenimiento. Ya no se escribe; se sigue leyendo. */
   MAINTENANCE_CHECK_CHANGED = 'MAINTENANCE_CHECK_CHANGED',
-  /** Se escribió, cambió o borró la nota de un mantenimiento (1 a 4). */
+  /** Histórico: nota única de un mantenimiento. Ya no se escribe; se sigue leyendo. */
   MAINTENANCE_NOTE_CHANGED = 'MAINTENANCE_NOTE_CHANGED',
+  /** Se agregó una nota al historial de un mantenimiento; el texto no se copia. */
+  MAINTENANCE_NOTE_ADDED = 'MAINTENANCE_NOTE_ADDED',
   /** Se llenó una sección propia de la clínica dentro de Preguntas. */
   QUESTIONNAIRE_FILLED = 'QUESTIONNAIRE_FILLED',
   /** Se corrigió un registro de una sección propia de Preguntas. */
@@ -77,6 +79,7 @@ export type PatientActivityDetail =
   | { count: number; previousCount: number }
   | { number: number; done: boolean }
   | { number: number; excerpt: string | null }
+  | { number: number }
   | { templateUuid: string; templateName: string };
 
 export interface RecordPatientActivityInput {

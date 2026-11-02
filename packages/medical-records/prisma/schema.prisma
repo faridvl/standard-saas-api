@@ -7,6 +7,13 @@ generator client {
   previewFeatures = ["driverAdapters"]
 }
 
+// Estado de un mantenimiento del paciente: lo marca el personal a mano.
+enum MaintenanceStatus {
+  UNMARKED
+  ATTENDED
+  MISSED
+}
+
 enum DocumentCategory {
   EVOLUTION_CONTROL
   WARRANTY
@@ -93,7 +100,13 @@ model Patient {
   videoCandidateSince   DateTime?
   warrantyExpiredSince  DateTime?
   renewPrescriptionSince DateTime?
-  // Mantenimientos 1 a 4: check marcado a mano por el personal y nota opcional.
+  // Mantenimientos 1 a 4: estado marcado a mano por el personal. Sus notas viven en
+  // PatientMaintenanceNote.
+  maintenance1Status MaintenanceStatus @default(UNMARKED)
+  maintenance2Status MaintenanceStatus @default(UNMARKED)
+  maintenance3Status MaintenanceStatus @default(UNMARKED)
+  maintenance4Status MaintenanceStatus @default(UNMARKED)
+  // Sin uso desde D40 (reemplazadas por el estado y las notas); pendientes de borrar.
   maintenance1Done   Boolean   @default(false)
   maintenance1Note   String?
   maintenance2Done   Boolean   @default(false)
@@ -158,6 +171,7 @@ model Patient {
   studies         Study[]
   contacts        PatientContact[]
   notes           PatientNote[]
+  maintenanceNotes PatientMaintenanceNote[]
   questionnaireEntries PatientQuestionnaireEntry[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
   branches        PatientBranch[]
@@ -289,6 +303,24 @@ model PatientNote {
   patient     Patient          @relation(fields: [patientUuid], references: [uuid])
 
   @@index([patientUuid])
+  @@index([tenantUuid])
+}
+
+// Historial de notas de los mantenimientos 1 a 4 de un paciente. Append-only: las notas
+// no se editan ni se borran. `createdByUuid` es null en las migradas sin autor conocido.
+model PatientMaintenanceNote {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  tenantUuid    String
+  patientUuid   String
+  number        Int
+  text          String   @db.VarChar(500)
+  createdAt     DateTime @default(now())
+  createdByUuid String?
+
+  patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid, number, createdAt])
   @@index([tenantUuid])
 }
 

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Patient } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import {
   assertBranchesExist,
@@ -59,7 +59,7 @@ export class UpdatePatientUseCase {
     tenantUuid: string,
     dto: UpdatePatientDto,
     actorUuid?: string,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);

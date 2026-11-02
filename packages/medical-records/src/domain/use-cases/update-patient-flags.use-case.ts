@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Patient } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import {
   PatientFlagsUpdate,
   PatientStorage,
@@ -74,7 +74,7 @@ export class UpdatePatientFlagsUseCase {
     tenantUuid: string,
     actorUuid: string,
     dto: UpdatePatientFlagsDto,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);

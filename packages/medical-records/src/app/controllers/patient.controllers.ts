@@ -62,7 +62,7 @@ import {
   BulkImportResult,
 } from '@medical-records/domain/use-cases/bulk-import-patients.use-case';
 import { BulkImportPatientsDto, BulkImportPatientsSchema } from '../dtos/bulk-import-patients.dto';
-import { Patient } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import {
   NextAppointmentKind,
   PatientWithNextAppointment,
@@ -141,7 +141,7 @@ export class PatientController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreatePatientSchema))
-  async create(@Body() body: CreatePatientDto, @CurrentUser() user: JwtPayload): Promise<Patient> {
+  async create(@Body() body: CreatePatientDto, @CurrentUser() user: JwtPayload): Promise<PatientRecord> {
     return await this.createUseCase.execute(body, {
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
@@ -196,7 +196,7 @@ export class PatientController {
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<Patient> {
+  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<PatientRecord> {
     return await this.getPatientByUuidUseCase.execute(uuid, user.tenantUuid);
   }
 
@@ -206,7 +206,7 @@ export class PatientController {
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
   }
 
@@ -216,7 +216,7 @@ export class PatientController {
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientStatusDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     return await this.updatePatientStatusUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 
@@ -226,7 +226,7 @@ export class PatientController {
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientFlagsDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     return await this.updatePatientFlagsUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 
@@ -237,7 +237,7 @@ export class PatientController {
     @Param('number') number: string,
     @Body() dto: UpdatePatientMaintenanceDto,
     @CurrentUser() user: JwtPayload,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     const parsedNumber = MaintenanceNumberSchema.safeParse(number);
     if (!parsedNumber.success) {
       throw new BadRequestException(parsedNumber.error.issues[0].message);

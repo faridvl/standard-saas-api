@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client'; // O la ruta que definiste en el output
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import { LEGACY_MAINTENANCE_COLUMNS } from '@medical-records/domain/types/patient-record.type';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -19,6 +20,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     const logQueries = process.env.PRISMA_LOG_QUERIES === 'true';
     super({
       adapter,
+      omit: { patient: LEGACY_MAINTENANCE_COLUMNS },
       log: logQueries ? ['query', 'error', 'warn'] : ['error', 'warn'],
     });
   }

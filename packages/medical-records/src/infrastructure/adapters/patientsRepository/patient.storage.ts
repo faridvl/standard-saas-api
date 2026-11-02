@@ -36,7 +36,8 @@
 // }
 
 import { Injectable } from '@nestjs/common';
-import { Prisma, Patient } from '@prisma/client';
+import { Prisma, MaintenanceStatus } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
@@ -81,21 +82,17 @@ export interface PatientFlagsUpdate {
   renewPrescriptionSince?: Date | null;
 }
 
-export function maintenanceColumns(number: MaintenanceNumber): {
-  done: `maintenance${MaintenanceNumber}Done`;
-  note: `maintenance${MaintenanceNumber}Note`;
-} {
-  return {
-    done: `maintenance${number}Done`,
-    note: `maintenance${number}Note`,
-  } as const;
+export function maintenanceStatusColumn(
+  number: MaintenanceNumber,
+): `maintenance${MaintenanceNumber}Status` {
+  return `maintenance${number}Status`;
 }
 
 /** Valor del filtro de mes que pide los pacientes sin próxima cita. */
 export const NO_APPOINTMENT_FILTER = 'none';
 
 /** Paciente con todas sus sedes; `branchUuid` es la principal y va primera en `branchUuids`. */
-export type PatientWithBranches = Patient & { branchUuids: string[] };
+export type PatientWithBranches = PatientRecord & { branchUuids: string[] };
 
 const BRANCHES_INCLUDE = {
   branches: { select: { branchUuid: true }, orderBy: { id: 'asc' } },
@@ -126,7 +123,7 @@ export class PatientStorage {
   async save(
     data: Prisma.PatientUncheckedCreateInput,
     tx?: Prisma.TransactionClient,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     const client: Prisma.TransactionClient | PrismaService = tx || this.prisma;
 
     return client.patient.create({ data });
@@ -291,15 +288,11 @@ export class PatientStorage {
     uuid: string,
     tenantUuid: string,
     number: MaintenanceNumber,
-    changes: { done?: boolean; note?: string | null },
+    status: MaintenanceStatus,
   ): Promise<PatientWithBranches> {
-    const columns = maintenanceColumns(number);
-    const data: Prisma.PatientUpdateInput = {};
-    if (changes.done !== undefined) data[columns.done] = changes.done;
-    if (changes.note !== undefined) data[columns.note] = changes.note;
     const row = await this.prisma.patient.update({
       where: { uuid, tenantUuid },
-      data,
+      data: { [maintenanceStatusColumn(number)]: status },
       include: BRANCHES_INCLUDE,
     });
     return withBranchUuids(row);
@@ -357,7 +350,7 @@ export class PatientStorage {
     documentId: string,
     tenantUuid: string,
     excludeUuid?: string,
-  ): Promise<Patient | null> {
+  ): Promise<PatientRecord | null> {
     return await this.prisma.patient.findFirst({
       where: {
         documentId,
@@ -368,7 +361,7 @@ export class PatientStorage {
     });
   }
 
-  async softDelete(uuid: string, tenantUuid: string): Promise<Patient> {
+  async softDelete(uuid: string, tenantUuid: string): Promise<PatientRecord> {
     return await this.prisma.patient.update({
       where: { uuid, tenantUuid },
       data: { isActive: false, deletedAt: new Date() },

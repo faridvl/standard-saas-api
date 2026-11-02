@@ -767,28 +767,43 @@ Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
 en la bitácora. **Response 200:** `Patient`.
 Migración `20261020120000_add_warranty_expired_renew_prescription`.
 
-### PUT /patients/:uuid/maintenances/:number
+### Mantenimientos del paciente (estado e historial de notas)
 Mantenimiento 1 a 4 del paciente (4 gratis al entregar audífonos, uno cada 6 meses): un
-check y una nota opcional que el personal cambia a mano; no se calculan desde las citas.
-Mismo acceso que `/flags` (STAFF también puede). `:number` solo acepta 1, 2, 3 o 4;
-otro valor: **400**. **Body (al menos uno):**
+estado y un historial de notas que el personal maneja a mano; no se calculan desde las
+citas. Solo `AuthGuard` (cualquier rol de la clínica). `:number` solo acepta 1, 2, 3 o 4;
+otro valor: **400**. Un paciente de otra clínica o borrado responde **404**
+`"Paciente no encontrado"`.
+
+**PUT /patients/:uuid/maintenances/:number** - Body:
 ```json
-{ "done": true, "note": "Se llamó dos veces" }
+{ "status": "UNMARKED | ATTENDED | MISSED" }
 ```
-`done` es booleano. `note` es texto (se recorta; máx. 500 caracteres) o `null`; una nota
-vacía se guarda como `null`. Se guardan en `maintenance1Done`/`maintenance1Note` ...
-`maintenance4Done`/`maintenance4Note` del paciente (`done` por defecto `false`, `note`
-`null`). Solo lo que cambia se escribe: si nada cambia devuelve el paciente sin escribir ni
-anotar en la bitácora. Bitácora: `MAINTENANCE_CHECK_CHANGED` con detalle `{ number, done }`
-y `MAINTENANCE_NOTE_CHANGED` con `{ number, excerpt }` (los eventos históricos
-`MAINTENANCE_CHANGED` y `CONTACT_ATTEMPTS_CHANGED` se siguen leyendo). **Response 200:**
-`Patient`. **400** si el body está vacío, `done` no es booleano o la nota pasa de 500;
-**404** si el paciente no es de la clínica o está borrado. `GET /patients/:uuid` devuelve
-los ocho campos.
+Guarda `maintenance1Status` ... `maintenance4Status` (por defecto `UNMARKED`). **Response
+200:** `Patient`. Si el estado es el mismo no escribe ni anota en la bitácora. Bitácora:
+`MAINTENANCE_CHANGED` con `{ number, status, previousStatus }`. **400** si `status` no es
+uno de los tres valores.
+
+**POST /patients/:uuid/maintenances/:number/notes** - Body `{ "text": "string (1-500, recortado)" }`.
+**Response 201:** `{ uuid, text, createdAt, createdByUuid, createdByName }`. Las notas no se
+editan ni se borran. Bitácora: `MAINTENANCE_NOTE_ADDED` con `{ number }` (sin el texto).
+**400** si el texto queda vacío o pasa de 500.
+
+**GET /patients/:uuid/maintenances** - **Response 200:**
+```json
+[{ "number": 1, "status": "ATTENDED", "notes": [{ "uuid": "", "text": "", "createdAt": "", "createdByUuid": "", "createdByName": "" }] }]
+```
+Siempre los 4 mantenimientos; las notas de la más nueva a la más vieja
+(`createdByUuid`/`createdByName` pueden ser `null`).
+
+`GET /patients/:uuid` y la lista de pacientes devuelven `maintenance1Status` ...
+`maintenance4Status`; ya no salen `done` ni `note`. Las columnas `maintenanceNDone` y
+`maintenanceNNote` siguen en la base sin uso (Prisma las omite). Migración
+`20261101170000_patient_maintenance_status_and_notes`: `done = true` pasa a `ATTENDED` y
+cada nota vieja pasa a la primera nota del historial (los "Perdido" de antes quedan como
+`UNMARKED` con esa nota, no como `MISSED`). Los eventos `MAINTENANCE_CHECK_CHANGED` y
+`MAINTENANCE_NOTE_CHANGED` son históricos y se siguen leyendo.
 El endpoint `PUT /patients/:uuid/contact-attempts` y la columna `contactAttempts` se
-retiraron: lo de "se llamó" va en la nota. Migraciones
-`20261101120000_patient_maintenance_checks` (asistido pasa a check marcado, perdido a
-sin check con la nota "Perdido") y `20261101120100_drop_patient_contact_attempts`.
+retiraron: lo de "se llamó" va en una nota.
 
 ### PATCH /patients/:uuid — documento de garantía
 Acepta además `warrantyDocumentUuid: uuid | null` (null lo quita). Debe ser un
