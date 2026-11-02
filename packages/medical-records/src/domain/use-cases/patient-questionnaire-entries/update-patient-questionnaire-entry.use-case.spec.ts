@@ -37,7 +37,7 @@ function buildRecord(overrides: Record<string, unknown> = {}) {
 
 describe('UpdatePatientQuestionnaireEntryUseCase', () => {
   let records: ReturnType<typeof buildRecord>[];
-  let updates: { entryUuid: string; data: Record<string, unknown> }[];
+  let updates: { entryUuid: string; tenantUuid: string; data: Record<string, unknown> }[];
   let activities: Record<string, unknown>[];
   let useCase: UpdatePatientQuestionnaireEntryUseCase;
 
@@ -53,8 +53,8 @@ describe('UpdatePatientQuestionnaireEntryUseCase', () => {
         Promise.resolve(
           records.find((r) => r.uuid === entryUuid && r.patientUuid === patientUuid) ?? null,
         ),
-      update: (entryUuid: string, data: Record<string, unknown>) => {
-        updates.push({ entryUuid, data });
+      update: (entryUuid: string, tenantUuid: string, data: Record<string, unknown>) => {
+        updates.push({ entryUuid, tenantUuid, data });
         return Promise.resolve({ ...records[0], ...data });
       },
     };
@@ -85,6 +85,7 @@ describe('UpdatePatientQuestionnaireEntryUseCase', () => {
     );
 
     expect(updates).toHaveLength(1);
+    expect(updates[0].tenantUuid).toBe(TENANT);
     expect(updates[0].data).toMatchObject({
       answers: { sueno: 8, notas: 'Mejor' },
       updatedByUuid: CORRECTOR,

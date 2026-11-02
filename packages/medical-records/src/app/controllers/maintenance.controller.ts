@@ -5,7 +5,6 @@ import { FindByPatientMaintenanceUseCase } from '@medical-records/domain/use-cas
 import { FindUpcomingMaintenanceUseCase } from '@medical-records/domain/use-cases/maintenance/find-upcoming-maintenance.use-case';
 import { CreateMaintenanceDto, CreateMaintenanceSchema } from '../dtos/maintenance.dto';
 import { MaintenanceEntity } from '@medical-records/domain/entities/maintenance.entity';
-import { toClinicDayKey } from '@medical-records/domain/utils/lab-shipment-date.util';
 
 @Controller('maintenance')
 @UseGuards(AuthGuard)
@@ -41,7 +40,7 @@ export class MaintenanceController {
     @Query('month') month: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<MaintenanceEntity[]> {
-    const targetMonth = month ?? toClinicDayKey(new Date()).slice(0, 7);
+    const targetMonth = month ?? new Date().toISOString().slice(0, 7);
     return this.findUpcomingUseCase.execute(user.tenantUuid, targetMonth);
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { clinicDayRange, clinicMonthRange } from './clinic-day.util';
+import { clinicDayRange, toClinicMonthKey } from './clinic-day.util';
 
 describe('clinicDayRange', () => {
   const { start, end } = clinicDayRange('2026-11-03');
@@ -30,14 +30,17 @@ describe('clinicDayRange', () => {
   });
 });
 
-describe('clinicMonthRange', () => {
-  it('va del día 1 a las 06:00Z al día 1 del mes siguiente', () => {
-    const { start, end } = clinicMonthRange('2026-11');
-    expect(start.toISOString()).toBe('2026-11-01T06:00:00.000Z');
-    expect(end.toISOString()).toBe('2026-12-01T06:00:00.000Z');
+describe('toClinicMonthKey', () => {
+  it('una cita del 31 de octubre a las 19:00 de Costa Rica cuenta en octubre', () => {
+    expect(toClinicMonthKey(new Date('2026-11-01T01:00:00.000Z'))).toBe('2026-10');
   });
 
-  it('diciembre pasa al enero siguiente', () => {
-    expect(clinicMonthRange('2026-12').end.toISOString()).toBe('2027-01-01T06:00:00.000Z');
+  it('la medianoche de Costa Rica ya es el mes siguiente', () => {
+    expect(toClinicMonthKey(new Date('2026-10-31T23:59:59.999Z'))).toBe('2026-10');
+    expect(toClinicMonthKey(new Date('2026-11-01T06:00:00.000Z'))).toBe('2026-11');
+  });
+
+  it('las citas "sin hora" (08:00Z) siguen en su mismo mes', () => {
+    expect(toClinicMonthKey(new Date('2026-11-01T08:00:00.000Z'))).toBe('2026-11');
   });
 });

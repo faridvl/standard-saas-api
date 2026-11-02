@@ -31,3 +31,29 @@ describe('AppointmentStorage.findAll', () => {
     expect((count.mock.calls[0][0] as CapturedQuery).where).toEqual({ tenantUUID: 'tenant-1' });
   });
 });
+
+describe('AppointmentStorage.findScheduledMonths', () => {
+  const buildStorage = (startTimes: string[]) => {
+    const findMany = jest
+      .fn()
+      .mockResolvedValue(startTimes.map((iso) => ({ startTime: new Date(iso) })));
+    return new AppointmentStorage({ appointment: { findMany } } as never);
+  };
+
+  it('una cita del 31 de octubre a las 19:00 de Costa Rica cuenta en octubre, no en noviembre', async () => {
+    const storage = buildStorage(['2026-11-01T01:00:00.000Z']);
+
+    expect(await storage.findScheduledMonths('tenant-1')).toEqual(['2026-10']);
+  });
+
+  it('agrupa por mes de la clínica y ordena; las citas "sin hora" (08:00Z) cuentan en su día', async () => {
+    const storage = buildStorage([
+      '2026-12-05T08:00:00.000Z',
+      '2026-11-01T06:00:00.000Z',
+      '2026-11-30T20:00:00.000Z',
+      '2026-12-01T05:59:00.000Z',
+    ]);
+
+    expect(await storage.findScheduledMonths('tenant-1')).toEqual(['2026-11', '2026-12']);
+  });
+});

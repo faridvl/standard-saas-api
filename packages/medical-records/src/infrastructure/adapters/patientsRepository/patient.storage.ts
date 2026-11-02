@@ -42,6 +42,7 @@ import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 import { MaintenanceNumber } from '@medical-records/app/dtos/update-patient-maintenance.dto';
 import { PatientBranchSelection } from '@medical-records/domain/services/patient-branches';
+import { toClinicMonthKey } from '@medical-records/domain/utils/clinic-day.util';
 
 /**
  * Paciente tal como lo consumen las pantallas: además de sus datos, de qué y
@@ -549,7 +550,7 @@ export class PatientStorage {
       const wantsNoAppointment = nextAppointmentMonths.includes(NO_APPOINTMENT_FILTER);
       const nextConfirmed = await this.findNextConfirmedAppointments(tenantUUID);
       const matchingUuids = nextConfirmed
-        .filter((row) => months.includes(row.startTime.toISOString().slice(0, 7)))
+        .filter((row) => months.includes(toClinicMonthKey(row.startTime)))
         .map((row) => row.patientUUID);
 
       const monthConditions: Prisma.PatientWhereInput[] = [];

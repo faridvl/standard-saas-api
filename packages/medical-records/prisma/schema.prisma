@@ -234,9 +234,27 @@ model PatientQuestionnaireEntry {
   updatedByUuid    String?
 
   patient          Patient  @relation(fields: [patientUuid], references: [uuid])
+  revisions        PatientQuestionnaireEntryRevision[]
 
   @@index([patientUuid, createdAt])
   @@index([templateUuid])
+}
+
+// Las respuestas que tenía un registro justo antes de cada corrección: nada se borra.
+model PatientQuestionnaireEntryRevision {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  entryUuid     String
+  tenantUuid    String
+  answers       Json
+  revisedAt     DateTime
+  // Quien hizo la corrección que reemplazó estas respuestas.
+  revisedByUuid String
+
+  entry         PatientQuestionnaireEntry @relation(fields: [entryUuid], references: [uuid])
+
+  @@index([entryUuid, revisedAt])
+  @@index([tenantUuid])
 }
 
 model PatientContact {

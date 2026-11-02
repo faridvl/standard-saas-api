@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MaintenanceEntity } from '@medical-records/domain/entities/maintenance.entity';
-import { clinicMonthRange } from '@medical-records/domain/utils/clinic-day.util';
 
 @Injectable()
 export class MaintenanceStorage {
@@ -65,7 +64,9 @@ export class MaintenanceStorage {
   }
 
   async findUpcoming(tenantUuid: string, month: string): Promise<MaintenanceEntity[]> {
-    const { start, end } = clinicMonthRange(month);
+    const start = new Date(`${month}-01T00:00:00.000Z`);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
 
     const records = await this.prisma.maintenance.findMany({
       where: {

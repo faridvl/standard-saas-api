@@ -24,13 +24,7 @@ export function clinicDayRange(dayKey: string): { start: Date; end: Date } {
   };
 }
 
-/** Rango UTC del mes de la clínica `monthKey` ("YYYY-MM"): del día 1 al día 1 del mes siguiente. */
-export function clinicMonthRange(monthKey: string): { start: Date; end: Date } {
-  const [year, month] = monthKey.split('-').map(Number);
-  const nextMonthKey =
-    month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, '0')}`;
-  return {
-    start: new Date(`${monthKey}-01${CLINIC_MIDNIGHT_UTC}`),
-    end: new Date(`${nextMonthKey}-01${CLINIC_MIDNIGHT_UTC}`),
-  };
+/** Mes "YYYY-MM" de un instante, en hora de Costa Rica. */
+export function toClinicMonthKey(instant: Date): string {
+  return toClinicDayKey(instant).slice(0, 7);
 }

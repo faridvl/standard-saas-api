@@ -7,6 +7,7 @@ import { PatientStorage } from '@medical-records/infrastructure/adapters/patient
 import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { toClinicDayKey } from '@medical-records/domain/utils/lab-shipment-date.util';
 
 /**
  * Cambios de estado que quedan en la bitácora: los que marca recepción desde
@@ -76,8 +77,8 @@ export class UpdateAppointmentUseCase {
         action,
         detail: {
           appointmentUuid: updated.id,
-          // Mismo criterio que APPOINTMENT_CONFIRMED: el día de la cita en UTC.
-          date: updated.schedule.startTime.toISOString().slice(0, 10),
+          // Mismo criterio que APPOINTMENT_CONFIRMED: el día de la cita en Costa Rica.
+          date: toClinicDayKey(updated.schedule.startTime),
           typeUuid: updated.typeUUID ?? null,
           typeName: updated.typeName ?? null,
         },

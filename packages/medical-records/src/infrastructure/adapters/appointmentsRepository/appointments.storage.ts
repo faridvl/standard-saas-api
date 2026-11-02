@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Appointment, AppointmentStatus } from '@medical-records/domain/types/appointment.types';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
-import { clinicDayRange } from '@medical-records/domain/utils/clinic-day.util';
+import { clinicDayRange, toClinicMonthKey } from '@medical-records/domain/utils/clinic-day.util';
 
 /**
  * Shape mínimo que necesita `mapToDomain`. Los distintos métodos de este
@@ -198,7 +198,7 @@ export class AppointmentStorage {
   }
 
   /**
-   * Meses (YYYY-MM, UTC) que tienen al menos una cita CONFIRMED futura para
+   * Meses (YYYY-MM, hora de Costa Rica) que tienen al menos una cita CONFIRMED futura para
    * el tenant. Mismo criterio que el filtro `nextAppointmentMonth` de
    * /patients, para poblar un selector de filtro sin listar meses vacios.
    */
@@ -212,7 +212,7 @@ export class AppointmentStorage {
       select: { startTime: true },
     });
 
-    const months = new Set(rows.map((row) => row.startTime.toISOString().slice(0, 7)));
+    const months = new Set(rows.map((row) => toClinicMonthKey(row.startTime)));
 
     return Array.from(months).sort();
   }

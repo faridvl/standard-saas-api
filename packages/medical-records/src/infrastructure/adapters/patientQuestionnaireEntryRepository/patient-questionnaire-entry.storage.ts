@@ -87,17 +87,35 @@ export class PatientQuestionnaireEntryStorage {
     return record ? this.mapToRecord(record) : null;
   }
 
+  // Guarda las respuestas que había y las reemplaza en una sola transacción: si el
+  // update falla no queda una revisión suelta, y si la revisión falla no se pierde nada.
   async update(
     entryUuid: string,
+    tenantUuid: string,
     data: UpdatePatientQuestionnaireEntryData,
   ): Promise<PatientQuestionnaireEntryRecord> {
-    const record = await this.prisma.patientQuestionnaireEntry.update({
-      where: { uuid: entryUuid },
-      data: {
-        answers: data.answers as unknown as Prisma.InputJsonValue,
-        updatedAt: data.updatedAt,
-        updatedByUuid: data.updatedByUuid,
-      },
+    const record = await this.prisma.$transaction(async (transaction) => {
+      const current = await transaction.patientQuestionnaireEntry.findUniqueOrThrow({
+        where: { uuid: entryUuid },
+        select: { answers: true },
+      });
+      await transaction.patientQuestionnaireEntryRevision.create({
+        data: {
+          entryUuid,
+          tenantUuid,
+          answers: current.answers as Prisma.InputJsonValue,
+          revisedAt: data.updatedAt,
+          revisedByUuid: data.updatedByUuid,
+        },
+      });
+      return transaction.patientQuestionnaireEntry.update({
+        where: { uuid: entryUuid },
+        data: {
+          answers: data.answers as unknown as Prisma.InputJsonValue,
+          updatedAt: data.updatedAt,
+          updatedByUuid: data.updatedByUuid,
+        },
+      });
     });
     return this.mapToRecord(record);
   }

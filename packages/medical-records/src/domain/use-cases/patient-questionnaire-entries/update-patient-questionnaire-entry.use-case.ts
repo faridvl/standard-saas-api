@@ -42,7 +42,7 @@ export class UpdatePatientQuestionnaireEntryUseCase {
     // Contra las preguntas con las que se llenó, no contra la plantilla actual.
     assertAnswersMatchFields(entry.templateSnapshot.fields, dto.answers);
 
-    const saved = await this.storage.update(entry.uuid, {
+    const saved = await this.storage.update(entry.uuid, tenantUuid, {
       answers: dto.answers,
       updatedAt: now,
       updatedByUuid: actorUuid,
