@@ -3,7 +3,7 @@ import { ClinicalFieldDefinitionSchema } from './clinical-template.dto';
 
 const TINNITUS_TONE_MAX_LENGTH = 120;
 const OTOSCOPY_MAX_LENGTH = 1000;
-const ANSWER_TEXT_MAX_LENGTH = 1000;
+export const ANSWER_TEXT_MAX_LENGTH = 1000;
 export const ANSWER_ID_MAX_LENGTH = 60;
 const SNAPSHOT_MAX_FIELDS = 100;
 
