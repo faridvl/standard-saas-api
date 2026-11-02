@@ -174,6 +174,7 @@ model Patient {
   maintenanceNotes PatientMaintenanceNote[]
   questionnaireEntries PatientQuestionnaireEntry[]
   otoscopyEntries PatientOtoscopyEntry[]
+  labShipments    PatientLabShipment[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
   branches        PatientBranch[]
 
@@ -270,6 +271,29 @@ model PatientQuestionnaireEntryRevision {
 
   @@index([entryUuid, revisedAt])
   @@index([tenantUuid])
+}
+
+/// Historial de envíos de audífonos al laboratorio: cada envío tiene su día de salida y, al
+/// entregarse, su día de regreso. Máximo uno abierto (deliveredAt nulo) por paciente: el índice
+/// parcial único "PatientLabShipment_one_open_per_patient" lo garantiza y vive solo en la migración.
+model PatientLabShipment {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  tenantUuid      String
+  patientUuid     String
+  // Días guardados a mediodía UTC, igual que Patient.hearingAidsInLabSince.
+  sentAt          DateTime
+  deliveredAt     DateTime?
+  note            String?
+  // Nulo en los envíos abiertos por la migración desde datos viejos.
+  createdByUuid   String?
+  deliveredByUuid String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  patient         Patient   @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([tenantUuid, patientUuid, sentAt])
 }
 
 /// Historial de otoscopia (exploración física): cada vez que se evalúa queda un registro.

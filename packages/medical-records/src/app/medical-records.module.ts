@@ -9,6 +9,7 @@ import { PatientNotesModule } from './modules/patient-notes.module';
 import { PatientMaintenanceNotesModule } from './modules/patient-maintenance-notes.module';
 import { PatientQuestionnaireEntriesModule } from './modules/patient-questionnaire-entries.module';
 import { PatientOtoscopyEntriesModule } from './modules/patient-otoscopy-entries.module';
+import { PatientLabShipmentsModule } from './modules/patient-lab-shipments.module';
 import { PatientBackgroundModule } from './modules/patient-background.module';
 import { PatientPhysicalExamModule } from './modules/patient-physical-exam.module';
 import { PatientDeviceModule } from './modules/patient-device.module';
@@ -48,6 +49,7 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     PatientMaintenanceNotesModule,
     PatientQuestionnaireEntriesModule,
     PatientOtoscopyEntriesModule,
+    PatientLabShipmentsModule,
     PatientBackgroundModule,
     PatientPhysicalExamModule,
     PatientDeviceModule,

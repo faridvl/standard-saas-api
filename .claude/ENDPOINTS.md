@@ -767,6 +767,19 @@ Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
 en la bitácora. **Response 200:** `Patient`.
 Migración `20261020120000_add_warranty_expired_renew_prescription`.
 
+**Audífonos en laboratorio (historial de envíos).** Prender `hearingAidsInLab` abre un envío con ese `sentAt` (`hearingAidsInLabDate`, un día `YYYY-MM-DD`; por defecto hoy); cambiar la fecha mientras sigue en laboratorio corrige el `sentAt` del envío abierto. Apagarlo es la entrega y acepta, solo con `hearingAidsInLab: false` (con otro valor: 400):
+```json
+{ "hearingAidsInLab": false, "deliveredAt": "YYYY-MM-DD ?", "note": "string (máx. 1000) ?" }
+```
+`deliveredAt` por defecto es hoy (Costa Rica); **400** si es posterior a hoy ("La fecha de entrega no puede ser posterior a hoy") o anterior al día de envío del abierto ("La fecha de entrega no puede ser anterior a la de envío (DD/MM/AAAA)"). Todo ocurre en una transacción con el paciente bloqueado: cierra el envío (`deliveredAt`, `note`, `deliveredByUuid`), apaga el switch y, si hay `note`, crea además una nota de Control de evolución (`EVOLUTION_CONTROL`) con el mismo texto, mismo autor y fecha de hoy. Sin envío abierto (dato viejo) crea uno ya cerrado con `sentAt` = `deliveredAt`. Un envío abierto por paciente como máximo (índice parcial único). Bitácora: `HEARING_AIDS_DELIVERED` con `{ date, hasNote }` (sin el texto) y, si hubo nota, `NOTE_ADDED`.
+
+### GET /patients/:patientUuid/lab-shipments
+`AuthGuard`, filtrado por `tenantUuid` (paciente de otro negocio o borrado: **404** "Paciente no encontrado"). **Response 200**, del más reciente al más viejo:
+```json
+[{ "uuid": "", "sentAt": "YYYY-MM-DD", "deliveredAt": "YYYY-MM-DD | null", "note": "string | null", "createdByUuid": "string | null", "createdByName": "string | null", "deliveredByUuid": "string | null", "deliveredByName": "string | null" }]
+```
+`deliveredAt: null` = sigue en laboratorio. Los nombres pueden ser `null` (envío migrado sin autor). Migración `20261102180000_patient_lab_shipments` (copia como envío abierto a quien ya tenía el switch prendido).
+
 ### Mantenimientos del paciente (estado e historial de notas)
 Mantenimiento 1 a 4 del paciente (4 gratis al entregar audífonos, uno cada 6 meses): un
 estado y un historial de notas que el personal maneja a mano; no se calculan desde las

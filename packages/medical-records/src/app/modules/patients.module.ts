@@ -15,6 +15,7 @@ import { PatientContactsModule } from './patient-contacts.module';
 import { BranchesModule } from './branches.module';
 import { PatientBackgroundModule } from './patient-background.module';
 import { PatientPhysicalExamModule } from './patient-physical-exam.module';
+import { PatientLabShipmentsModule } from './patient-lab-shipments.module';
 
 const CONTROLLERS = [PatientController];
 const USE_CASES = [
@@ -37,6 +38,7 @@ const STORAGES = [PatientStorage];
     PatientBackgroundModule,
     PatientPhysicalExamModule,
     PatientActivityModule,
+    PatientLabShipmentsModule,
   ],
   controllers: [...CONTROLLERS],
   providers: [...USE_CASES, ...STORAGES],

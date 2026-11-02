@@ -169,6 +169,23 @@ trade-off que documenta `service-core-comx` para el mismo patrón.
 
 Index: `@@index([tenantUuid])`
 
+#### `PatientLabShipment` (historial de envíos de audífonos al laboratorio)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| uuid | String (unique) | |
+| tenantUuid / patientUuid | String | FK a `Patient.uuid` |
+| sentAt | DateTime | día de envío, a mediodía UTC |
+| deliveredAt | DateTime? | día de entrega a mediodía UTC; null = sigue en laboratorio |
+| note | String? | nota de la entrega (máx. 1000) |
+| createdByUuid / deliveredByUuid | String? | quién envió / quién entregó |
+| createdAt / updatedAt | DateTime | |
+
+Index: `@@index([tenantUuid, patientUuid, sentAt])`. Máximo un envío abierto por paciente:
+índice parcial único `PatientLabShipment_one_open_per_patient` (`WHERE "deliveredAt" IS NULL`),
+solo en el SQL de la migración (Prisma no lo expresa). `Patient.hearingAidsInLabSince` sigue
+siendo el interruptor; el envío abierto lleva el mismo día.
+
 ### Migrations (medical-records)
 | Migration | Description |
 |-----------|-------------|
@@ -181,6 +198,7 @@ Index: `@@index([tenantUuid])`
 | 20260630220000_add_product_units | ProductUnit table; deja columnas legacy de Product/PatientDevice sin usar a propósito |
 | 20260919090000_drop_legacy_inventory_columns | Elimina current_stock (Product) y brand/model/productUuid/purchaseDate/serialNumber/warrantyUntil (PatientDevice), sin uso desde add_product_units |
 | 20260919091500_add_local_user_cache | Tabla User (cache local de identity) |
+| 20261102180000_patient_lab_shipments | Tabla PatientLabShipment; copia como envío abierto a los pacientes con `hearingAidsInLabSince` |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

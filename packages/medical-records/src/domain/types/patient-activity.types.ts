@@ -20,6 +20,8 @@ export enum PatientActivityAction {
   /** La cita se dio por atendida (pasa a COMPLETED). */
   APPOINTMENT_COMPLETED = 'APPOINTMENT_COMPLETED',
   STATUS_CHANGED = 'STATUS_CHANGED',
+  /** Los audífonos volvieron del laboratorio y se entregaron; trae el día y si hubo nota (sin el texto). */
+  HEARING_AIDS_DELIVERED = 'HEARING_AIDS_DELIVERED',
   /** Se marcó o desmarcó que los audífonos están en el laboratorio. */
   HEARING_AIDS_LAB_CHANGED = 'HEARING_AIDS_LAB_CHANGED',
   /** Se activó o desactivó la garantía. */
@@ -75,6 +77,7 @@ export type PatientActivityDetail =
   | { appointmentUuid: string; date: string; typeUuid: string | null; typeName: string | null }
   | { before: string; after: string; reason: string | null; date: string | null }
   | { isOn: boolean; date?: string; previousDate?: string }
+  | { date: string; hasNote: boolean }
   | { number: number; status: string | null; previousStatus: string | null }
   | { count: number; previousCount: number }
   | { number: number; done: boolean }
