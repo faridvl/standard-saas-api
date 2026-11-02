@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Appointment, AppointmentStatus } from '@medical-records/domain/types/appointment.types';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
+import { clinicDayRange } from '@medical-records/domain/utils/clinic-day.util';
 
 /**
  * Shape mínimo que necesita `mapToDomain`. Los distintos métodos de este
@@ -110,14 +111,10 @@ export class AppointmentStorage {
     const { page, limit, date, patientId } = options;
     const skip = (page - 1) * limit;
 
+    const dayRange = date ? clinicDayRange(date) : null;
     const where = {
       tenantUUID,
-      ...(date && {
-        startTime: {
-          gte: new Date(`${date}T00:00:00.000Z`),
-          lt: new Date(`${date}T23:59:59.999Z`),
-        },
-      }),
+      ...(dayRange && { startTime: { gte: dayRange.start, lt: dayRange.end } }),
       ...(patientId && { patientUUID: patientId }),
     };
 
