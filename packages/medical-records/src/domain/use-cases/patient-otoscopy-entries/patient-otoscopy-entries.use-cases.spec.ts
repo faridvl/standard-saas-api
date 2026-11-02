@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CreatePatientOtoscopyEntryUseCase } from './create-patient-otoscopy-entry.use-case';
 import { FindPatientOtoscopyEntriesUseCase } from './find-patient-otoscopy-entries.use-case';
 import { UpdatePatientOtoscopyEntryUseCase } from './update-patient-otoscopy-entry.use-case';
@@ -56,9 +56,25 @@ describe('historial de otoscopias', () => {
         created.push(data);
         return Promise.resolve(buildRecord({ ...data, uuid: 'entry-new' }));
       },
-      update: (entryUuid: string, tenantUuid: string, data: Record<string, unknown>) => {
+      // Imita al storage real: lee la fila, deja decidir al caso de uso y guarda si hay cambios.
+      update: (
+        entryUuid: string,
+        patientUuid: string,
+        tenantUuid: string,
+        plan: (current: ReturnType<typeof buildRecord>) => {
+          data: Record<string, unknown>;
+          changes: unknown[];
+        },
+      ) => {
+        const current = records.find((r) => r.uuid === entryUuid && r.patientUuid === patientUuid);
+        if (!current) return Promise.reject(new NotFoundException('Registro no encontrado'));
+        const { data, changes } = plan(current);
+        if (changes.length === 0) return Promise.resolve({ entry: current, changes });
         updates.push({ entryUuid, tenantUuid, data });
-        return Promise.resolve({ ...records[0], ...data, updatedAt: SAME_DAY.toISOString() });
+        return Promise.resolve({
+          entry: { ...current, ...data, updatedAt: SAME_DAY.toISOString() },
+          changes,
+        });
       },
     };
     const names: Record<string, string> = { [AUTHOR]: 'Dra. Ana', [CORRECTOR]: 'Dr. Luis' };
@@ -81,6 +97,24 @@ describe('historial de otoscopias', () => {
 
       const nextDay = await build().execute(PATIENT, TENANT, NEXT_DAY);
       expect(nextDay[0].canEdit).toBe(false);
+    });
+
+    it('consulta a identity una sola vez por autor, aunque se repita', async () => {
+      records = [
+        buildRecord({ uuid: 'a' }),
+        buildRecord({ uuid: 'b', updatedByUuid: CORRECTOR }),
+        buildRecord({ uuid: 'c', updatedByUuid: CORRECTOR }),
+      ];
+      const lookups: string[] = [];
+      getOrCreateUser = {
+        execute: (uuid: string) => {
+          lookups.push(uuid);
+          return Promise.resolve(uuid);
+        },
+      };
+      const result = await build().execute(PATIENT, TENANT, SAME_DAY);
+      expect([...lookups].sort()).toEqual([AUTHOR, CORRECTOR].sort());
+      expect(result[1]).toMatchObject({ createdByName: AUTHOR, updatedByName: CORRECTOR });
     });
 
     it('tolera un registro sin autor', async () => {
@@ -160,7 +194,7 @@ describe('historial de otoscopias', () => {
     it('otro día da 409 y no cambia nada', async () => {
       await expect(
         build().execute(PATIENT, ENTRY, TENANT, CORRECTOR, { otoscopyLeft: 'x' }, NEXT_DAY),
-      ).rejects.toBeInstanceOf(ConflictException);
+      ).rejects.toThrow('Esta otoscopia ya no se puede corregir porque no es de hoy.');
       expect(updates).toHaveLength(0);
     });
 

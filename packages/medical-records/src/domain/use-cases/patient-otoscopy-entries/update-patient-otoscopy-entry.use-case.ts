@@ -37,41 +37,34 @@ export class UpdatePatientOtoscopyEntryUseCase {
       throw new NotFoundException('Paciente no encontrado');
     }
 
-    const entry = await this.storage.findByUuid(entryUuid, patientUuid, tenantUuid);
-    if (!entry) {
-      throw new NotFoundException('Registro no encontrado');
-    }
+    const { entry: saved, changes } = await this.storage.update(
+      entryUuid,
+      patientUuid,
+      tenantUuid,
+      (entry) => {
+        if (!isSameClinicDay(entry.createdAt, now)) {
+          throw new ConflictException(
+            'Esta otoscopia ya no se puede corregir porque no es de hoy.',
+          );
+        }
 
-    if (!isSameClinicDay(entry.createdAt, now)) {
-      throw new ConflictException(
-        'Este registro ya no se puede corregir: solo se corrige el mismo día en que se creó.',
-      );
-    }
+        const next = {
+          otoscopyRight: dto.otoscopyRight === undefined ? entry.otoscopyRight : dto.otoscopyRight,
+          otoscopyLeft: dto.otoscopyLeft === undefined ? entry.otoscopyLeft : dto.otoscopyLeft,
+        };
+        if (!next.otoscopyRight && !next.otoscopyLeft) {
+          throw new BadRequestException('Escribe la otoscopia de al menos un oído');
+        }
 
-    const next = {
-      otoscopyRight: dto.otoscopyRight === undefined ? entry.otoscopyRight : dto.otoscopyRight,
-      otoscopyLeft: dto.otoscopyLeft === undefined ? entry.otoscopyLeft : dto.otoscopyLeft,
-    };
-    if (!next.otoscopyRight && !next.otoscopyLeft) {
-      throw new BadRequestException('Escribe la otoscopia de al menos un oído');
-    }
-
-    const changes: PatientFieldChange[] = [];
-    EDITABLE_FIELDS.forEach((field) => {
-      if (entry[field] !== next[field]) {
-        changes.push({ field, before: entry[field], after: next[field] });
-      }
-    });
-
-    // Sin cambios no se guarda una revisión ni se marca como corregido.
-    const saved =
-      changes.length === 0
-        ? entry
-        : await this.storage.update(entry.uuid, tenantUuid, {
-            ...next,
-            updatedAt: now,
-            updatedByUuid: actorUuid,
-          });
+        const changes: PatientFieldChange[] = [];
+        EDITABLE_FIELDS.forEach((field) => {
+          if (entry[field] !== next[field]) {
+            changes.push({ field, before: entry[field], after: next[field] });
+          }
+        });
+        return { data: { ...next, updatedAt: now, updatedByUuid: actorUuid }, changes };
+      },
+    );
 
     if (changes.length > 0) {
       await this.recordActivity.execute({

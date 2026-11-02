@@ -4,6 +4,8 @@ import { PatientOtoscopyEntryEntity } from '@medical-records/domain/entities/pat
 import { isSameClinicDay } from '@medical-records/domain/utils/clinic-day.util';
 import { GetOrCreateUserUseCase } from '@medical-records/domain/use-cases/users/get-or-create-user.use-case';
 
+const isString = (value: string | null): value is string => value !== null;
+
 @Injectable()
 export class FindPatientOtoscopyEntriesUseCase {
   constructor(
@@ -21,23 +23,25 @@ export class FindPatientOtoscopyEntriesUseCase {
     }
 
     const records = await this.storage.findAllByPatient(patientUuid, tenantUuid);
-    return await Promise.all(
-      records.map(async (record) => {
-        const [createdByName, updatedByName] = await Promise.all([
-          record.createdByUuid
-            ? this.getOrCreateUser.execute(record.createdByUuid, tenantUuid)
-            : null,
-          record.updatedByUuid
-            ? this.getOrCreateUser.execute(record.updatedByUuid, tenantUuid)
-            : null,
-        ]);
-        return {
-          ...record,
-          createdByName,
-          updatedByName,
-          canEdit: isSameClinicDay(record.createdAt, now),
-        };
-      }),
+    const authorUuids = [
+      ...new Set(
+        records.flatMap((record) => [record.createdByUuid, record.updatedByUuid]).filter(isString),
+      ),
+    ];
+    const names = new Map(
+      await Promise.all(
+        authorUuids.map(
+          async (uuid) => [uuid, await this.getOrCreateUser.execute(uuid, tenantUuid)] as const,
+        ),
+      ),
     );
+    const nameOf = (uuid: string | null) => (uuid ? (names.get(uuid) ?? null) : null);
+
+    return records.map((record) => ({
+      ...record,
+      createdByName: nameOf(record.createdByUuid),
+      updatedByName: nameOf(record.updatedByUuid),
+      canEdit: isSameClinicDay(record.createdAt, now),
+    }));
   }
 }

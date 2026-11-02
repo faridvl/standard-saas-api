@@ -49,7 +49,18 @@ export class UpsertPatientPhysicalExamUseCase {
 
     if (changes.length === 0) return existing;
 
-    const saved = await this.storage.upsert(patientUuid, actorUuid, data);
+    // Esta forma de guardar sigue viva (PUT de exploración física y compatibilidad de
+    // antecedentes): cada guardado con texto también entra al historial de otoscopias.
+    const otoscopyRight =
+      data.otoscopyRight !== undefined ? data.otoscopyRight : (existing?.otoscopyRight ?? null);
+    const otoscopyLeft =
+      data.otoscopyLeft !== undefined ? data.otoscopyLeft : (existing?.otoscopyLeft ?? null);
+    const historyEntry =
+      otoscopyRight || otoscopyLeft
+        ? { tenantUuid, patientUuid, otoscopyRight, otoscopyLeft, createdByUuid: actorUuid }
+        : null;
+
+    const saved = await this.storage.upsert(patientUuid, actorUuid, data, historyEntry);
 
     await this.recordActivity.execute({
       tenantUuid,

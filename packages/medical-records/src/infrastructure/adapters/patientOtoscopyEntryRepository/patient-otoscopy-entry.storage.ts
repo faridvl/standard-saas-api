@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PatientOtoscopyEntry } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -6,11 +6,23 @@ import {
   PatientOtoscopyEntryEntity,
   UpdatePatientOtoscopyEntryData,
 } from '@medical-records/domain/entities/patient-otoscopy-entry.entity';
+import { PatientFieldChange } from '@medical-records/domain/types/patient-activity.types';
 
 export type PatientOtoscopyEntryRecord = Omit<
   PatientOtoscopyEntryEntity,
   'createdByName' | 'updatedByName' | 'canEdit'
 >;
+
+export interface PatientOtoscopyEntryUpdatePlan {
+  data: UpdatePatientOtoscopyEntryData;
+  /** Vacío: no se guarda revisión ni se marca como corregido. */
+  changes: PatientFieldChange[];
+}
+
+export interface PatientOtoscopyEntryUpdateResult {
+  entry: PatientOtoscopyEntryRecord;
+  changes: PatientFieldChange[];
+}
 
 @Injectable()
 export class PatientOtoscopyEntryStorage {
@@ -73,18 +85,31 @@ export class PatientOtoscopyEntryStorage {
     return record ? this.mapToRecord(record) : null;
   }
 
-  // Guarda el texto que había y lo reemplaza en una sola transacción: si el
-  // update falla no queda una revisión suelta, y si la revisión falla no se pierde nada.
+  // Bloquea la fila, deja que quien llama decida con el texto vigente y, si hay
+  // cambios, guarda la revisión y el texto nuevo en la misma transacción. Dos
+  // correcciones simultáneas se turnan y cada revisión guarda lo que de verdad había.
   async update(
     entryUuid: string,
+    patientUuid: string,
     tenantUuid: string,
-    data: UpdatePatientOtoscopyEntryData,
-  ): Promise<PatientOtoscopyEntryRecord> {
-    const record = await this.prisma.$transaction(async (transaction) => {
+    plan: (current: PatientOtoscopyEntryRecord) => PatientOtoscopyEntryUpdatePlan,
+  ): Promise<PatientOtoscopyEntryUpdateResult> {
+    return this.prisma.$transaction(async (transaction) => {
+      const locked = await transaction.$queryRaw<{ id: number }[]>`
+        SELECT "id" FROM "PatientOtoscopyEntry"
+        WHERE "uuid" = ${entryUuid} AND "tenantUuid" = ${tenantUuid} AND "patientUuid" = ${patientUuid}
+        FOR UPDATE`;
+      if (locked.length === 0) {
+        throw new NotFoundException('Registro no encontrado');
+      }
       const current = await transaction.patientOtoscopyEntry.findFirstOrThrow({
-        where: { uuid: entryUuid, tenantUuid },
-        select: { otoscopyRight: true, otoscopyLeft: true },
+        where: { uuid: entryUuid, tenantUuid, patientUuid },
       });
+      const before = this.mapToRecord(current);
+      const { data, changes } = plan(before);
+      if (changes.length === 0) {
+        return { entry: before, changes };
+      }
       await transaction.patientOtoscopyEntryRevision.create({
         data: {
           entryUuid,
@@ -95,7 +120,7 @@ export class PatientOtoscopyEntryStorage {
           revisedByUuid: data.updatedByUuid,
         },
       });
-      return transaction.patientOtoscopyEntry.update({
+      const updated = await transaction.patientOtoscopyEntry.update({
         where: { uuid: entryUuid },
         data: {
           otoscopyRight: data.otoscopyRight,
@@ -104,7 +129,7 @@ export class PatientOtoscopyEntryStorage {
           updatedByUuid: data.updatedByUuid,
         },
       });
+      return { entry: this.mapToRecord(updated), changes };
     });
-    return this.mapToRecord(record);
   }
 }
