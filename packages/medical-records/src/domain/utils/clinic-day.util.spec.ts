@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { clinicDayRange, toClinicMonthKey } from './clinic-day.util';
+import { clinicDayRange, isSameClinicDay, toClinicMonthKey } from './clinic-day.util';
 
 describe('clinicDayRange', () => {
   const { start, end } = clinicDayRange('2026-11-03');
@@ -42,5 +42,12 @@ describe('toClinicMonthKey', () => {
 
   it('las citas "sin hora" (08:00Z) siguen en su mismo mes', () => {
     expect(toClinicMonthKey(new Date('2026-11-01T08:00:00.000Z'))).toBe('2026-11');
+  });
+});
+
+describe('isSameClinicDay', () => {
+  it('la medianoche de Costa Rica separa los dias', () => {
+    expect(isSameClinicDay('2026-11-01T16:00:00.000Z', '2026-11-02T05:59:00.000Z')).toBe(true);
+    expect(isSameClinicDay('2026-11-01T16:00:00.000Z', '2026-11-02T06:00:00.000Z')).toBe(false);
   });
 });

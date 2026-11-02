@@ -28,3 +28,8 @@ export function clinicDayRange(dayKey: string): { start: Date; end: Date } {
 export function toClinicMonthKey(instant: Date): string {
   return toClinicDayKey(instant).slice(0, 7);
 }
+
+/** true si ambos instantes caen en el mismo dia de calendario de Costa Rica. */
+export function isSameClinicDay(first: Date | string, second: Date | string): boolean {
+  return toClinicDayKey(new Date(first)) === toClinicDayKey(new Date(second));
+}

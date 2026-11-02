@@ -173,6 +173,7 @@ model Patient {
   notes           PatientNote[]
   maintenanceNotes PatientMaintenanceNote[]
   questionnaireEntries PatientQuestionnaireEntry[]
+  otoscopyEntries PatientOtoscopyEntry[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
   branches        PatientBranch[]
 
@@ -266,6 +267,46 @@ model PatientQuestionnaireEntryRevision {
   revisedByUuid String
 
   entry         PatientQuestionnaireEntry @relation(fields: [entryUuid], references: [uuid])
+
+  @@index([entryUuid, revisedAt])
+  @@index([tenantUuid])
+}
+
+/// Historial de otoscopia (exploración física): cada vez que se evalúa queda un registro.
+/// Reemplaza a PatientPhysicalExam, que se conserva mientras el front viejo la lea.
+model PatientOtoscopyEntry {
+  id            Int       @id @default(autoincrement())
+  uuid          String    @unique @default(uuid())
+  tenantUuid    String
+  patientUuid   String
+  otoscopyRight String?
+  otoscopyLeft  String?
+  createdAt     DateTime  @default(now())
+  // Nulo en los registros copiados de la otoscopia única cuando no se sabía quién la guardó.
+  createdByUuid String?
+  // Solo se llenan al corregir el registro (el mismo día en que se creó).
+  updatedAt     DateTime?
+  updatedByUuid String?
+
+  patient       Patient   @relation(fields: [patientUuid], references: [uuid])
+  revisions     PatientOtoscopyEntryRevision[]
+
+  @@index([tenantUuid, patientUuid, createdAt])
+}
+
+/// El texto que tenía un registro de otoscopia justo antes de cada corrección: nada se borra.
+model PatientOtoscopyEntryRevision {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  entryUuid     String
+  tenantUuid    String
+  otoscopyRight String?
+  otoscopyLeft  String?
+  revisedAt     DateTime
+  // Quien hizo la corrección que reemplazó este texto.
+  revisedByUuid String
+
+  entry         PatientOtoscopyEntry @relation(fields: [entryUuid], references: [uuid])
 
   @@index([entryUuid, revisedAt])
   @@index([tenantUuid])

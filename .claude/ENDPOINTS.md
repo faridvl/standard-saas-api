@@ -926,3 +926,45 @@ Una sede o un tipo de otra clínica, o un calendario quitado, devuelven el calen
 
 Un token que no existe (revocado o inventado) responde **200 con un calendario vacío**, no 404: así el teléfono borra las citas que tenía.
 **Status:** Implemented.
+
+---
+
+## Historial de otoscopías (Medical Records Service, port 7071)
+
+**Acceso:** solo roles clínicos (`OWNER`, `ADMIN`, `DOCTOR`); `STAFF` recibe 403. Todo se filtra por el `tenantUuid` del token: un paciente o registro de otro negocio responde 404.
+
+Cada otoscopía es un registro nuevo: nunca se pisa uno anterior. Reemplaza a la otoscopía única de `physical-exam` (esas rutas siguen, sin dual-write, hasta que el front migre).
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `GET` | `/patients/:patientUuid/otoscopy-entries` | Lista, el más reciente primero |
+| `POST` | `/patients/:patientUuid/otoscopy-entries` | Crea un registro nuevo (201) |
+| `PATCH` | `/patients/:patientUuid/otoscopy-entries/:entryUuid` | Corrige un registro (200) |
+
+Body de `POST` y `PATCH`: `{ "otoscopyRight"?: string | null, "otoscopyLeft"?: string | null }`. Se recorta; `""` se guarda como `null`; máximo 1000 caracteres por oído. En `POST` debe venir texto en al menos un oído (400 si no). En `PATCH`, un oído que no viene conserva su texto, `null` o `""` lo limpia, y no puede quedar sin ningún oído (400).
+
+Respuesta (cada item del `GET`, y el resultado de `POST` y `PATCH`):
+
+```json
+{
+  "uuid": "…",
+  "patientUuid": "…",
+  "otoscopyRight": "Conducto permeable",
+  "otoscopyLeft": null,
+  "createdAt": "2026-11-02T16:00:00.000Z",
+  "createdByUuid": "…",
+  "createdByName": "Dra. Ana",
+  "updatedAt": null,
+  "updatedByUuid": null,
+  "updatedByName": null,
+  "canEdit": true
+}
+```
+
+- `createdByUuid` / `createdByName` pueden ser `null` (registro copiado de la otoscopía única sin autor conocido, o identity sin responder).
+- `updatedAt` / `updatedByUuid` / `updatedByName` son `null` mientras no se corrija; al corregir quedan quién y cuándo.
+- `canEdit` es `true` solo el mismo día de calendario de Costa Rica en que se creó; el front no recalcula la fecha.
+- `PATCH` en otro día: **409** "Este registro ya no se puede corregir: solo se corrige el mismo día en que se creó."
+- Paciente inexistente, borrado o de otro negocio: 404. Registro inexistente: 404.
+- Al corregir se guarda el texto anterior en `PatientOtoscopyEntryRevision`. Un `PATCH` sin cambios reales no guarda revisión ni marca "corregido".
+- Crear y corregir anotan `PHYSICAL_EXAM_UPDATED` en la bitácora del paciente (campos `otoscopyRight` / `otoscopyLeft`).
