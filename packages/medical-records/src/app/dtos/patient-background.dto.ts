@@ -4,11 +4,11 @@ import { ClinicalFieldDefinitionSchema } from './clinical-template.dto';
 const TINNITUS_TONE_MAX_LENGTH = 120;
 const OTOSCOPY_MAX_LENGTH = 1000;
 const ANSWER_TEXT_MAX_LENGTH = 1000;
-const ANSWER_ID_MAX_LENGTH = 60;
+export const ANSWER_ID_MAX_LENGTH = 60;
 const SNAPSHOT_MAX_FIELDS = 100;
 
 /** Sí/No, Sí/No con detalle o texto, según el tipo de la pregunta. */
-const AnswerSchema = z.union([
+export const AnswerSchema = z.union([
   z.boolean(),
   z.string().max(ANSWER_TEXT_MAX_LENGTH),
   z.object({

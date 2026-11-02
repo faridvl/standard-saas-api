@@ -158,6 +158,7 @@ model Patient {
   studies         Study[]
   contacts        PatientContact[]
   notes           PatientNote[]
+  questionnaireEntries PatientQuestionnaireEntry[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
   branches        PatientBranch[]
 
@@ -214,6 +215,25 @@ model PatientPhysicalExam {
   updatedByUuid String?
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+}
+
+/// Una vez que se llenó una sección propia de la clínica (ClinicalTemplate QUESTIONNAIRE).
+/// Append-only: cada vez deja un registro; `templateSnapshot` guarda el nombre y las
+/// preguntas tal como estaban, para que editar la sección no cambie lo ya llenado.
+model PatientQuestionnaireEntry {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique @default(uuid())
+  patientUuid      String
+  templateUuid     String
+  templateSnapshot Json
+  answers          Json
+  createdAt        DateTime @default(now())
+  createdByUuid    String
+
+  patient          Patient  @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid, createdAt])
+  @@index([templateUuid])
 }
 
 model PatientContact {

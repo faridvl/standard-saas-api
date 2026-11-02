@@ -46,6 +46,8 @@ export enum PatientActivityAction {
   MAINTENANCE_CHECK_CHANGED = 'MAINTENANCE_CHECK_CHANGED',
   /** Se escribió, cambió o borró la nota de un mantenimiento (1 a 4). */
   MAINTENANCE_NOTE_CHANGED = 'MAINTENANCE_NOTE_CHANGED',
+  /** Se llenó una sección propia de la clínica dentro de Preguntas. */
+  QUESTIONNAIRE_FILLED = 'QUESTIONNAIRE_FILLED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */
@@ -72,7 +74,8 @@ export type PatientActivityDetail =
   | { number: number; status: string | null; previousStatus: string | null }
   | { count: number; previousCount: number }
   | { number: number; done: boolean }
-  | { number: number; excerpt: string | null };
+  | { number: number; excerpt: string | null }
+  | { templateUuid: string; templateName: string };
 
 export interface RecordPatientActivityInput {
   tenantUuid: string;
