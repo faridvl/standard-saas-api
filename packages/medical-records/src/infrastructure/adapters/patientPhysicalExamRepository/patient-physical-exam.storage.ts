@@ -5,6 +5,7 @@ import {
   PatientPhysicalExamWriteData,
 } from '@medical-records/domain/entities/patient-physical-exam.entity';
 import { CreatePatientOtoscopyEntryData } from '@medical-records/domain/entities/patient-otoscopy-entry.entity';
+import { buildOtoscopyNoteData } from '@medical-records/domain/utils/otoscopy-note-text.util';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -39,8 +40,8 @@ export class PatientPhysicalExamStorage {
     return record ? this.mapToEntity(record) : null;
   }
 
-  // Con `historyEntry`, la otoscopia también queda como un registro nuevo del historial,
-  // en la misma transacción: o quedan las dos cosas o ninguna.
+  // Con `historyEntry`, la otoscopia también queda como un registro nuevo del historial y como
+  // nota de Pruebas en Control de evolución (misma fecha), en un solo lote: o quedan todas o ninguna.
   async upsert(
     patientUuid: string,
     actorUuid: string,
@@ -55,9 +56,11 @@ export class PatientPhysicalExamStorage {
     if (!historyEntry) {
       return this.mapToEntity(await upsert);
     }
+    const createdAt = new Date();
     const [record] = await this.prisma.$transaction([
       upsert,
-      this.prisma.patientOtoscopyEntry.create({ data: historyEntry }),
+      this.prisma.patientOtoscopyEntry.create({ data: { ...historyEntry, createdAt } }),
+      this.prisma.patientNote.create({ data: buildOtoscopyNoteData(historyEntry, createdAt) }),
     ]);
     return this.mapToEntity(record);
   }

@@ -64,9 +64,13 @@ function buildStorage(lockedRows: { id: number }[], currentText: string) {
   };
   // Imita el rollback: si la transacción falla, lo escrito dentro se descarta.
   const prisma = {
-    $transaction: async (fn: (t: typeof transaction) => Promise<unknown>) => {
+    patientNote: transaction.patientNote,
+    patientOtoscopyEntry: transaction.patientOtoscopyEntry,
+    $transaction: async (
+      work: ((t: typeof transaction) => Promise<unknown>) | Promise<unknown>[],
+    ) => {
       try {
-        return await fn(transaction);
+        return Array.isArray(work) ? await Promise.all(work) : await work(transaction);
       } catch (error) {
         created.length = 0;
         notes.length = 0;
@@ -142,8 +146,18 @@ describe('PatientOtoscopyEntryStorage.create', () => {
         authorUuid: 'u1',
         category: 'EXTERNAL_TEST',
         text: 'Otoscopia\nOD: Tímpano íntegro\nOI: Cerumen',
+        createdAt: expect.any(Date),
       },
     ]);
+  });
+
+  it('la nota lleva exactamente la misma fecha que la otoscopia', async () => {
+    const { storage, notes, created } = buildStorage([], 'x');
+
+    await storage.create({ ...base, otoscopyRight: 'Limpio', otoscopyLeft: null });
+
+    expect(created[0].createdAt).toBeInstanceOf(Date);
+    expect(notes[0].createdAt).toBe(created[0].createdAt);
   });
 
   it('omite la línea del oído vacío', async () => {

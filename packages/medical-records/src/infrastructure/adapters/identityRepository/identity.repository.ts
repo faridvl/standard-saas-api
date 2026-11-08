@@ -20,6 +20,10 @@ export class IdentityRepository {
   constructor(private readonly jwtService: JwtService) {}
 
   async getUser(uuid: string, tenantUuid: string): Promise<IdentityUser | null> {
+    if (!uuid || !uuid.trim()) {
+      return null;
+    }
+
     if (!env.IDENTITY_SERVICE_URL) {
       this.logger.warn('IDENTITY_SERVICE_URL no configurada, no se puede resolver el usuario');
       return null;
@@ -39,7 +43,13 @@ export class IdentityRepository {
         return null;
       }
 
-      const data = (await response.json()) as IdentityUser;
+      const data = (await response.json()) as Partial<IdentityUser> | null;
+      // Una ruta mal resuelta en identity puede responder 200 con otra cosa (p. ej. una lista).
+      if (!data || typeof data.uuid !== 'string' || data.uuid === '' || data.uuid !== uuid ||
+        typeof data.fullName !== 'string'
+      ) {
+        return null;
+      }
       return { uuid: data.uuid, fullName: data.fullName };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
