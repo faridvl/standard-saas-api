@@ -153,9 +153,47 @@
 ---
 
 ### DELETE /users/:uuid
-**Auth:** Required  
-**Response 204:** No content.  
+**Auth:** Required
+**Response 204:** No content.
 **Status:** Implemented. Scoped to caller's tenant.
+
+---
+
+### GET /tenants/current
+**Auth:** Required (cualquier usuario autenticado de la clínica). La clínica sale del JWT (`tenantUuid`), nunca de la URL.
+**Response 200:**
+```json
+{
+  "businessName": "AudioColors",
+  "logoUrl": "https://... | null",
+  "phone": "+506 2222-3333 | null",
+  "email": "info@clinica.cr | null",
+  "address": "San José, Costa Rica | null"
+}
+```
+**Errors:** 404 si la clínica del token no existe.
+**Status:** Implemented.
+
+---
+
+### PATCH /tenants/current
+**Auth:** Required. Solo roles `OWNER` y `ADMIN` (quienes administran Configuración); otro rol recibe 403.
+**Body (todos opcionales; un campo omitido no se toca):**
+```json
+{
+  "phone": "+506 2222-3333",
+  "email": "info@clinica.cr",
+  "address": "San José, Costa Rica"
+}
+```
+- `phone`: caracteres `+ dígitos espacios - ( )`, de 8 a 15 dígitos, máximo 20 caracteres (mismos formatos que los teléfonos de pacientes).
+- `email`: correo válido, máximo 254 caracteres.
+- `address`: máximo 300 caracteres.
+- Cadena vacía o solo espacios se guarda como `null`. Cualquier otro campo del body (`businessName`, `logoUrl`...) se descarta: el nombre no se edita aquí.
+
+**Response 200:** misma forma que `GET /tenants/current`.
+**Errors:** 400 (`Validation failed` con `details[{field,message}]`), 403 (rol sin permiso), 404 (clínica inexistente).
+**Status:** Implemented. `PATCH /tenants/:uuid` (nombre del negocio) sigue aparte y no cambió.
 
 ---
 
@@ -1064,7 +1102,7 @@ Texto markdown con variables `{{clave}}`, una lista por negocio. **Acceso:** lee
 
 Body de `POST`/`PUT`: `{ "name", "description"?, "content" }`. `name` 1 a 120 caracteres (se recorta), `description` opcional o `null`, hasta 300 ("cuándo se usa"; vacía o `null` se guarda como `null`; en `PUT`, omitirla o mandar `null` la deja vacía), `content` requerido, 1 a 20000 caracteres con al menos uno que no sea blanco. El nombre repetido en la clínica (sin distinguir mayúsculas, comparación exacta: `_` y `%` no son comodines) responde 409. La lista sale ordenada por nombre sin distinguir mayúsculas ni tildes (`acta` antes que `Zeta`, `Árbol` con la A).
 
-Variables permitidas (constante `DOCUMENT_TEMPLATE_VARIABLES` en `domain/types/document-template-variables.ts`): `nombre`, `apellidos`, `nombre_completo`, `tipo_documento`, `documento`, `fecha_nacimiento`, `edad`, `genero`, `telefono`, `correo`, `direccion`, `sedes`, `fecha_hoy`, `profesional`. Se ignoran los espacios dentro de las llaves (`{{ nombre }}`).
+Variables permitidas (constante `DOCUMENT_TEMPLATE_VARIABLES` en `domain/types/document-template-variables.ts`): `nombre`, `apellidos`, `nombre_completo`, `tipo_documento`, `documento`, `fecha_nacimiento`, `edad`, `genero`, `telefono`, `correo`, `direccion`, `sedes`, `fecha_hoy`, `profesional`, `otoscopia_od`, `otoscopia_oi`, `diagnostico`, `observaciones`, `clinica_nombre`, `clinica_telefono`, `clinica_correo`, `clinica_direccion`. Se ignoran los espacios dentro de las llaves (`{{ nombre }}`).
 
 ```json
 { "name": "Consentimiento", "description": "Antes de la audiometría", "content": "Yo {{nombre_completo}}, documento {{documento}}, autorizo..." }

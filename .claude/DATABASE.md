@@ -15,6 +15,9 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | uuid | String (unique) | public identifier, auto-generated UUID |
 | businessName | String | |
 | businessType | String? | optional |
+| phone | String? | teléfono de contacto de la clínica; null por defecto |
+| email | String? | correo de contacto de la clínica; null por defecto |
+| address | String? | dirección de la clínica (máx. 300 en la API); null por defecto |
 | status | Enum(ACTIVE, INACTIVE) | default ACTIVE |
 | createdAt | DateTime | |
 | updatedAt | DateTime | |
@@ -44,6 +47,7 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | 20260214193921_first | First schema update |
 | 20260215201508_add_users_fields | Added specialty, avatarUrl, phoneNumber |
 | 20260215202931_new_role | Added new role values |
+| 20261108130000_tenant_contact_fields | `Tenant.phone`, `Tenant.email`, `Tenant.address` (TEXT nulos, sin backfill) |
 
 ---
 

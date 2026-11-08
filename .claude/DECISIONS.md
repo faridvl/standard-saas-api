@@ -1,5 +1,20 @@
 # Decisiones
 
+## 2026-11-08 - Datos de contacto de la clínica y variables nuevas de plantilla
+
+- `Tenant` gana `phone`, `email` y `address` (nulos). Endpoints nuevos `GET` y `PATCH /tenants/current` en identity; la
+  clínica sale del JWT. Se extendió `TenantController` y `current` se declara antes de `:uuid` para que no lo capture.
+- Lectura: cualquier usuario autenticado. Escritura: `OWNER` y `ADMIN` (los que administran Configuración en el front).
+  Identity no tiene política de roles, así que la comprobación vive en el caso de uso (`CLINIC_SETTINGS_ROLES`), no en un guard.
+- El PATCH solo guarda esos tres campos: el esquema Zod descarta el resto y el storage nunca recibe `businessName`.
+  Cadena vacía = `null`. El teléfono valida caracteres y 8 a 15 dígitos (más permisivo que el formato exacto del front,
+  que ya normaliza al guardar).
+- `TenantDomain` y `/auth/me` no cambian: el front pide la clínica completa a `/tenants/current`.
+- `PATCH /tenants/:uuid` (nombre) no comprueba rol; queda como estaba por estar fuera de alcance.
+- Identity ahora tiene jest (`yarn workspace @project/identity-service test`), con la misma configuración que medical-records.
+- `DOCUMENT_TEMPLATE_VARIABLES` suma `otoscopia_od`, `otoscopia_oi`, `diagnostico`, `observaciones`, `clinica_nombre`,
+  `clinica_telefono`, `clinica_correo` y `clinica_direccion`. El reemplazo por datos reales sigue siendo del front.
+
 ## 2026-11-08 - Plantillas de documento
 
 - Modelo `DocumentTemplate` por negocio (markdown con variables `{{clave}}`), CRUD sin DELETE bajo `/document-templates`.

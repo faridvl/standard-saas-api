@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, Tenant } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 import { TenantDomain, TenantPlan } from '../../domain/types/auth.types';
+import { ClinicContactData, ClinicDomain } from '../../domain/types/clinic.types';
 
 @Injectable()
 export class TenantStorage {
@@ -33,6 +34,27 @@ export class TenantStorage {
       plan: (record.plan as TenantPlan) ?? TenantPlan.FREE,
       createdAt: record.createdAt,
     };
+  }
+
+  async findClinicByUuid(uuid: string): Promise<ClinicDomain | null> {
+    const record = await this.prisma.tenant.findUnique({
+      where: { uuid },
+      select: { businessName: true, logoUrl: true, phone: true, email: true, address: true },
+    });
+    return record ?? null;
+  }
+
+  async updateClinicContact(uuid: string, data: ClinicContactData): Promise<ClinicDomain | null> {
+    const result = await this.prisma.tenant.updateMany({
+      where: { uuid },
+      data: {
+        ...(data.phone !== undefined && { phone: data.phone }),
+        ...(data.email !== undefined && { email: data.email }),
+        ...(data.address !== undefined && { address: data.address }),
+      },
+    });
+    if (result.count === 0) return null;
+    return this.findClinicByUuid(uuid);
   }
 
   async findByUuid(uuid: string): Promise<TenantDomain | null> {
