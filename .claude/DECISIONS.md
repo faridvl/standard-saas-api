@@ -1,5 +1,20 @@
 # Decisiones
 
+## 2026-11-08 - Audiometrías guardadas por paciente
+
+- Modelo nuevo `PatientAudiometryEntry` (separado de `Study`), con el patrón de `PatientOtoscopyEntry`:
+  `payload Json`, `schemaVersion Int`, `createdByUuid`, `createdAt` e índice `[tenantUuid, patientUuid, createdAt]`.
+- El payload se valida con Zod en la versión 1 (`AudiometryPayloadV1Schema`): marcas tonales por herramienta y
+  oído, Weber, logoaudiometría, resumen (método de PTA, escala, PTA por oído, umbral, discriminación, palabras
+  falladas) y notas (diagnóstico y observaciones, máximo 1000 caracteres). Un cambio de contrato sube `schemaVersion`.
+- Registros inmutables: cada guardado crea uno; no hay edición ni borrado.
+- El autor sale siempre del JWT, nunca del body. El nombre se resuelve como en otoscopia (`GetOrCreateUserUseCase`).
+- El historial no devuelve el payload: lista uuid, fecha, autor y PTA por oído (leída del payload). El detalle
+  completo va por uuid. Todo se filtra por `tenantUuid`, incluida la lectura por uuid.
+- Solo roles clínicos (`OWNER`, `ADMIN`, `DOCTOR`); `STAFF` recibe 403.
+- La audiometría NO se guarda como PDF: el front genera el PDF al imprimir, reconstruyéndolo desde los datos
+  guardados. Por eso no hay `documentUuid`, ni PATCH, ni referencia a documentos.
+
 ## 2026-11-03 - La otoscopia deja una nota en Control de evolución
 
 - Cada otoscopia nueva crea, en la misma transacción, una nota de paciente (`PatientNote`) con categoría

@@ -957,6 +957,49 @@ Un token que no existe (revocado o inventado) responde **200 con un calendario v
 
 ---
 
+## Historial de audiometrías (Medical Records Service, port 7071)
+
+**Acceso:** solo roles clínicos (`OWNER`, `ADMIN`, `DOCTOR`); `STAFF` recibe 403. Todo se filtra por el `tenantUuid` del token: un paciente o registro de otro negocio (o de otro paciente) responde 404. Cada guardado es un registro inmutable: no hay edición ni borrado. El autor sale del token, nunca del body. No se guarda PDF: el front lo regenera al imprimir desde estos datos.
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `GET` | `/patients/:patientUuid/audiometry-entries` | Historial resumido, el más reciente primero |
+| `GET` | `/patients/:patientUuid/audiometry-entries/:entryUuid` | Registro completo |
+| `POST` | `/patients/:patientUuid/audiometry-entries` | Guarda una audiometría nueva (201) |
+
+Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT`. `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` de 1 a 25. `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos: 400.
+
+```json
+{
+  "schemaVersion": 1,
+  "payload": {
+    "marks": {
+      "AIR": { "RIGHT": { "500": { "thresholdDb": 25, "isMasked": false, "hasNoResponse": false }, "1000": { "thresholdDb": 30, "isMasked": false, "hasNoResponse": false } }, "LEFT": { "500": { "thresholdDb": 35, "isMasked": true, "hasNoResponse": false } } },
+      "BONE": { "RIGHT": { "500": { "thresholdDb": 20, "isMasked": false, "hasNoResponse": false } }, "LEFT": {} },
+      "UCL": { "RIGHT": {}, "LEFT": {} },
+      "MCL": { "RIGHT": {}, "LEFT": {} },
+      "FREE_FIELD": { "RIGHT": {}, "LEFT": {} }
+    },
+    "weber": { "500": "CENTER" },
+    "speech": { "marks": { "RIGHT": { "40": 20, "60": 80 }, "LEFT": {} }, "wordListType": null, "wordListId": null, "presentedWords": 25 },
+    "summary": {
+      "ptaType": "PTA_512", "gradingScale": "ASHA",
+      "ears": {
+        "RIGHT": { "pta": 27, "grade": "SLIGHT", "speechThresholdDb": 35, "maxDiscriminationPercent": 92, "failedWords": 2 },
+        "LEFT": { "pta": 35, "grade": "SLIGHT", "speechThresholdDb": null, "maxDiscriminationPercent": null, "failedWords": null }
+      }
+    },
+    "notes": { "diagnosis": "Hipoacusia leve", "observations": "Control en 6 meses" }
+  }
+}
+```
+
+Respuesta de `POST` (201) y de `GET :entryUuid` (200): `{ "uuid", "patientUuid", "schemaVersion", "payload", "createdAt", "createdByUuid", "createdByName" }`. `createdByName` puede ser `null` si identity no responde.
+
+Cada item del `GET` (lista, sin payload): `{ "uuid", "createdAt", "createdByUuid", "createdByName", "ptaRight", "ptaLeft" }` (los PTA pueden ser `null`).
+
+Errores: 400 payload inválido (detalle por campo), 401 sin token, 403 `STAFF`, 404 paciente o registro inexistente, borrado o de otro negocio/paciente.
+
 ## Historial de otoscopías (Medical Records Service, port 7071)
 
 **Acceso:** solo roles clínicos (`OWNER`, `ADMIN`, `DOCTOR`); `STAFF` recibe 403. Todo se filtra por el `tenantUuid` del token: un paciente o registro de otro negocio responde 404.

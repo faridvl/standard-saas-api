@@ -176,6 +176,7 @@ model Patient {
   maintenanceNotes PatientMaintenanceNote[]
   questionnaireEntries PatientQuestionnaireEntry[]
   otoscopyEntries PatientOtoscopyEntry[]
+  audiometryEntries PatientAudiometryEntry[]
   labShipments    PatientLabShipment[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
   branches        PatientBranch[]
@@ -322,6 +323,22 @@ model PatientOtoscopyEntry {
 }
 
 /// El texto que tenía un registro de otoscopia justo antes de cada corrección: nada se borra.
+model PatientAudiometryEntry {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  tenantUuid    String
+  patientUuid   String
+  // Version del contrato del payload; permite leer registros viejos si el contrato cambia.
+  schemaVersion Int
+  payload       Json
+  createdAt     DateTime @default(now())
+  createdByUuid String
+
+  patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([tenantUuid, patientUuid, createdAt])
+}
+
 model PatientOtoscopyEntryRevision {
   id            Int      @id @default(autoincrement())
   uuid          String   @unique @default(uuid())
