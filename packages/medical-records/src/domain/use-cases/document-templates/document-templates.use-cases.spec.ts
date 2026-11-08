@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { DocumentTemplateBodySchema } from '@medical-records/app/dtos/document-template.dto';
 import { DocumentTemplateStorage } from '@medical-records/infrastructure/adapters/documentTemplateRepository/document-template.storage';
 import {
   DocumentTemplateEntity,
@@ -28,7 +29,6 @@ class FakeDocumentTemplateStorage extends DocumentTemplateStorage {
   findAll(tenantUuid: string): Promise<DocumentTemplateEntity[]> {
     const rows = this.rows
       .filter((row) => row.tenantUuid === tenantUuid)
-      .sort((a, b) => a.name.localeCompare(b.name))
       .map((row) => this.strip(row));
     return Promise.resolve(rows);
   }
@@ -110,13 +110,49 @@ describe('Plantillas de documento', () => {
     expect(await findOne.execute(created.uuid, TENANT_A)).toEqual(created);
   });
 
-  it('guarda null cuando la descripción viene vacía', async () => {
+  it('guarda null cuando la descripción viene vacía o null', async () => {
     const created = await create.execute(TENANT_A, ACTOR, {
       name: 'A',
       description: '',
-      content: '',
+      content: 'x',
     });
     expect(created.description).toBeNull();
+
+    const fromNull = await create.execute(TENANT_A, ACTOR, {
+      name: 'B',
+      description: null,
+      content: 'x',
+    });
+    expect(fromNull.description).toBeNull();
+  });
+
+  it('un nombre con guion bajo solo choca con su mismo texto sin importar mayúsculas', async () => {
+    await create.execute(TENANT_A, ACTOR, { name: 'Informe_A', content: 'a' });
+
+    await expect(
+      create.execute(TENANT_A, ACTOR, { name: 'InformeXA', content: 'b' }),
+    ).resolves.toBeDefined();
+    await expect(
+      create.execute(TENANT_A, ACTOR, { name: 'informe_a', content: 'c' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('el contenido es requerido y no puede ser solo espacios', () => {
+    const base = { name: 'A', description: null };
+    const accepts = (content?: string) =>
+      DocumentTemplateBodySchema.safeParse({ ...base, content }).success;
+
+    expect(accepts('')).toBe(false);
+    expect(accepts(' \n\t ')).toBe(false);
+    expect(accepts(undefined)).toBe(false);
+    expect(accepts(' hola ')).toBe(true);
+  });
+
+  it('la descripción acepta omitida, vacía o null', () => {
+    const base = { name: 'A', content: 'x' };
+    expect(DocumentTemplateBodySchema.safeParse(base).success).toBe(true);
+    expect(DocumentTemplateBodySchema.safeParse({ ...base, description: '' }).success).toBe(true);
+    expect(DocumentTemplateBodySchema.safeParse({ ...base, description: null }).success).toBe(true);
   });
 
   it('rechaza un nombre repetido sin distinguir mayúsculas con 409', async () => {
@@ -182,10 +218,19 @@ describe('Plantillas de documento', () => {
     expect(await findAll.execute(TENANT_B)).toEqual([]);
   });
 
+  it('ordena sin distinguir mayúsculas ni tildes: acta antes que Zeta y Árbol con la A', async () => {
+    for (const name of ['Zeta', 'Árbol', 'acta', 'Beta']) {
+      await create.execute(TENANT_A, ACTOR, { name, content: 'x' });
+    }
+
+    const list = await findAll.execute(TENANT_A);
+    expect(list.map((t) => t.name)).toEqual(['acta', 'Árbol', 'Beta', 'Zeta']);
+  });
+
   it('lista solo las de la clínica, ordenadas por nombre', async () => {
-    await create.execute(TENANT_A, ACTOR, { name: 'Zeta', content: '' });
-    await create.execute(TENANT_A, ACTOR, { name: 'Alfa', content: '' });
-    await create.execute(TENANT_B, ACTOR, { name: 'Otra', content: '' });
+    await create.execute(TENANT_A, ACTOR, { name: 'Zeta', content: 'x' });
+    await create.execute(TENANT_A, ACTOR, { name: 'Alfa', content: 'x' });
+    await create.execute(TENANT_B, ACTOR, { name: 'Otra', content: 'x' });
 
     const list = await findAll.execute(TENANT_A);
     expect(list.map((t) => t.name)).toEqual(['Alfa', 'Zeta']);

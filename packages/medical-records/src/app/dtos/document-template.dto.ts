@@ -18,10 +18,13 @@ export const DocumentTemplateBodySchema = z.object({
     .max(DOCUMENT_TEMPLATE_DESCRIPTION_MAX, {
       message: `La descripción no puede pasar de ${DOCUMENT_TEMPLATE_DESCRIPTION_MAX} caracteres`,
     })
-    .optional(),
-  content: z.string().max(DOCUMENT_TEMPLATE_CONTENT_MAX, {
-    message: `El contenido no puede pasar de ${DOCUMENT_TEMPLATE_CONTENT_MAX} caracteres`,
-  }),
+    .nullish(),
+  content: z
+    .string()
+    .max(DOCUMENT_TEMPLATE_CONTENT_MAX, {
+      message: `El contenido no puede pasar de ${DOCUMENT_TEMPLATE_CONTENT_MAX} caracteres`,
+    })
+    .refine((value) => value.trim().length > 0, { message: 'El contenido es requerido' }),
 });
 
 export type DocumentTemplateBodyDto = z.infer<typeof DocumentTemplateBodySchema>;

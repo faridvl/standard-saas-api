@@ -1046,12 +1046,12 @@ Texto markdown con variables `{{clave}}`, una lista por negocio. **Acceso:** lee
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| `GET` | `/document-templates` | Lista `{ uuid, name, description, updatedAt }[]` ordenada por nombre |
+| `GET` | `/document-templates` | Lista `{ uuid, name, description, updatedAt }[]` ordenada por nombre (español, sin distinguir mayúsculas) |
 | `GET` | `/document-templates/:uuid` | Detalle `{ uuid, name, description, content, createdAt, updatedAt }` |
 | `POST` | `/document-templates` | Crea (201) y devuelve el detalle |
 | `PUT` | `/document-templates/:uuid` | Reemplaza nombre, descripción y contenido (200) y devuelve el detalle |
 
-Body de `POST`/`PUT`: `{ "name", "description"?, "content" }`. `name` 1 a 120 caracteres (se recorta), `description` opcional hasta 300 ("cuándo se usa"; vacía se guarda como `null`), `content` 0 a 20000.
+Body de `POST`/`PUT`: `{ "name", "description"?, "content" }`. `name` 1 a 120 caracteres (se recorta), `description` opcional o `null`, hasta 300 ("cuándo se usa"; vacía o `null` se guarda como `null`; en `PUT`, omitirla o mandar `null` la deja vacía), `content` requerido, 1 a 20000 caracteres con al menos uno que no sea blanco. El nombre repetido en la clínica (sin distinguir mayúsculas, comparación exacta: `_` y `%` no son comodines) responde 409. La lista sale ordenada por nombre sin distinguir mayúsculas ni tildes (`acta` antes que `Zeta`, `Árbol` con la A).
 
 Variables permitidas (constante `DOCUMENT_TEMPLATE_VARIABLES` en `domain/types/document-template-variables.ts`): `nombre`, `apellidos`, `nombre_completo`, `tipo_documento`, `documento`, `fecha_nacimiento`, `edad`, `genero`, `telefono`, `correo`, `direccion`, `sedes`, `fecha_hoy`, `profesional`. Se ignoran los espacios dentro de las llaves (`{{ nombre }}`).
 

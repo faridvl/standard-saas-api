@@ -40,7 +40,6 @@ export class DocumentTemplateStorage {
     const rows = await this.prisma.documentTemplate.findMany({
       where: { tenantUuid },
       select: { uuid: true, name: true, description: true, updatedAt: true },
-      orderBy: { name: 'asc' },
     });
     return rows.map((row) => ({
       uuid: row.uuid,
@@ -55,16 +54,14 @@ export class DocumentTemplateStorage {
     return row ? this.mapToEntity(row) : null;
   }
 
+  // Misma comparación que el índice único: lower() exacto, sin los comodines de ILIKE.
   async nameExists(tenantUuid: string, name: string, exceptUuid?: string): Promise<boolean> {
-    const row = await this.prisma.documentTemplate.findFirst({
-      where: {
-        tenantUuid,
-        name: { equals: name, mode: 'insensitive' },
-        ...(exceptUuid && { uuid: { not: exceptUuid } }),
-      },
-      select: { id: true },
-    });
-    return row !== null;
+    const exclusion = exceptUuid ? Prisma.sql`AND "uuid" <> ${exceptUuid}` : Prisma.empty;
+    const rows = await this.prisma.$queryRaw<{ id: number }[]>`
+      SELECT "id" FROM "DocumentTemplate"
+      WHERE "tenantUuid" = ${tenantUuid} AND lower("name") = lower(${name}) ${exclusion}
+      LIMIT 1`;
+    return rows.length > 0;
   }
 
   async create(
