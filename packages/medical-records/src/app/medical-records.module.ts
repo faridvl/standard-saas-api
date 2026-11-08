@@ -19,6 +19,7 @@ import { AppointmentsModule } from './modules/appointments.module';
 import { AppointmentTypesModule } from './modules/appointment-types.module';
 import { MedicalControlModule } from './modules/medical-control.module';
 import { ClinicalTemplatesModule } from './modules/clinical-templates.module';
+import { DocumentTemplatesModule } from './modules/document-templates.module';
 import { MaintenanceModule } from './modules/maintenance.module';
 import { EncountersModule } from './modules/encounters.module';
 import { StudiesModule } from './modules/studies.module';
@@ -60,6 +61,7 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     AppointmentTypesModule,
     MedicalControlModule,
     ClinicalTemplatesModule,
+    DocumentTemplatesModule,
     MaintenanceModule,
     EncountersModule,
     StudiesModule,

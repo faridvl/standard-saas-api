@@ -221,6 +221,21 @@ Index: `@@index([tenantUuid, patientUuid, createdAt])`. Cada guardado es un regi
 (sin edición ni borrado). La lista no trae el `payload`: lee solo `summary.ptaType`,
 `summary.gradingScale` y el PTA de cada oído con `payload #>> '{...}'`.
 
+#### `DocumentTemplate` (plantillas de documento)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| uuid | String (unique) | |
+| tenantUuid | String | |
+| name | String | 1 a 120, recortado |
+| description | String? | "Cuándo se usa", hasta 300 |
+| content | Text | markdown con `{{clave}}`, hasta 20000 |
+| createdAt / updatedAt | DateTime | |
+| createdByUuid / updatedByUuid | String | autor y último editor, salen del token |
+
+Índice único `(tenantUuid, lower("name"))` creado solo en la migración con SQL crudo (Prisma no
+expresa `lower()` en el schema); da el 409 por nombre repetido sin distinguir mayúsculas. Sin borrado.
+
 ### Migrations (medical-records)
 | Migration | Description |
 |-----------|-------------|
@@ -237,6 +252,7 @@ Index: `@@index([tenantUuid, patientUuid, createdAt])`. Cada guardado es un regi
 | 20261102180000_patient_lab_shipments | Tabla PatientLabShipment; copia como envío abierto a los pacientes con `hearingAidsInLabSince` |
 | 20261103120000_patient_otoscopy_notes_in_evolution | Datos: una nota `EXTERNAL_TEST` en PatientNote por cada otoscopia ya guardada (fecha y autor de la otoscopia); idempotente |
 | 20261108120000_patient_audiometry_entries | Tabla PatientAudiometryEntry (historial de audiometrías, un registro inmutable por guardado) |
+| 20261108130000_document_templates | Tabla DocumentTemplate (plantillas de documento por negocio) con índice único (tenantUuid, lower(name)) |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

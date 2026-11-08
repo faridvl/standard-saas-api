@@ -631,6 +631,20 @@ model ClinicalTemplate {
   updatedAt   DateTime @updatedAt
 }
 
+// Texto markdown con variables {{clave}}. El índice único (tenantUuid, lower(name)) vive solo en la migración.
+model DocumentTemplate {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  tenantUuid    String
+  name          String
+  description   String?
+  content       String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdByUuid String
+  updatedByUuid String
+}
+
 model Product {
   id           Int      @id @default(autoincrement())
   uuid         String   @unique @default(uuid())

@@ -1,5 +1,16 @@
 # Decisiones
 
+## 2026-11-08 - Plantillas de documento
+
+- Modelo `DocumentTemplate` por negocio (markdown con variables `{{clave}}`), CRUD sin DELETE bajo `/document-templates`.
+- Permisos: leer cualquier usuario autenticado; crear y editar solo `CLINICAL_ACCESS_ROLES` (`OWNER`, `ADMIN`, `DOCTOR`),
+  igual que escribir en la historia clínica (el contrato pedía "mismos permisos que la plantilla de historia clínica").
+- Nombre único por negocio sin distinguir mayúsculas: pre-chequeo en el caso de uso (409 con mensaje claro) más índice
+  único `(tenantUuid, lower(name))` en la migración para la carrera entre dos guardados; el storage traduce `P2002` a 409.
+- Las variables permitidas son una constante única en el dominio; un `{{x}}` desconocido es 400 y se valida solo en el
+  servidor (el reemplazo por datos del paciente es del front).
+- El storage filtra por `tenantUuid` también al editar (`updateMany` con `uuid` y `tenantUuid`).
+
 ## 2026-11-08 - Audiometrías guardadas por paciente
 
 - Modelo nuevo `PatientAudiometryEntry` (separado de `Study`), con el patrón de `PatientOtoscopyEntry`:

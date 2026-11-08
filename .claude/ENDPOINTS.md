@@ -1039,3 +1039,24 @@ Respuesta (cada item del `GET`, y el resultado de `POST` y `PATCH`):
 - Paciente inexistente, borrado o de otro negocio: 404. Registro inexistente: 404.
 - Al corregir se guarda el texto anterior en `PatientOtoscopyEntryRevision`. Un `PATCH` sin cambios reales no guarda revisión ni marca "corregido".
 - Crear y corregir anotan `PHYSICAL_EXAM_UPDATED` en la bitácora del paciente (campos `otoscopyRight` / `otoscopyLeft`).
+
+## Plantillas de documento (Medical Records Service, port 7071)
+
+Texto markdown con variables `{{clave}}`, una lista por negocio. **Acceso:** leer (`GET`) cualquier usuario autenticado; crear y editar solo roles clínicos (`OWNER`, `ADMIN`, `DOCTOR`), `STAFF` recibe 403 en `POST`/`PUT`. Todo se filtra por el `tenantUuid` del token: una plantilla de otro negocio responde 404. No hay borrado. El autor (`createdByUuid`/`updatedByUuid`) sale del token.
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `GET` | `/document-templates` | Lista `{ uuid, name, description, updatedAt }[]` ordenada por nombre |
+| `GET` | `/document-templates/:uuid` | Detalle `{ uuid, name, description, content, createdAt, updatedAt }` |
+| `POST` | `/document-templates` | Crea (201) y devuelve el detalle |
+| `PUT` | `/document-templates/:uuid` | Reemplaza nombre, descripción y contenido (200) y devuelve el detalle |
+
+Body de `POST`/`PUT`: `{ "name", "description"?, "content" }`. `name` 1 a 120 caracteres (se recorta), `description` opcional hasta 300 ("cuándo se usa"; vacía se guarda como `null`), `content` 0 a 20000.
+
+Variables permitidas (constante `DOCUMENT_TEMPLATE_VARIABLES` en `domain/types/document-template-variables.ts`): `nombre`, `apellidos`, `nombre_completo`, `tipo_documento`, `documento`, `fecha_nacimiento`, `edad`, `genero`, `telefono`, `correo`, `direccion`, `sedes`, `fecha_hoy`, `profesional`. Se ignoran los espacios dentro de las llaves (`{{ nombre }}`).
+
+```json
+{ "name": "Consentimiento", "description": "Antes de la audiometría", "content": "Yo {{nombre_completo}}, documento {{documento}}, autorizo..." }
+```
+
+Errores: 400 body inválido o variable desconocida (el mensaje nombra las claves, p. ej. `{{cedula}}`), 401 sin token, 403 `STAFF` al escribir, 404 plantilla inexistente o de otro negocio, 409 nombre repetido en el negocio (sin distinguir mayúsculas).

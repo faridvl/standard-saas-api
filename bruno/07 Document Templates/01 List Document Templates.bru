@@ -1,0 +1,15 @@
+meta {
+  name: List Document Templates
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{recordsUrl}}/document-templates
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
