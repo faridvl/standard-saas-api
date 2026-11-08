@@ -100,6 +100,8 @@ model Patient {
   videoCandidateSince   DateTime?
   warrantyExpiredSince  DateTime?
   renewPrescriptionSince DateTime?
+  // Marca de prioridad: solo marca y filtro, no cambia el orden de la lista.
+  prioritySince          DateTime?
   // Mantenimientos 1 a 4: estado marcado a mano por el personal. Sus notas viven en
   // PatientMaintenanceNote.
   maintenance1Status MaintenanceStatus @default(UNMARKED)
@@ -410,6 +412,7 @@ model PatientActivity {
   @@index([tenantUuid, createdAt])
   @@index([patientUuid])
   @@index([actorUuid])
+  @@index([tenantUuid, patientUuid, createdAt])
 }
 
 model PatientDevice {

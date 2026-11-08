@@ -43,7 +43,7 @@ import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 import { MaintenanceNumber } from '@medical-records/app/dtos/update-patient-maintenance.dto';
 import { PatientBranchSelection } from '@medical-records/domain/services/patient-branches';
-import { toClinicMonthKey } from '@medical-records/domain/utils/clinic-day.util';
+import { clinicDayRange, toClinicMonthKey } from '@medical-records/domain/utils/clinic-day.util';
 
 /**
  * Paciente tal como lo consumen las pantallas: además de sus datos, de qué y
@@ -64,8 +64,28 @@ export interface PatientListFilters {
   isVideoCandidate?: boolean;
   warrantyExpired?: boolean;
   renewPrescription?: boolean;
+  isPriority?: boolean;
+  /**
+   * Con `hearingAidsInLab`: solo los que tienen un envío abierto que salió ese día
+   * ("YYYY-MM-DD", hora de Costa Rica).
+   */
+  hearingAidsInLabSentDay?: string;
   /** Si la próxima cita es confirmada (con día) o tentativa (solo mes); ambas o ninguna = todas. */
   nextAppointmentKinds?: NextAppointmentKind[];
+}
+
+/** Paciente sin movimiento reciente: lo mínimo para mostrarlo en el aviso. */
+export interface StalePatient {
+  uuid: string;
+  fullName: string;
+  lastMovementAt: Date;
+}
+
+interface StalePatientRow {
+  uuid: string;
+  firstName: string;
+  lastName: string;
+  lastMovementAt: Date;
 }
 
 export enum NextAppointmentKind {
@@ -80,6 +100,7 @@ export interface PatientFlagsUpdate {
   videoCandidateSince?: Date | null;
   warrantyExpiredSince?: Date | null;
   renewPrescriptionSince?: Date | null;
+  prioritySince?: Date | null;
 }
 
 export function maintenanceStatusColumn(
@@ -480,6 +501,33 @@ export class PatientStorage {
       .map((row) => row.patientUUID);
   }
 
+  /**
+   * Pacientes vigentes (activos, no eliminados, estado ACTIVE) cuyo último movimiento
+   * (la bitácora más reciente, o la creación si no tienen) es anterior a `cutoff`.
+   * Una sola consulta agregada, del más antiguo al más reciente.
+   */
+  async findStaleByTenant(tenantUuid: string, cutoff: Date): Promise<StalePatient[]> {
+    const rows = await this.prisma.$queryRaw<StalePatientRow[]>(Prisma.sql`
+      SELECT p."uuid", p."firstName", p."lastName",
+             COALESCE(MAX(a."createdAt"), p."createdAt") AS "lastMovementAt"
+      FROM "Patient" p
+      LEFT JOIN "PatientActivity" a
+        ON a."patientUuid" = p."uuid" AND a."tenantUuid" = p."tenantUuid"
+      WHERE p."tenantUuid" = ${tenantUuid}
+        AND p."isActive" = true
+        AND p."deletedAt" IS NULL
+        AND p."status" = 'ACTIVE'
+      GROUP BY p."uuid", p."firstName", p."lastName", p."createdAt"
+      HAVING COALESCE(MAX(a."createdAt"), p."createdAt") < ${cutoff}
+      ORDER BY "lastMovementAt" ASC, p."uuid" ASC
+    `);
+    return rows.map((row) => ({
+      uuid: row.uuid,
+      fullName: `${row.firstName} ${row.lastName}`.trim(),
+      lastMovementAt: row.lastMovementAt,
+    }));
+  }
+
   async findAllByTenant(
     tenantUUID: string,
     page: number = 1,
@@ -523,10 +571,15 @@ export class PatientStorage {
       });
     }
     if (filters.hearingAidsInLab) and.push({ hearingAidsInLabSince: { not: null } });
+    if (filters.hearingAidsInLab && filters.hearingAidsInLabSentDay) {
+      const { start, end } = clinicDayRange(filters.hearingAidsInLabSentDay);
+      and.push({ labShipments: { some: { deliveredAt: null, sentAt: { gte: start, lt: end } } } });
+    }
     if (filters.hasActiveWarranty) and.push({ warrantyActiveSince: { not: null } });
     if (filters.isVideoCandidate) and.push({ videoCandidateSince: { not: null } });
     if (filters.warrantyExpired) and.push({ warrantyExpiredSince: { not: null } });
     if (filters.renewPrescription) and.push({ renewPrescriptionSince: { not: null } });
+    if (filters.isPriority) and.push({ prioritySince: { not: null } });
     // Confirmada y tentativa son excluyentes, así que pedir una sola basta para separarlas.
     const kinds = filters.nextAppointmentKinds ?? [];
     if (kinds.length === 1 && kinds[0] === NextAppointmentKind.CONFIRMED) {
