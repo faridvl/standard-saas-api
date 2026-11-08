@@ -218,7 +218,9 @@ WHERE p."hearingAidsInLabSince" IS NOT NULL
 | 20260630220000_add_product_units | ProductUnit table; deja columnas legacy de Product/PatientDevice sin usar a propósito |
 | 20260919090000_drop_legacy_inventory_columns | Elimina current_stock (Product) y brand/model/productUuid/purchaseDate/serialNumber/warrantyUntil (PatientDevice), sin uso desde add_product_units |
 | 20260919091500_add_local_user_cache | Tabla User (cache local de identity) |
+| 20261107120000_patient_priority_and_activity_index | Columna `Patient.prioritySince` (DateTime?, nulo = sin prioridad, sin backfill) e índice `PatientActivity(tenantUuid, patientUuid, createdAt)` para el último movimiento |
 | 20261102180000_patient_lab_shipments | Tabla PatientLabShipment; copia como envío abierto a los pacientes con `hearingAidsInLabSince` |
+| 20261103120000_patient_otoscopy_notes_in_evolution | Datos: una nota `EXTERNAL_TEST` en PatientNote por cada otoscopia ya guardada (fecha y autor de la otoscopia); idempotente |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

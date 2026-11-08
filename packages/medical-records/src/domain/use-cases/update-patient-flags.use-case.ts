@@ -35,7 +35,8 @@ type FlagKey =
   | 'hasActiveWarranty'
   | 'isVideoCandidate'
   | 'warrantyExpired'
-  | 'renewPrescription';
+  | 'renewPrescription'
+  | 'isPriority';
 
 /** Largo del extracto de la nota que se guarda en la bitácora (igual que al crear una nota). */
 const NOTE_EXCERPT_LENGTH = 120;
@@ -71,6 +72,11 @@ const FLAGS: {
     sinceField: 'renewPrescriptionSince',
     action: PatientActivityAction.RENEW_PRESCRIPTION_CHANGED,
   },
+  {
+    key: 'isPriority',
+    sinceField: 'prioritySince',
+    action: PatientActivityAction.PRIORITY_CHANGED,
+  },
 ];
 
 interface Activity {
@@ -86,7 +92,7 @@ function formatDay(instant: Date): string {
 
 /**
  * Indicadores del paciente que se prenden y apagan (audífonos en laboratorio,
- * garantía activa, candidato a video, garantía vencida, renovar receta). Son independientes del estado
+ * garantía activa, candidato a video, garantía vencida, renovar receta, prioridad). Son independientes del estado
  * activo/inactivo/fallecido. Cada uno se guarda como "desde cuándo", null si
  * está apagado.
  *

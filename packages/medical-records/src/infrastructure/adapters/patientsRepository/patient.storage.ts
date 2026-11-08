@@ -43,7 +43,7 @@ import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 import { MaintenanceNumber } from '@medical-records/app/dtos/update-patient-maintenance.dto';
 import { PatientBranchSelection } from '@medical-records/domain/services/patient-branches';
-import { toClinicMonthKey } from '@medical-records/domain/utils/clinic-day.util';
+import { clinicDayRange, toClinicMonthKey } from '@medical-records/domain/utils/clinic-day.util';
 
 /**
  * Paciente tal como lo consumen las pantallas: además de sus datos, de qué y
@@ -64,8 +64,28 @@ export interface PatientListFilters {
   isVideoCandidate?: boolean;
   warrantyExpired?: boolean;
   renewPrescription?: boolean;
+  isPriority?: boolean;
+  /**
+   * Con `hearingAidsInLab`: solo los que tienen un envío abierto que salió ese día
+   * ("YYYY-MM-DD", hora de Costa Rica).
+   */
+  hearingAidsInLabSentDay?: string;
   /** Si la próxima cita es confirmada (con día) o tentativa (solo mes); ambas o ninguna = todas. */
   nextAppointmentKinds?: NextAppointmentKind[];
+}
+
+/** Paciente sin movimiento reciente: lo mínimo para mostrarlo en el aviso. */
+export interface StalePatient {
+  uuid: string;
+  fullName: string;
+  lastMovementAt: Date;
+}
+
+interface StalePatientRow {
+  uuid: string;
+  firstName: string;
+  lastName: string;
+  lastMovementAt: Date;
 }
 
 export enum NextAppointmentKind {
@@ -80,6 +100,7 @@ export interface PatientFlagsUpdate {
   videoCandidateSince?: Date | null;
   warrantyExpiredSince?: Date | null;
   renewPrescriptionSince?: Date | null;
+  prioritySince?: Date | null;
 }
 
 export function maintenanceStatusColumn(
@@ -480,6 +501,84 @@ export class PatientStorage {
       .map((row) => row.patientUUID);
   }
 
+  /**
+   * Pacientes vigentes (activos, no eliminados, estado ACTIVE) cuyo último movimiento es
+   * anterior a `cutoff`. Movimiento = la fecha más reciente entre el propio paciente y todo lo
+   * que le cuelga (bitácora, citas, consultas, estudios, notas, equipos, envíos, etc.); una
+   * cita agendada a futuro cuenta. Cada fuente filtra por el negocio. Una sola consulta.
+   */
+  async findStaleByTenant(tenantUuid: string, cutoff: Date): Promise<StalePatient[]> {
+    const rows = await this.prisma.$queryRaw<StalePatientRow[]>(Prisma.sql`
+      WITH movements ("patientUuid", "at") AS (
+        SELECT "patientUuid", "createdAt" FROM "PatientActivity" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUUID", GREATEST("createdAt", "updatedAt", "startTime")
+          FROM "Appointment" WHERE "tenantUUID" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUUID", GREATEST("createdAt", "updatedAt")
+          FROM "MedicalControl" WHERE "tenantUUID" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("startedAt", "closedAt")
+          FROM "Encounter" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "Study" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientNote" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt")
+          FROM "PatientOtoscopyEntry" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt")
+          FROM "PatientDevice" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt", "performedAt")
+          FROM "Maintenance" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt"
+          FROM "PatientMaintenanceNote" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt", "sentAt", "deliveredAt")
+          FROM "PatientLabShipment" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "uploadedAt" FROM "PatientDocument" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientContact" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientBranch" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT q."patientUuid", GREATEST(q."createdAt", q."updatedAt")
+          FROM "PatientQuestionnaireEntry" q
+          JOIN "Patient" qp ON qp."uuid" = q."patientUuid" AND qp."tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT b."patientUuid", GREATEST(b."createdAt", b."updatedAt")
+          FROM "PatientBackground" b
+          JOIN "Patient" bp ON bp."uuid" = b."patientUuid" AND bp."tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT e."patientUuid", GREATEST(e."createdAt", e."updatedAt")
+          FROM "PatientPhysicalExam" e
+          JOIN "Patient" ep ON ep."uuid" = e."patientUuid" AND ep."tenantUuid" = ${tenantUuid}
+      ),
+      last_movement ("patientUuid", "at") AS (
+        SELECT "patientUuid", MAX("at") FROM movements GROUP BY "patientUuid"
+      )
+      SELECT p."uuid", p."firstName", p."lastName",
+             GREATEST(p."createdAt", p."updatedAt", m."at") AS "lastMovementAt"
+      FROM "Patient" p
+      LEFT JOIN last_movement m ON m."patientUuid" = p."uuid"
+      WHERE p."tenantUuid" = ${tenantUuid}
+        AND p."isActive" = true
+        AND p."deletedAt" IS NULL
+        AND p."status" = 'ACTIVE'
+        AND GREATEST(p."createdAt", p."updatedAt", m."at") < ${cutoff}
+      ORDER BY "lastMovementAt" ASC, p."uuid" ASC
+    `);
+    return rows.map((row) => ({
+      uuid: row.uuid,
+      fullName: `${row.firstName} ${row.lastName}`.trim(),
+      lastMovementAt: row.lastMovementAt,
+    }));
+  }
+
   async findAllByTenant(
     tenantUUID: string,
     page: number = 1,
@@ -523,10 +622,15 @@ export class PatientStorage {
       });
     }
     if (filters.hearingAidsInLab) and.push({ hearingAidsInLabSince: { not: null } });
+    if (filters.hearingAidsInLab && filters.hearingAidsInLabSentDay) {
+      const { start, end } = clinicDayRange(filters.hearingAidsInLabSentDay);
+      and.push({ labShipments: { some: { deliveredAt: null, sentAt: { gte: start, lt: end } } } });
+    }
     if (filters.hasActiveWarranty) and.push({ warrantyActiveSince: { not: null } });
     if (filters.isVideoCandidate) and.push({ videoCandidateSince: { not: null } });
     if (filters.warrantyExpired) and.push({ warrantyExpiredSince: { not: null } });
     if (filters.renewPrescription) and.push({ renewPrescriptionSince: { not: null } });
+    if (filters.isPriority) and.push({ prioritySince: { not: null } });
     // Confirmada y tentativa son excluyentes, así que pedir una sola basta para separarlas.
     const kinds = filters.nextAppointmentKinds ?? [];
     if (kinds.length === 1 && kinds[0] === NextAppointmentKind.CONFIRMED) {

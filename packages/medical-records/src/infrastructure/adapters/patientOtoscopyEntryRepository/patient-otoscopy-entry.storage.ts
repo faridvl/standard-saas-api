@@ -6,6 +6,7 @@ import {
   PatientOtoscopyEntryEntity,
   UpdatePatientOtoscopyEntryData,
 } from '@medical-records/domain/entities/patient-otoscopy-entry.entity';
+import { buildOtoscopyNoteData } from '@medical-records/domain/utils/otoscopy-note-text.util';
 import { PatientFieldChange } from '@medical-records/domain/types/patient-activity.types';
 
 export type PatientOtoscopyEntryRecord = Omit<
@@ -69,8 +70,15 @@ export class PatientOtoscopyEntryStorage {
     return records.map((record) => this.mapToRecord(record));
   }
 
+  // La nota de Control de evolución se crea con el registro en un solo lote: si una falla, ninguna
+  // queda. Misma fecha en ambas, para que la migración de respaldo la reconozca. Las correcciones
+  // posteriores no la tocan (ver update).
   async create(data: CreatePatientOtoscopyEntryData): Promise<PatientOtoscopyEntryRecord> {
-    const record = await this.prisma.patientOtoscopyEntry.create({ data });
+    const createdAt = new Date();
+    const [record] = await this.prisma.$transaction([
+      this.prisma.patientOtoscopyEntry.create({ data: { ...data, createdAt } }),
+      this.prisma.patientNote.create({ data: buildOtoscopyNoteData(data, createdAt) }),
+    ]);
     return this.mapToRecord(record);
   }
 
