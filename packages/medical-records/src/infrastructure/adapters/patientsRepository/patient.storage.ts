@@ -502,23 +502,74 @@ export class PatientStorage {
   }
 
   /**
-   * Pacientes vigentes (activos, no eliminados, estado ACTIVE) cuyo último movimiento
-   * (la bitácora más reciente, o la creación si no tienen) es anterior a `cutoff`.
-   * Una sola consulta agregada, del más antiguo al más reciente.
+   * Pacientes vigentes (activos, no eliminados, estado ACTIVE) cuyo último movimiento es
+   * anterior a `cutoff`. Movimiento = la fecha más reciente entre el propio paciente y todo lo
+   * que le cuelga (bitácora, citas, consultas, estudios, notas, equipos, envíos, etc.); una
+   * cita agendada a futuro cuenta. Cada fuente filtra por el negocio. Una sola consulta.
    */
   async findStaleByTenant(tenantUuid: string, cutoff: Date): Promise<StalePatient[]> {
     const rows = await this.prisma.$queryRaw<StalePatientRow[]>(Prisma.sql`
+      WITH movements ("patientUuid", "at") AS (
+        SELECT "patientUuid", "createdAt" FROM "PatientActivity" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUUID", GREATEST("createdAt", "updatedAt", "startTime")
+          FROM "Appointment" WHERE "tenantUUID" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUUID", GREATEST("createdAt", "updatedAt")
+          FROM "MedicalControl" WHERE "tenantUUID" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("startedAt", "closedAt")
+          FROM "Encounter" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "Study" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientNote" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt")
+          FROM "PatientOtoscopyEntry" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt")
+          FROM "PatientDevice" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt", "performedAt")
+          FROM "Maintenance" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt"
+          FROM "PatientMaintenanceNote" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt", "sentAt", "deliveredAt")
+          FROM "PatientLabShipment" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "uploadedAt" FROM "PatientDocument" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientContact" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientBranch" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT q."patientUuid", GREATEST(q."createdAt", q."updatedAt")
+          FROM "PatientQuestionnaireEntry" q
+          JOIN "Patient" qp ON qp."uuid" = q."patientUuid" AND qp."tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT b."patientUuid", GREATEST(b."createdAt", b."updatedAt")
+          FROM "PatientBackground" b
+          JOIN "Patient" bp ON bp."uuid" = b."patientUuid" AND bp."tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT e."patientUuid", GREATEST(e."createdAt", e."updatedAt")
+          FROM "PatientPhysicalExam" e
+          JOIN "Patient" ep ON ep."uuid" = e."patientUuid" AND ep."tenantUuid" = ${tenantUuid}
+      ),
+      last_movement ("patientUuid", "at") AS (
+        SELECT "patientUuid", MAX("at") FROM movements GROUP BY "patientUuid"
+      )
       SELECT p."uuid", p."firstName", p."lastName",
-             COALESCE(MAX(a."createdAt"), p."createdAt") AS "lastMovementAt"
+             GREATEST(p."createdAt", p."updatedAt", m."at") AS "lastMovementAt"
       FROM "Patient" p
-      LEFT JOIN "PatientActivity" a
-        ON a."patientUuid" = p."uuid" AND a."tenantUuid" = p."tenantUuid"
+      LEFT JOIN last_movement m ON m."patientUuid" = p."uuid"
       WHERE p."tenantUuid" = ${tenantUuid}
         AND p."isActive" = true
         AND p."deletedAt" IS NULL
         AND p."status" = 'ACTIVE'
-      GROUP BY p."uuid", p."firstName", p."lastName", p."createdAt"
-      HAVING COALESCE(MAX(a."createdAt"), p."createdAt") < ${cutoff}
+        AND GREATEST(p."createdAt", p."updatedAt", m."at") < ${cutoff}
       ORDER BY "lastMovementAt" ASC, p."uuid" ASC
     `);
     return rows.map((row) => ({
