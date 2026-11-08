@@ -154,6 +154,12 @@ describe('historial de otoscopias', () => {
       expect(activities).toHaveLength(1);
     });
 
+    it('guarda con una sola escritura del storage, la que también crea la nota', async () => {
+      await build().execute(PATIENT, TENANT, AUTHOR, { otoscopyLeft: 'Cerumen' });
+      expect(created).toHaveLength(1);
+      expect(created[0]).toMatchObject({ otoscopyRight: null, otoscopyLeft: 'Cerumen' });
+    });
+
     it('paciente inexistente da 404 y no guarda nada', async () => {
       await expect(
         build().execute('otro', TENANT, AUTHOR, { otoscopyLeft: 'x' }),
@@ -189,6 +195,8 @@ describe('historial de otoscopias', () => {
       });
       expect(result).toMatchObject({ updatedByName: 'Dr. Luis', createdByName: 'Dra. Ana' });
       expect(activities).toHaveLength(1);
+      // Corregir no pasa por create: la nota de Control de evolución queda como estaba.
+      expect(created).toHaveLength(0);
     });
 
     it('otro día da 409 y no cambia nada', async () => {

@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PatientOtoscopyEntry } from '@prisma/client';
+import { DocumentCategory, PatientOtoscopyEntry } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   CreatePatientOtoscopyEntryData,
   PatientOtoscopyEntryEntity,
   UpdatePatientOtoscopyEntryData,
 } from '@medical-records/domain/entities/patient-otoscopy-entry.entity';
+import { buildOtoscopyNoteText } from '@medical-records/domain/utils/otoscopy-note-text.util';
 import { PatientFieldChange } from '@medical-records/domain/types/patient-activity.types';
 
 export type PatientOtoscopyEntryRecord = Omit<
@@ -69,8 +70,22 @@ export class PatientOtoscopyEntryStorage {
     return records.map((record) => this.mapToRecord(record));
   }
 
+  // La nota de Control de evolución se crea con el registro: si una falla, ninguna queda.
+  // Las correcciones posteriores no la tocan (ver update).
   async create(data: CreatePatientOtoscopyEntryData): Promise<PatientOtoscopyEntryRecord> {
-    const record = await this.prisma.patientOtoscopyEntry.create({ data });
+    const record = await this.prisma.$transaction(async (transaction) => {
+      const entry = await transaction.patientOtoscopyEntry.create({ data });
+      await transaction.patientNote.create({
+        data: {
+          patientUuid: data.patientUuid,
+          tenantUuid: data.tenantUuid,
+          authorUuid: data.createdByUuid,
+          category: DocumentCategory.EXTERNAL_TEST,
+          text: buildOtoscopyNoteText(data),
+        },
+      });
+      return entry;
+    });
     return this.mapToRecord(record);
   }
 

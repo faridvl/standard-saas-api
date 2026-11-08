@@ -7,12 +7,28 @@ const NOW = new Date('2026-11-02T10:00:00.000Z');
 function buildStorage(lockedRows: { id: number }[], currentText: string) {
   const calls: string[] = [];
   const revisions: Record<string, unknown>[] = [];
+  const notes: Record<string, unknown>[] = [];
+  const created: Record<string, unknown>[] = [];
+  let failNote = false;
   const transaction = {
     $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => {
       calls.push(`lock:${strings.join('?').includes('FOR UPDATE')}:${values.join(',')}`);
       return Promise.resolve(lockedRows);
     },
+    patientNote: {
+      create: ({ data }: { data: Record<string, unknown> }) => {
+        calls.push('note');
+        if (failNote) return Promise.reject(new Error('falla la nota'));
+        notes.push(data);
+        return Promise.resolve(data);
+      },
+    },
     patientOtoscopyEntry: {
+      create: ({ data }: { data: Record<string, unknown> }) => {
+        calls.push('create');
+        created.push(data);
+        return Promise.resolve({ uuid: 'e-new', createdAt: NOW, updatedAt: null, ...data });
+      },
       findFirstOrThrow: ({ where }: { where: Record<string, unknown> }) => {
         calls.push(`read:${String(where.patientUuid)}`);
         return Promise.resolve({
@@ -46,8 +62,28 @@ function buildStorage(lockedRows: { id: number }[], currentText: string) {
       },
     },
   };
-  const prisma = { $transaction: (fn: (t: typeof transaction) => unknown) => fn(transaction) };
-  return { storage: new PatientOtoscopyEntryStorage(prisma as never), calls, revisions };
+  // Imita el rollback: si la transacción falla, lo escrito dentro se descarta.
+  const prisma = {
+    $transaction: async (fn: (t: typeof transaction) => Promise<unknown>) => {
+      try {
+        return await fn(transaction);
+      } catch (error) {
+        created.length = 0;
+        notes.length = 0;
+        throw error;
+      }
+    },
+  };
+  return {
+    storage: new PatientOtoscopyEntryStorage(prisma as never),
+    calls,
+    revisions,
+    notes,
+    created,
+    failNextNote: () => {
+      failNote = true;
+    },
+  };
 }
 
 describe('PatientOtoscopyEntryStorage.update', () => {
@@ -87,5 +123,61 @@ describe('PatientOtoscopyEntryStorage.update', () => {
         throw new Error('no debe llamarse');
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+describe('PatientOtoscopyEntryStorage.create', () => {
+  const base = { tenantUuid: 't1', patientUuid: 'p1', createdByUuid: 'u1' };
+
+  it('crea el registro y exactamente una nota de Pruebas con el texto de ambos oídos', async () => {
+    const { storage, notes, calls } = buildStorage([], 'x');
+
+    await storage.create({ ...base, otoscopyRight: 'Tímpano íntegro', otoscopyLeft: 'Cerumen' });
+
+    expect(calls).toEqual(['create', 'note']);
+    expect(notes).toEqual([
+      {
+        patientUuid: 'p1',
+        tenantUuid: 't1',
+        authorUuid: 'u1',
+        category: 'EXTERNAL_TEST',
+        text: 'Otoscopia\nOD: Tímpano íntegro\nOI: Cerumen',
+      },
+    ]);
+  });
+
+  it('omite la línea del oído vacío', async () => {
+    const { storage, notes } = buildStorage([], 'x');
+
+    await storage.create({ ...base, otoscopyRight: null, otoscopyLeft: 'Cerumen' });
+    await storage.create({ ...base, otoscopyRight: 'Limpio', otoscopyLeft: null });
+
+    expect(notes.map((note) => note.text)).toEqual([
+      'Otoscopia\nOI: Cerumen',
+      'Otoscopia\nOD: Limpio',
+    ]);
+  });
+
+  it('si falla la nota, falla todo y no queda el registro', async () => {
+    const { storage, created, notes, failNextNote } = buildStorage([], 'x');
+    failNextNote();
+
+    await expect(
+      storage.create({ ...base, otoscopyRight: 'Limpio', otoscopyLeft: null }),
+    ).rejects.toThrow('falla la nota');
+
+    expect(created).toHaveLength(0);
+    expect(notes).toHaveLength(0);
+  });
+
+  it('corregir no crea ni cambia ninguna nota', async () => {
+    const { storage, calls } = buildStorage([{ id: 1 }], 'Antes');
+
+    await storage.update('e1', 'p1', 't1', () => ({
+      data: { otoscopyRight: 'Después', otoscopyLeft: null, updatedAt: NOW, updatedByUuid: 'u2' },
+      changes: [{ field: 'otoscopyRight', before: 'Antes', after: 'Después' }],
+    }));
+
+    expect(calls).not.toContain('note');
   });
 });
