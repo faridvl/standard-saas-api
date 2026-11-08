@@ -16,7 +16,15 @@ export class FindPatientAudiometryEntriesUseCase {
     }
 
     const records = await this.storage.findAllByPatient(patientUuid, tenantUuid);
-    const authorUuids = [...new Set(records.map((record) => record.createdByUuid))];
+    const authorUuids = [
+      ...new Set(
+        records.flatMap((record) =>
+          record.invalidatedByUuid
+            ? [record.createdByUuid, record.invalidatedByUuid]
+            : [record.createdByUuid],
+        ),
+      ),
+    ];
     const names = new Map(
       await Promise.all(
         authorUuids.map(
@@ -28,6 +36,9 @@ export class FindPatientAudiometryEntriesUseCase {
     return records.map((record) => ({
       ...record,
       createdByName: names.get(record.createdByUuid) ?? null,
+      invalidatedByName: record.invalidatedByUuid
+        ? (names.get(record.invalidatedByUuid) ?? null)
+        : null,
     }));
   }
 }

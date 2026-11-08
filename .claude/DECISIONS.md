@@ -11,6 +11,21 @@
   servidor (el reemplazo por datos del paciente es del front).
 - El storage filtra por `tenantUuid` también al editar (`updateMany` con `uuid` y `tenantUuid`).
 
+## 2026-11-08 - Audiometría marcada como "mal hecha"
+
+- `PatientAudiometryEntry` gana `invalidatedAt`, `invalidatedByUuid` e `invalidationReason` (nulos = vigente). El
+  payload clínico nunca cambia: la marca no corrige ni borra, solo avisa que la prueba no es confiable.
+- `POST /patients/:patientUuid/audiometry-entries/:entryUuid/invalidate` con `{ reason }`: motivo obligatorio,
+  recortado, máximo 500 caracteres. Mismos roles clínicos que crear; quién la marca sale del JWT.
+- Definitiva: no hay ruta para quitarla. Marcar una ya marcada da 409 y conserva la primera marca. El 409 se decide
+  en el use case y, por si dos peticiones se cruzan, también en el storage: `updateMany` con `invalidatedAt: null`
+  en el filtro (si no cambia ninguna fila, 409).
+- El storage filtra por `uuid`, `patientUuid`, `tenantUuid` y paciente no borrado: otra clínica u otro paciente es 404.
+- El nombre de quien marcó no se guarda en una columna: se resuelve al leer con `GetOrCreateUserUseCase`, igual
+  que el autor. Responde 200 (no 201) porque actualiza y devuelve la entrada completa.
+- Lista y detalle devuelven siempre los cuatro campos de la marca (`invalidatedAt`, `invalidatedByUuid`,
+  `invalidatedByName`, `invalidationReason`), en `null` si no está marcada. Una marcada sigue en la lista.
+
 ## 2026-11-08 - Audiometrías guardadas por paciente
 
 - Modelo nuevo `PatientAudiometryEntry` (separado de `Study`), con el patrón de `PatientOtoscopyEntry`:
@@ -18,7 +33,7 @@
 - El payload se valida con Zod en la versión 1 (`AudiometryPayloadV1Schema`): marcas tonales por herramienta y
   oído, Weber, logoaudiometría, resumen (método de PTA, escala, PTA por oído, umbral, discriminación, palabras
   falladas) y notas (diagnóstico y observaciones, máximo 1000 caracteres). Un cambio de contrato sube `schemaVersion`.
-- Registros inmutables: cada guardado crea uno; no hay edición ni borrado.
+- Registros inmutables: cada guardado crea uno; no hay edición ni borrado (solo la marca de "mal hecha", arriba).
 - El autor sale siempre del JWT, nunca del body. El nombre se resuelve como en otoscopia (`GetOrCreateUserUseCase`).
 - El historial no devuelve el payload: lista uuid, fecha, autor y PTA por oído (leída del payload). El detalle
   completo va por uuid. Todo se filtra por `tenantUuid`, incluida la lectura por uuid.

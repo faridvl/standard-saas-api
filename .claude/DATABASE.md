@@ -216,9 +216,13 @@ WHERE p."hearingAidsInLabSince" IS NOT NULL
 | payload | Json | audiometría completa, validada con Zod al guardar |
 | createdAt | DateTime | |
 | createdByUuid | String | autor, sale del token |
+| invalidatedAt | DateTime? | marca definitiva de "mal hecha"; nulo = vigente |
+| invalidatedByUuid | String? | quién la marcó (sale del token); el nombre se resuelve al leer |
+| invalidationReason | String? | motivo, 1 a 500 caracteres (se valida en la app) |
 
 Index: `@@index([tenantUuid, patientUuid, createdAt])`. Cada guardado es un registro inmutable
-(sin edición ni borrado). La lista no trae el `payload`: lee solo `summary.ptaType`,
+(sin edición ni borrado); lo único que cambia es la marca de "mal hecha", que se pone una sola vez
+y nunca se quita, y los tres campos van juntos o todos nulos. La lista no trae el `payload`: lee solo `summary.ptaType`,
 `summary.gradingScale` y el PTA de cada oído con `payload #>> '{...}'`.
 
 #### `DocumentTemplate` (plantillas de documento)
@@ -253,6 +257,7 @@ expresa `lower()` en el schema); da el 409 por nombre repetido sin distinguir ma
 | 20261103120000_patient_otoscopy_notes_in_evolution | Datos: una nota `EXTERNAL_TEST` en PatientNote por cada otoscopia ya guardada (fecha y autor de la otoscopia); idempotente |
 | 20261108120000_patient_audiometry_entries | Tabla PatientAudiometryEntry (historial de audiometrías, un registro inmutable por guardado) |
 | 20261108130000_document_templates | Tabla DocumentTemplate (plantillas de documento por negocio) con índice único (tenantUuid, lower(name)) |
+| 20261108140000_patient_audiometry_entry_invalidation | Columnas `PatientAudiometryEntry.invalidatedAt`, `invalidatedByUuid`, `invalidationReason` (todas nulas, sin backfill) |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

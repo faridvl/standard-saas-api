@@ -959,13 +959,14 @@ Un token que no existe (revocado o inventado) responde **200 con un calendario v
 
 ## Historial de audiometrías (Medical Records Service, port 7071)
 
-**Acceso:** solo roles clínicos (`OWNER`, `ADMIN`, `DOCTOR`); `STAFF` recibe 403. Todo se filtra por el `tenantUuid` del token: un paciente o registro de otro negocio (o de otro paciente) responde 404. Cada guardado es un registro inmutable: no hay edición ni borrado. El autor sale del token, nunca del body. No se guarda PDF: el front lo regenera al imprimir desde estos datos.
+**Acceso:** solo roles clínicos (`OWNER`, `ADMIN`, `DOCTOR`); `STAFF` recibe 403. Todo se filtra por el `tenantUuid` del token: un paciente o registro de otro negocio (o de otro paciente) responde 404. Cada guardado es un registro inmutable: no hay edición ni borrado; lo único que cambia es la marca definitiva de "mal hecha" (abajo), que nunca toca el payload. El autor sale del token, nunca del body. No se guarda PDF: el front lo regenera al imprimir desde estos datos.
 
 | Método | Ruta | Qué hace |
 |---|---|---|
 | `GET` | `/patients/:patientUuid/audiometry-entries` | Historial resumido, el más reciente primero |
 | `GET` | `/patients/:patientUuid/audiometry-entries/:entryUuid` | Registro completo |
 | `POST` | `/patients/:patientUuid/audiometry-entries` | Guarda una audiometría nueva (201) |
+| `POST` | `/patients/:patientUuid/audiometry-entries/:entryUuid/invalidate` | Marca la audiometría como "mal hecha" (200), definitivo |
 
 Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT`. `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` 10 si el tipo es `BISYLLABLE`, 25 si es `MONOSYLLABLE` (con `wordListType` en `null` vale cualquiera de los dos). Las intensidades (claves de `speech.marks`) van de 0 a 100 en pasos de 5 y sin ceros a la izquierda (`"5"`, no `"05"`). `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `pta` va en pasos de 5 dB y `grade` debe existir en la escala elegida (`ASHA` no tiene `TOTAL_LOSS`; `BIAP` no tiene `SLIGHT` ni `MODERATELY_SEVERE`). `isMasked: true` solo se acepta en `AIR` y `BONE`. `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos (incluida una herramienta que no sea de las 5): 400. El `GET :entryUuid` y el `POST` responden 404 si el paciente está borrado (`deletedAt`).
 
@@ -994,11 +995,21 @@ Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload
 }
 ```
 
-Respuesta de `POST` (201) y de `GET :entryUuid` (200): `{ "uuid", "patientUuid", "schemaVersion", "payload", "createdAt", "createdByUuid", "createdByName" }`. `createdByName` puede ser `null` si identity no responde.
+Respuesta de `POST` (201) y de `GET :entryUuid` (200): `{ "uuid", "patientUuid", "schemaVersion", "payload", "createdAt", "createdByUuid", "createdByName", "invalidatedAt", "invalidatedByUuid", "invalidatedByName", "invalidationReason" }`. `createdByName` e `invalidatedByName` pueden ser `null` si identity no responde. Los cuatro campos de la marca son `null` mientras la audiometría no esté marcada.
 
-Cada item del `GET` (lista, sin payload): `{ "uuid", "createdAt", "createdByUuid", "createdByName", "ptaType", "gradingScale", "ptaRight", "ptaLeft" }` (`ptaType` y `gradingScale` salen del `summary` guardado, con los mismos valores del contrato; los PTA pueden ser `null`). La lista lee solo esas rutas del JSON, no el payload completo.
+Cada item del `GET` (lista, sin payload): `{ "uuid", "createdAt", "createdByUuid", "createdByName", "invalidatedAt", "invalidatedByUuid", "invalidatedByName", "invalidationReason", "ptaType", "gradingScale", "ptaRight", "ptaLeft" }` (`ptaType` y `gradingScale` salen del `summary` guardado, con los mismos valores del contrato; los PTA pueden ser `null`). La lista lee solo esas rutas del JSON, no el payload completo. Una audiometría marcada sigue apareciendo en la lista.
 
 Errores: 400 payload inválido (detalle por campo), 401 sin token, 403 `STAFF`, 404 paciente o registro inexistente, borrado o de otro negocio/paciente.
+
+### Marcar una audiometría como "mal hecha"
+
+`POST /patients/:patientUuid/audiometry-entries/:entryUuid/invalidate`, body `{ "reason": "Oído cambiado al colocar los auriculares" }`. Mismos roles clínicos que crear (`STAFF` recibe 403).
+
+- `reason` es obligatorio: se recorta, no puede quedar vacío y admite hasta 500 caracteres (400 si no cumple).
+- La marca es definitiva: no hay ruta para quitarla. Marcar una audiometría que ya está marcada responde 409 y conserva la primera marca (también si dos peticiones llegan a la vez: gana una).
+- Quién la marcó sale del token (nunca del body) y la fecha la pone el servidor. El payload clínico no cambia.
+- Responde 200 con la entrada completa y actualizada, con la misma forma que `GET :entryUuid`; por ejemplo `"invalidatedAt": "2026-11-08T18:00:00.000Z"`, `"invalidatedByUuid": "…"`, `"invalidatedByName": "Dr. Luis"`, `"invalidationReason": "Oído cambiado al colocar los auriculares"`.
+- Errores: 400 motivo inválido, 401 sin token, 403 `STAFF`, 404 entrada inexistente, de otro paciente, de otra clínica o con el paciente borrado, 409 ya marcada.
 
 ## Historial de otoscopías (Medical Records Service, port 7071)
 

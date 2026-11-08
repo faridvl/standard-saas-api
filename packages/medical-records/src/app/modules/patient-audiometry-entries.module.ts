@@ -6,6 +6,7 @@ import {
   CreatePatientAudiometryEntryUseCase,
   FindPatientAudiometryEntriesUseCase,
   FindPatientAudiometryEntryUseCase,
+  InvalidatePatientAudiometryEntryUseCase,
 } from '@medical-records/domain/use-cases/patient-audiometry-entries';
 
 const CONTROLLERS = [PatientAudiometryEntryController];
@@ -13,6 +14,7 @@ const USE_CASES = [
   CreatePatientAudiometryEntryUseCase,
   FindPatientAudiometryEntriesUseCase,
   FindPatientAudiometryEntryUseCase,
+  InvalidatePatientAudiometryEntryUseCase,
 ];
 const STORAGES = [PatientAudiometryEntryStorage];
 

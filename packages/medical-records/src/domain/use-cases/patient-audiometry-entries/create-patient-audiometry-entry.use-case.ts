@@ -30,6 +30,6 @@ export class CreatePatientAudiometryEntryUseCase {
     });
 
     const createdByName = await this.getOrCreateUser.execute(actorUuid, tenantUuid);
-    return { ...saved, createdByName };
+    return { ...saved, createdByName, invalidatedByName: null };
   }
 }

@@ -147,8 +147,7 @@ export const AudiometryPayloadV1Schema = z
         message: 'La lista de palabras no corresponde al tipo elegido',
       });
     }
-    const expectedWords =
-      wordListType === null ? null : PRESENTED_WORDS_BY_LIST_TYPE[wordListType];
+    const expectedWords = wordListType === null ? null : PRESENTED_WORDS_BY_LIST_TYPE[wordListType];
     const presentedMatches =
       expectedWords === null
         ? Object.values(PRESENTED_WORDS_BY_LIST_TYPE).some((count) => count === presentedWords)
@@ -207,5 +206,21 @@ export const CreatePatientAudiometryEntrySchema = z.object({
   payload: AudiometryPayloadV1Schema,
 });
 
+export const AUDIOMETRY_INVALIDATION_REASON_MAX_LENGTH = 500;
+
+export const InvalidatePatientAudiometryEntrySchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'El motivo es obligatorio')
+    .max(
+      AUDIOMETRY_INVALIDATION_REASON_MAX_LENGTH,
+      `Máximo ${AUDIOMETRY_INVALIDATION_REASON_MAX_LENGTH} caracteres`,
+    ),
+});
+
 export type AudiometryPayloadV1 = z.infer<typeof AudiometryPayloadV1Schema>;
 export type CreatePatientAudiometryEntryDto = z.infer<typeof CreatePatientAudiometryEntrySchema>;
+export type InvalidatePatientAudiometryEntryDto = z.infer<
+  typeof InvalidatePatientAudiometryEntrySchema
+>;

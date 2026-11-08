@@ -20,6 +20,9 @@ export class FindPatientAudiometryEntryUseCase {
       throw new NotFoundException('Audiometría no encontrada');
     }
     const createdByName = await this.getOrCreateUser.execute(record.createdByUuid, tenantUuid);
-    return { ...record, createdByName };
+    const invalidatedByName = record.invalidatedByUuid
+      ? await this.getOrCreateUser.execute(record.invalidatedByUuid, tenantUuid)
+      : null;
+    return { ...record, createdByName, invalidatedByName };
   }
 }

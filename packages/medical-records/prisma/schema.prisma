@@ -333,6 +333,10 @@ model PatientAudiometryEntry {
   payload       Json
   createdAt     DateTime @default(now())
   createdByUuid String
+  // Marca definitiva de "mal hecha": el payload no cambia. Los tres campos van juntos o todos nulos.
+  invalidatedAt      DateTime?
+  invalidatedByUuid  String?
+  invalidationReason String?
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
 

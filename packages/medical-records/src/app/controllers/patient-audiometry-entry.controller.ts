@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   SetMetadata,
@@ -16,6 +18,8 @@ import {
 import {
   CreatePatientAudiometryEntryDto,
   CreatePatientAudiometryEntrySchema,
+  InvalidatePatientAudiometryEntryDto,
+  InvalidatePatientAudiometryEntrySchema,
 } from '@medical-records/app/dtos/patient-audiometry-entry.dto';
 import {
   PatientAudiometryEntryEntity,
@@ -25,9 +29,10 @@ import {
   CreatePatientAudiometryEntryUseCase,
   FindPatientAudiometryEntriesUseCase,
   FindPatientAudiometryEntryUseCase,
+  InvalidatePatientAudiometryEntryUseCase,
 } from '@medical-records/domain/use-cases/patient-audiometry-entries';
 
-/** Audiometrías guardadas por paciente: dato clínico, fuera del alcance de STAFF. Inmutables. */
+/** Audiometrías guardadas por paciente: dato clínico, fuera del alcance de STAFF. Inmutables; solo se pueden marcar como mal hechas. */
 @Controller('patients/:patientUuid/audiometry-entries')
 @UseGuards(AuthGuard, RolesGuard)
 @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
@@ -36,6 +41,7 @@ export class PatientAudiometryEntryController {
     private readonly createUseCase: CreatePatientAudiometryEntryUseCase,
     private readonly findAllUseCase: FindPatientAudiometryEntriesUseCase,
     private readonly findOneUseCase: FindPatientAudiometryEntryUseCase,
+    private readonly invalidateUseCase: InvalidatePatientAudiometryEntryUseCase,
   ) {}
 
   @Get()
@@ -63,5 +69,24 @@ export class PatientAudiometryEntryController {
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientAudiometryEntryEntity> {
     return await this.createUseCase.execute(patientUuid, user.tenantUuid, user.sub, dto);
+  }
+
+  /** Marca definitiva con motivo: no hay ruta para quitarla. Una ya marcada responde 409. */
+  @Post(':entryUuid/invalidate')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(InvalidatePatientAudiometryEntrySchema))
+  async invalidate(
+    @Param('patientUuid') patientUuid: string,
+    @Param('entryUuid') entryUuid: string,
+    @Body() dto: InvalidatePatientAudiometryEntryDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientAudiometryEntryEntity> {
+    return await this.invalidateUseCase.execute(
+      patientUuid,
+      entryUuid,
+      user.tenantUuid,
+      user.sub,
+      dto.reason,
+    );
   }
 }

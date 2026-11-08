@@ -8,16 +8,22 @@ import {
   PatientAudiometryEntrySummary,
 } from '@medical-records/domain/entities/patient-audiometry-entry.entity';
 
-export type PatientAudiometryEntryRecord = Omit<PatientAudiometryEntryEntity, 'createdByName'>;
+export type PatientAudiometryEntryRecord = Omit<
+  PatientAudiometryEntryEntity,
+  'createdByName' | 'invalidatedByName'
+>;
 export type PatientAudiometryEntrySummaryRecord = Omit<
   PatientAudiometryEntrySummary,
-  'createdByName'
+  'createdByName' | 'invalidatedByName'
 >;
 
 interface AudiometryListRow {
   uuid: string;
   createdAt: Date;
   createdByUuid: string;
+  invalidatedAt: Date | null;
+  invalidatedByUuid: string | null;
+  invalidationReason: string | null;
   ptaType: PatientAudiometryEntrySummary['ptaType'];
   gradingScale: PatientAudiometryEntrySummary['gradingScale'];
   ptaRight: number | null;
@@ -37,6 +43,9 @@ export class PatientAudiometryEntryStorage {
       payload: record.payload as unknown as AudiometryPayloadV1,
       createdAt: record.createdAt.toISOString(),
       createdByUuid: record.createdByUuid,
+      invalidatedAt: record.invalidatedAt?.toISOString() ?? null,
+      invalidatedByUuid: record.invalidatedByUuid,
+      invalidationReason: record.invalidationReason,
     };
   }
 
@@ -66,6 +75,9 @@ export class PatientAudiometryEntryStorage {
         "uuid",
         "createdAt",
         "createdByUuid",
+        "invalidatedAt",
+        "invalidatedByUuid",
+        "invalidationReason",
         "payload" #>> '{summary,ptaType}' AS "ptaType",
         "payload" #>> '{summary,gradingScale}' AS "gradingScale",
         ("payload" #>> '{summary,ears,RIGHT,pta}')::double precision AS "ptaRight",
@@ -78,6 +90,9 @@ export class PatientAudiometryEntryStorage {
       uuid: row.uuid,
       createdAt: row.createdAt.toISOString(),
       createdByUuid: row.createdByUuid,
+      invalidatedAt: row.invalidatedAt?.toISOString() ?? null,
+      invalidatedByUuid: row.invalidatedByUuid,
+      invalidationReason: row.invalidationReason,
       ptaType: row.ptaType,
       gradingScale: row.gradingScale,
       ptaRight: row.ptaRight,
@@ -96,5 +111,29 @@ export class PatientAudiometryEntryStorage {
       where: { uuid: entryUuid, patientUuid, tenantUuid, patient: { deletedAt: null } },
     });
     return record ? this.mapToRecord(record) : null;
+  }
+
+  /**
+   * Marca la entrada una sola vez. El filtro incluye negocio y paciente, y `invalidatedAt: null`
+   * hace atómica la regla de "ya marcada": devuelve false si no hubo fila que actualizar.
+   */
+  async invalidate(
+    entryUuid: string,
+    patientUuid: string,
+    tenantUuid: string,
+    invalidatedByUuid: string,
+    invalidationReason: string,
+  ): Promise<boolean> {
+    const result = await this.prisma.patientAudiometryEntry.updateMany({
+      where: {
+        uuid: entryUuid,
+        patientUuid,
+        tenantUuid,
+        invalidatedAt: null,
+        patient: { deletedAt: null },
+      },
+      data: { invalidatedAt: new Date(), invalidatedByUuid, invalidationReason },
+    });
+    return result.count > 0;
   }
 }

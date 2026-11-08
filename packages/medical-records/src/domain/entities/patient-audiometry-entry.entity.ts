@@ -9,6 +9,11 @@ export interface PatientAudiometryEntryEntity {
   createdByUuid: string;
   /** Null si identity no pudo resolver el nombre. */
   createdByName: string | null;
+  /** Marca definitiva de "mal hecha"; todos null si la audiometría sigue vigente. */
+  invalidatedAt: string | null;
+  invalidatedByUuid: string | null;
+  invalidatedByName: string | null;
+  invalidationReason: string | null;
 }
 
 /** Fila del historial: lo justo para el selector, sin el payload completo. */
@@ -17,6 +22,10 @@ export interface PatientAudiometryEntrySummary {
   createdAt: string;
   createdByUuid: string;
   createdByName: string | null;
+  invalidatedAt: string | null;
+  invalidatedByUuid: string | null;
+  invalidatedByName: string | null;
+  invalidationReason: string | null;
   /** Con qué método y escala se calcularon los PTA y los grados de este registro. */
   ptaType: AudiometryPayloadV1['summary']['ptaType'];
   gradingScale: AudiometryPayloadV1['summary']['gradingScale'];
