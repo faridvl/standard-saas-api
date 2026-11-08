@@ -14,6 +14,14 @@ export const DOCUMENT_TEMPLATE_VARIABLES = [
   'sedes',
   'fecha_hoy',
   'profesional',
+  'otoscopia_od',
+  'otoscopia_oi',
+  'diagnostico',
+  'observaciones',
+  'clinica_nombre',
+  'clinica_telefono',
+  'clinica_correo',
+  'clinica_direccion',
 ] as const;
 
 const VARIABLE_PATTERN = /\{\{([^{}]*)\}\}/g;

@@ -110,6 +110,17 @@ describe('Plantillas de documento', () => {
     expect(await findOne.execute(created.uuid, TENANT_A)).toEqual(created);
   });
 
+  it('acepta las variables de otoscopia, diagnóstico y clínica', async () => {
+    const created = await create.execute(TENANT_A, ACTOR, {
+      name: 'Informe con clínica',
+      content:
+        '{{clinica_nombre}} {{clinica_telefono}} {{clinica_correo}} {{clinica_direccion}} ' +
+        '{{otoscopia_od}} {{otoscopia_oi}} {{diagnostico}} {{observaciones}}',
+    });
+
+    expect(created.content).toContain('{{clinica_telefono}}');
+  });
+
   it('guarda null cuando la descripción viene vacía o null', async () => {
     const created = await create.execute(TENANT_A, ACTOR, {
       name: 'A',
