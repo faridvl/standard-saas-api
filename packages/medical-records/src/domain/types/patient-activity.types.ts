@@ -32,6 +32,8 @@ export enum PatientActivityAction {
   WARRANTY_EXPIRED_CHANGED = 'WARRANTY_EXPIRED_CHANGED',
   /** Se marcó o desmarcó que hay que renovar la receta. */
   RENEW_PRESCRIPTION_CHANGED = 'RENEW_PRESCRIPTION_CHANGED',
+  /** Se marcó o desmarcó al paciente como prioridad. */
+  PRIORITY_CHANGED = 'PRIORITY_CHANGED',
   /** Un documento pasó a otra sección (DocumentCategory). */
   DOCUMENT_CATEGORY_CHANGED = 'DOCUMENT_CATEGORY_CHANGED',
   /** Se llenó la historia clínica (antecedentes) por primera vez. */

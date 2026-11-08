@@ -24,6 +24,7 @@ import {
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
 import { GetPatientsUseCase } from '@medical-records/domain/use-cases/get-patients.use-case';
+import { GetStalePatientsUseCase } from '@medical-records/domain/use-cases/get-stale-patients.use-case';
 import { GetPatientByUuidUseCase } from '@medical-records/domain/use-cases/get-patient-by-uuid.use-case';
 import { UpdatePatientUseCase } from '@medical-records/domain/use-cases/update-patient.use-case';
 import { UpdatePatientDto, UpdatePatientSchema } from '../dtos/update-patient.dto';
@@ -40,6 +41,7 @@ import {
   UpdatePatientMaintenanceDto,
   UpdatePatientMaintenanceSchema,
 } from '../dtos/update-patient-maintenance.dto';
+import { isValidDayKey } from '@medical-records/domain/utils/lab-shipment-date.util';
 import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
 import { FindPatientBackgroundUseCase } from '@medical-records/domain/use-cases/patient-background/find-patient-background.use-case';
 import {
@@ -66,6 +68,7 @@ import { PatientRecord } from '@medical-records/domain/types/patient-record.type
 import {
   NextAppointmentKind,
   PatientWithNextAppointment,
+  StalePatient,
 } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { PatientBackgroundEntity } from '@medical-records/domain/entities/patient-background.entity';
@@ -107,12 +110,21 @@ function parseStatuses(value: string | undefined): PatientStatus[] | undefined {
   return statuses as PatientStatus[];
 }
 
+function parseDayKey(value?: string): string | undefined {
+  if (!value) return undefined;
+  if (!isValidDayKey(value)) {
+    throw new BadRequestException('hearingAidsInLabDate debe ser un día válido (AAAA-MM-DD)');
+  }
+  return value;
+}
+
 @Controller('patients')
 @UseGuards(AuthGuard)
 export class PatientController {
   constructor(
     private readonly createUseCase: CreatePatientUseCase,
     private readonly getPatientsUseCase: GetPatientsUseCase,
+    private readonly getStalePatientsUseCase: GetStalePatientsUseCase,
     private readonly getPatientByUuidUseCase: GetPatientByUuidUseCase,
     private readonly updatePatientUseCase: UpdatePatientUseCase,
     private readonly updatePatientStatusUseCase: UpdatePatientStatusUseCase,
@@ -166,6 +178,9 @@ export class PatientController {
     @Query('isVideoCandidate') isVideoCandidate?: string,
     @Query('warrantyExpired') warrantyExpired?: string,
     @Query('renewPrescription') renewPrescription?: string,
+    @Query('isPriority') isPriority?: string,
+    // Solo con hearingAidsInLab=true: día de envío "YYYY-MM-DD" (hora de Costa Rica).
+    @Query('hearingAidsInLabDate') hearingAidsInLabDate?: string,
     @Query('nextAppointmentKind') nextAppointmentKind?: string,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
     return await this.getPatientsUseCase.execute(
@@ -184,9 +199,17 @@ export class PatientController {
         isVideoCandidate: isVideoCandidate === 'true',
         warrantyExpired: warrantyExpired === 'true',
         renewPrescription: renewPrescription === 'true',
+        isPriority: isPriority === 'true',
+        hearingAidsInLabSentDay: parseDayKey(hearingAidsInLabDate),
         nextAppointmentKinds: parseKinds(nextAppointmentKind),
       },
     );
+  }
+
+  // Antes de `:uuid` para que "stale" no se lea como un uuid.
+  @Get('stale')
+  async findStale(@CurrentUser() user: JwtPayload): Promise<StalePatient[]> {
+    return await this.getStalePatientsUseCase.execute(user.tenantUuid);
   }
 
   @Delete(':uuid')

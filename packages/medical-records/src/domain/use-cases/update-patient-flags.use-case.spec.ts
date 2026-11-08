@@ -51,6 +51,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       videoCandidateSince: null,
       warrantyExpiredSince: null,
       renewPrescriptionSince: null,
+      prioritySince: null,
     };
     shipments = [];
     notes = [];
@@ -531,5 +532,35 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
         detail: { isOn: true },
       }),
     ]);
+  });
+
+  it('marcar prioridad guarda la fecha y deja el evento; desmarcar la deja en null', async () => {
+    await useCase.execute(PATIENT, TENANT, ACTOR, { isPriority: true } as never);
+
+    expect(flags.prioritySince).toEqual(NOW);
+    expect(activities).toEqual([
+      expect.objectContaining({
+        action: PatientActivityAction.PRIORITY_CHANGED,
+        detail: { isOn: true },
+      }),
+    ]);
+
+    activities.length = 0;
+    await useCase.execute(PATIENT, TENANT, ACTOR, { isPriority: false } as never);
+
+    expect(flags.prioritySince).toBeNull();
+    expect(activities).toEqual([
+      expect.objectContaining({
+        action: PatientActivityAction.PRIORITY_CHANGED,
+        detail: { isOn: false },
+      }),
+    ]);
+  });
+
+  it('un negocio ajeno no puede marcar prioridad en el paciente', async () => {
+    await expect(
+      useCase.execute(PATIENT, 'otra-clinica', ACTOR, { isPriority: true } as never),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(flags.prioritySince).toBeNull();
   });
 });

@@ -747,7 +747,10 @@ existentes quedan `ACTIVE`.
 Se combinan entre sí y con `search` y `nextAppointmentMonth`.
 
 Indicadores (`=true` filtra por los que lo tienen prendido; otro valor o ausente no filtra):
-`hearingAidsInLab`, `hasActiveWarranty`, `isVideoCandidate`, `warrantyExpired`, `renewPrescription`.
+`hearingAidsInLab`, `hasActiveWarranty`, `isVideoCandidate`, `warrantyExpired`, `renewPrescription`, `isPriority`.
+`isPriority=true` solo filtra (deja los marcados como prioritarios); no cambia el orden de la lista.
+
+`hearingAidsInLabDate` (`YYYY-MM-DD`, día de Costa Rica): solo con `hearingAidsInLab=true`; deja a los pacientes con un envío **abierto** (`deliveredAt` nulo) cuyo `sentAt` cae en ese día. Sin `hearingAidsInLab=true` se ignora. Fecha inválida: **400** "hearingAidsInLabDate debe ser un día válido (AAAA-MM-DD)".
 
 ### Sedes del paciente (`branchUuids`)
 Un paciente tiene una o más sedes (tabla `PatientBranch`). `branchUuid` se conserva como la sede **principal** (la primera de la lista).
@@ -761,11 +764,11 @@ Un paciente tiene una o más sedes (tabla `PatientBranch`). `branchUuid` se cons
 ### PUT /patients/:uuid/flags
 **Body (al menos uno):**
 ```json
-{ "hearingAidsInLab": "boolean?", "hearingAidsInLabDate": "YYYY-MM-DD?", "shipmentUuid": "uuid?", "hasActiveWarranty": "boolean?", "isVideoCandidate": "boolean?", "warrantyExpired": "boolean?", "renewPrescription": "boolean?" }
+{ "hearingAidsInLab": "boolean?", "hearingAidsInLabDate": "YYYY-MM-DD?", "shipmentUuid": "uuid?", "hasActiveWarranty": "boolean?", "isVideoCandidate": "boolean?", "warrantyExpired": "boolean?", "renewPrescription": "boolean?", "isPriority": "boolean?" }
 ```
 Cada indicador se guarda como "desde cuándo" en el paciente (`null` = apagado):
 `hearingAidsInLabSince`, `warrantyActiveSince`, `videoCandidateSince`,
-`warrantyExpiredSince`, `renewPrescriptionSince`. Solo los que cambian se anotan
+`warrantyExpiredSince`, `renewPrescriptionSince`, `prioritySince`. Solo los que cambian se anotan
 en la bitácora. **Response 200:** `Patient`.
 Migración `20261020120000_add_warranty_expired_renew_prescription`.
 
@@ -774,6 +777,16 @@ Migración `20261020120000_add_warranty_expired_renew_prescription`.
 { "hearingAidsInLab": false, "deliveredAt": "YYYY-MM-DD ?", "note": "string (máx. 1000) ?" }
 ```
 `deliveredAt` por defecto es hoy (Costa Rica); **400** si es posterior a hoy ("La fecha de entrega no puede ser posterior a hoy") o anterior al día de envío del abierto ("La fecha de entrega no puede ser anterior a la de envío (DD/MM/AAAA)"). Todo ocurre en una transacción con el paciente bloqueado: cierra el envío (`deliveredAt`, `note`, `deliveredByUuid`), apaga el switch y, si hay `note`, crea además una nota de Control de evolución (`EVOLUTION_CONTROL`) con el mismo texto, mismo autor y fecha de hoy. Sin envío abierto (dato viejo) crea uno ya cerrado con `sentAt` = el día que tenía el interruptor (`hearingAidsInLabSince`), o `deliveredAt` si no lo tenía; la misma regla de que la entrega no sea antes del envío. Un envío abierto por paciente como máximo (índice parcial único). Con `deliveredAt` o `note` y el interruptor ya apagado: **409** "Los audífonos ya se marcaron como entregados.". Con `note` y un rol fuera de OWNER, ADMIN y DOCTOR (p. ej. STAFF): **403** "Solo el personal clínico puede agregar notas."; entregar sin nota sí lo puede hacer cualquier rol (el endpoint no lleva `RolesGuard`). Bitácora, dentro de la misma transacción (si algo falla no queda evento): `HEARING_AIDS_DELIVERED` con `{ date, hasNote }` (sin el texto) y, si hubo nota, `NOTE_ADDED`.
+
+Prioridad: `isPriority: true` guarda `prioritySince` (ahora); `false` lo deja en `null`. Bitácora: `PRIORITY_CHANGED` con `{ isOn }`. `prioritySince` viene en el detalle y en la lista. Un paciente de otra clínica responde **404**.
+
+### GET /patients/stale
+Pacientes sin movimiento: el último movimiento es de hace 6 meses o más. Movimiento = cualquier evento de la bitácora (`PatientActivity`); sin actividad cuenta la fecha de creación. Excluye archivados, inactivos (`status` distinto de ACTIVE) y eliminados. Mismos permisos que `GET /patients`; aislado por la clínica del JWT. Una sola consulta.
+**Response 200**, del más antiguo al más reciente:
+```json
+[{ "uuid": "uuid", "fullName": "Nombre Apellido", "lastMovementAt": "ISO-8601" }]
+```
+Migración `20261107120000_patient_priority_and_activity_index`.
 
 ### GET /patients/:patientUuid/lab-shipments
 `AuthGuard` (sin `RolesGuard`), filtrado por `tenantUuid` (paciente de otro negocio o borrado: **404** "Paciente no encontrado"). Solo lee: los nombres salen de la copia local de usuarios, sin crearla. `note` llega `null` a los roles fuera de OWNER, ADMIN y DOCTOR. **Response 200**, del más reciente al más viejo:

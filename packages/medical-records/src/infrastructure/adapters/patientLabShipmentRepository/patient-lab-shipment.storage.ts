@@ -105,6 +105,7 @@ export class PatientLabShipmentStorage {
             videoCandidateSince: true,
             warrantyExpiredSince: true,
             renewPrescriptionSince: true,
+            prioritySince: true,
           },
         }),
       findOpenShipment: async () =>

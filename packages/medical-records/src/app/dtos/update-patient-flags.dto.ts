@@ -34,6 +34,7 @@ export const UpdatePatientFlagsSchema = z
     isVideoCandidate: z.boolean().optional(),
     warrantyExpired: z.boolean().optional(),
     renewPrescription: z.boolean().optional(),
+    isPriority: z.boolean().optional(),
   })
   .refine((dto) => Object.values(dto).some((value) => value !== undefined), {
     message: 'Indica al menos un indicador',
