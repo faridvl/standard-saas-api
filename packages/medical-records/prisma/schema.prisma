@@ -322,7 +322,7 @@ model PatientOtoscopyEntry {
   @@index([tenantUuid, patientUuid, createdAt])
 }
 
-/// El texto que tenía un registro de otoscopia justo antes de cada corrección: nada se borra.
+/// Historial de audiometrías de un paciente: un registro inmutable por cada guardado.
 model PatientAudiometryEntry {
   id            Int      @id @default(autoincrement())
   uuid          String   @unique @default(uuid())
@@ -339,6 +339,7 @@ model PatientAudiometryEntry {
   @@index([tenantUuid, patientUuid, createdAt])
 }
 
+/// El texto que tenía un registro de otoscopia justo antes de cada corrección: nada se borra.
 model PatientOtoscopyEntryRevision {
   id            Int      @id @default(autoincrement())
   uuid          String   @unique @default(uuid())

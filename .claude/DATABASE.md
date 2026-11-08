@@ -206,6 +206,21 @@ WHERE p."hearingAidsInLabSince" IS NOT NULL
   );
 ```
 
+#### `PatientAudiometryEntry` (historial de audiometrías)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| uuid | String (unique) | |
+| tenantUuid / patientUuid | String | `patientUuid` es FK a `Patient.uuid` |
+| schemaVersion | Int | versión del contrato del payload (hoy 1) |
+| payload | Json | audiometría completa, validada con Zod al guardar |
+| createdAt | DateTime | |
+| createdByUuid | String | autor, sale del token |
+
+Index: `@@index([tenantUuid, patientUuid, createdAt])`. Cada guardado es un registro inmutable
+(sin edición ni borrado). La lista no trae el `payload`: lee solo `summary.ptaType`,
+`summary.gradingScale` y el PTA de cada oído con `payload #>> '{...}'`.
+
 ### Migrations (medical-records)
 | Migration | Description |
 |-----------|-------------|
@@ -221,6 +236,7 @@ WHERE p."hearingAidsInLabSince" IS NOT NULL
 | 20261107120000_patient_priority_and_activity_index | Columna `Patient.prioritySince` (DateTime?, nulo = sin prioridad, sin backfill) e índice `PatientActivity(tenantUuid, patientUuid, createdAt)` para el último movimiento |
 | 20261102180000_patient_lab_shipments | Tabla PatientLabShipment; copia como envío abierto a los pacientes con `hearingAidsInLabSince` |
 | 20261103120000_patient_otoscopy_notes_in_evolution | Datos: una nota `EXTERNAL_TEST` en PatientNote por cada otoscopia ya guardada (fecha y autor de la otoscopia); idempotente |
+| 20261108120000_patient_audiometry_entries | Tabla PatientAudiometryEntry (historial de audiometrías, un registro inmutable por guardado) |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

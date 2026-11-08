@@ -967,7 +967,7 @@ Un token que no existe (revocado o inventado) responde **200 con un calendario v
 | `GET` | `/patients/:patientUuid/audiometry-entries/:entryUuid` | Registro completo |
 | `POST` | `/patients/:patientUuid/audiometry-entries` | Guarda una audiometría nueva (201) |
 
-Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT`. `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` de 1 a 25. `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos: 400.
+Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT`. `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` 10 si el tipo es `BISYLLABLE`, 25 si es `MONOSYLLABLE` (con `wordListType` en `null` vale cualquiera de los dos). Las intensidades (claves de `speech.marks`) van de 0 a 100 en pasos de 5 y sin ceros a la izquierda (`"5"`, no `"05"`). `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `pta` va en pasos de 5 dB y `grade` debe existir en la escala elegida (`ASHA` no tiene `TOTAL_LOSS`; `BIAP` no tiene `SLIGHT` ni `MODERATELY_SEVERE`). `isMasked: true` solo se acepta en `AIR` y `BONE`. `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos (incluida una herramienta que no sea de las 5): 400. El `GET :entryUuid` y el `POST` responden 404 si el paciente está borrado (`deletedAt`).
 
 ```json
 {
@@ -985,8 +985,8 @@ Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload
     "summary": {
       "ptaType": "PTA_512", "gradingScale": "ASHA",
       "ears": {
-        "RIGHT": { "pta": 27, "grade": "SLIGHT", "speechThresholdDb": 35, "maxDiscriminationPercent": 92, "failedWords": 2 },
-        "LEFT": { "pta": 35, "grade": "SLIGHT", "speechThresholdDb": null, "maxDiscriminationPercent": null, "failedWords": null }
+        "RIGHT": { "pta": 25, "grade": "SLIGHT", "speechThresholdDb": 35, "maxDiscriminationPercent": 92, "failedWords": 2 },
+        "LEFT": { "pta": 35, "grade": "MILD", "speechThresholdDb": null, "maxDiscriminationPercent": null, "failedWords": null }
       }
     },
     "notes": { "diagnosis": "Hipoacusia leve", "observations": "Control en 6 meses" }
@@ -996,7 +996,7 @@ Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload
 
 Respuesta de `POST` (201) y de `GET :entryUuid` (200): `{ "uuid", "patientUuid", "schemaVersion", "payload", "createdAt", "createdByUuid", "createdByName" }`. `createdByName` puede ser `null` si identity no responde.
 
-Cada item del `GET` (lista, sin payload): `{ "uuid", "createdAt", "createdByUuid", "createdByName", "ptaRight", "ptaLeft" }` (los PTA pueden ser `null`).
+Cada item del `GET` (lista, sin payload): `{ "uuid", "createdAt", "createdByUuid", "createdByName", "ptaType", "gradingScale", "ptaRight", "ptaLeft" }` (`ptaType` y `gradingScale` salen del `summary` guardado, con los mismos valores del contrato; los PTA pueden ser `null`). La lista lee solo esas rutas del JSON, no el payload completo.
 
 Errores: 400 payload inválido (detalle por campo), 401 sin token, 403 `STAFF`, 404 paciente o registro inexistente, borrado o de otro negocio/paciente.
 

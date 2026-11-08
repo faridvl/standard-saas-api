@@ -14,6 +14,16 @@ export type PatientAudiometryEntrySummaryRecord = Omit<
   'createdByName'
 >;
 
+interface AudiometryListRow {
+  uuid: string;
+  createdAt: Date;
+  createdByUuid: string;
+  ptaType: PatientAudiometryEntrySummary['ptaType'];
+  gradingScale: PatientAudiometryEntrySummary['gradingScale'];
+  ptaRight: number | null;
+  ptaLeft: number | null;
+}
+
 @Injectable()
 export class PatientAudiometryEntryStorage {
   constructor(private readonly prisma: PrismaService) {}
@@ -50,36 +60,40 @@ export class PatientAudiometryEntryStorage {
     patientUuid: string,
     tenantUuid: string,
   ): Promise<PatientAudiometryEntrySummaryRecord[]> {
-    const records = await this.prisma.patientAudiometryEntry.findMany({
-      where: { tenantUuid, patientUuid },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: {
-        uuid: true,
-        createdAt: true,
-        createdByUuid: true,
-        payload: true,
-      },
-    });
-    return records.map((record) => {
-      const payload = record.payload as unknown as AudiometryPayloadV1;
-      return {
-        uuid: record.uuid,
-        createdAt: record.createdAt.toISOString(),
-        createdByUuid: record.createdByUuid,
-        ptaRight: payload.summary?.ears?.RIGHT?.pta ?? null,
-        ptaLeft: payload.summary?.ears?.LEFT?.pta ?? null,
-      };
-    });
+    // Trae solo las rutas del resumen: los payloads completos pesan mucho y la lista no los usa.
+    const rows = await this.prisma.$queryRaw<AudiometryListRow[]>`
+      SELECT
+        "uuid",
+        "createdAt",
+        "createdByUuid",
+        "payload" #>> '{summary,ptaType}' AS "ptaType",
+        "payload" #>> '{summary,gradingScale}' AS "gradingScale",
+        ("payload" #>> '{summary,ears,RIGHT,pta}')::double precision AS "ptaRight",
+        ("payload" #>> '{summary,ears,LEFT,pta}')::double precision AS "ptaLeft"
+      FROM "PatientAudiometryEntry"
+      WHERE "tenantUuid" = ${tenantUuid} AND "patientUuid" = ${patientUuid}
+      ORDER BY "createdAt" DESC, "id" DESC
+    `;
+    return rows.map((row) => ({
+      uuid: row.uuid,
+      createdAt: row.createdAt.toISOString(),
+      createdByUuid: row.createdByUuid,
+      ptaType: row.ptaType,
+      gradingScale: row.gradingScale,
+      ptaRight: row.ptaRight,
+      ptaLeft: row.ptaLeft,
+    }));
   }
 
-  // Filtra por paciente y negocio: un uuid de otro paciente o clínica no existe para quien consulta.
+  // Filtra por paciente y negocio: un uuid de otro paciente o clínica, o de un paciente borrado,
+  // no existe para quien consulta.
   async findByUuid(
     entryUuid: string,
     patientUuid: string,
     tenantUuid: string,
   ): Promise<PatientAudiometryEntryRecord | null> {
     const record = await this.prisma.patientAudiometryEntry.findFirst({
-      where: { uuid: entryUuid, patientUuid, tenantUuid },
+      where: { uuid: entryUuid, patientUuid, tenantUuid, patient: { deletedAt: null } },
     });
     return record ? this.mapToRecord(record) : null;
   }

@@ -14,8 +14,9 @@ const SPEECH_MAX_DB = 100;
 const PERCENT_MIN = 0;
 const PERCENT_MAX = 100;
 const FAILED_WORDS_MIN = 0;
-/** La lista más larga (monosílabos de Rosenblüt) presenta 25 palabras por oído. */
-const PRESENTED_WORDS_MAX = 25;
+/** Palabras por oído de cada tipo de lista: 10 de Tato (bisílabos) y 25 de Rosenblüt (monosílabos). */
+const PRESENTED_WORDS_BY_LIST_TYPE = { BISYLLABLE: 10, MONOSYLLABLE: 25 } as const;
+const PRESENTED_WORDS_MAX = PRESENTED_WORDS_BY_LIST_TYPE.MONOSYLLABLE;
 
 const TONAL_FREQUENCIES_HZ = [
   '125',
@@ -54,6 +55,18 @@ const WORD_LIST_IDS_BY_TYPE: Record<z.infer<typeof WordListTypeSchema>, readonly
   MONOSYLLABLE: ['A', 'B', 'C'],
 };
 
+/** Herramientas que admiten la versión enmascarada del símbolo. */
+const MASKABLE_TOOLS = ['AIR', 'BONE'] as const;
+
+/** Grados que existen en cada escala: ASHA no tiene cofosis y BIAP solo usa los grados principales. */
+const GRADES_BY_SCALE: Record<
+  z.infer<typeof GradingScaleSchema>,
+  readonly z.infer<typeof HearingGradeSchema>[]
+> = {
+  ASHA: ['NORMAL', 'SLIGHT', 'MILD', 'MODERATE', 'MODERATELY_SEVERE', 'SEVERE', 'PROFOUND'],
+  BIAP: ['NORMAL', 'MILD', 'MODERATE', 'SEVERE', 'PROFOUND', 'TOTAL_LOSS'],
+};
+
 const ear = <T extends z.ZodType>(schema: T) => z.strictObject({ RIGHT: schema, LEFT: schema });
 
 const ToneMarkSchema = z.object({
@@ -64,10 +77,21 @@ const ToneMarkSchema = z.object({
 
 const ToneMarksByEarSchema = ear(z.partialRecord(z.enum(TONAL_FREQUENCIES_HZ), ToneMarkSchema));
 
+/** Sin ceros a la izquierda: "5" y "05" serían dos claves para la misma intensidad. */
+const INTENSITY_KEY_PATTERN = /^(0|[1-9]\d{0,2})$/;
+
+/** El front marca la logoaudiometría y reporta el PTA en pasos de 5 dB. */
+const DB_REPORT_STEP = 5;
+
 const SpeechIntensityKey = z.string().refine((key) => {
   const intensity = Number(key);
-  return /^\d{1,3}$/.test(key) && intensity >= SPEECH_MIN_DB && intensity <= SPEECH_MAX_DB;
-}, `La intensidad va de ${SPEECH_MIN_DB} a ${SPEECH_MAX_DB} dB`);
+  return (
+    INTENSITY_KEY_PATTERN.test(key) &&
+    intensity >= SPEECH_MIN_DB &&
+    intensity <= SPEECH_MAX_DB &&
+    intensity % DB_REPORT_STEP === 0
+  );
+}, `La intensidad va de ${SPEECH_MIN_DB} a ${SPEECH_MAX_DB} dB, en pasos de ${DB_REPORT_STEP}`);
 
 const percent = z.number().int().min(PERCENT_MIN).max(PERCENT_MAX);
 
@@ -88,7 +112,7 @@ const EarSummarySchema = z.object({
 
 export const AudiometryPayloadV1Schema = z
   .object({
-    marks: z.object({
+    marks: z.strictObject({
       AIR: ToneMarksByEarSchema,
       BONE: ToneMarksByEarSchema,
       UCL: ToneMarksByEarSchema,
@@ -123,8 +147,51 @@ export const AudiometryPayloadV1Schema = z
         message: 'La lista de palabras no corresponde al tipo elegido',
       });
     }
+    const expectedWords =
+      wordListType === null ? null : PRESENTED_WORDS_BY_LIST_TYPE[wordListType];
+    const presentedMatches =
+      expectedWords === null
+        ? Object.values(PRESENTED_WORDS_BY_LIST_TYPE).some((count) => count === presentedWords)
+        : expectedWords === presentedWords;
+    if (!presentedMatches) {
+      context.addIssue({
+        code: 'custom',
+        path: ['speech', 'presentedWords'],
+        message: 'Las palabras presentadas no corresponden al tipo de lista',
+      });
+    }
+
+    (Object.keys(payload.marks) as (keyof typeof payload.marks)[]).forEach((tool) => {
+      if ((MASKABLE_TOOLS as readonly string[]).includes(tool)) return;
+      (['RIGHT', 'LEFT'] as const).forEach((side) => {
+        Object.entries(payload.marks[tool][side]).forEach(([frequency, mark]) => {
+          if (mark?.isMasked) {
+            context.addIssue({
+              code: 'custom',
+              path: ['marks', tool, side, frequency, 'isMasked'],
+              message: 'Esta herramienta no admite enmascaramiento',
+            });
+          }
+        });
+      });
+    });
+
     (['RIGHT', 'LEFT'] as const).forEach((side) => {
-      const failed = payload.summary.ears[side].failedWords;
+      const { pta, grade, failedWords: failed } = payload.summary.ears[side];
+      if (pta !== null && pta % DB_REPORT_STEP !== 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['summary', 'ears', side, 'pta'],
+          message: `El PTA va en pasos de ${DB_REPORT_STEP} dB`,
+        });
+      }
+      if (grade !== null && !GRADES_BY_SCALE[payload.summary.gradingScale].includes(grade)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['summary', 'ears', side, 'grade'],
+          message: 'El grado no existe en la escala elegida',
+        });
+      }
       if (failed !== null && failed > presentedWords) {
         context.addIssue({
           code: 'custom',

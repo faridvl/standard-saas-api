@@ -17,6 +17,9 @@ export interface PatientAudiometryEntrySummary {
   createdAt: string;
   createdByUuid: string;
   createdByName: string | null;
+  /** Con qué método y escala se calcularon los PTA y los grados de este registro. */
+  ptaType: AudiometryPayloadV1['summary']['ptaType'];
+  gradingScale: AudiometryPayloadV1['summary']['gradingScale'];
   ptaRight: number | null;
   ptaLeft: number | null;
 }

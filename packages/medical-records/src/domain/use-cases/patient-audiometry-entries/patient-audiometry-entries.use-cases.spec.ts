@@ -31,7 +31,7 @@ function buildPayload(overrides: Record<string, unknown> = {}) {
       marks: { RIGHT: { '40': 80 }, LEFT: { '50': 60 } },
       wordListType: 'BISYLLABLE',
       wordListId: 'A1',
-      presentedWords: 25,
+      presentedWords: 10,
     },
     summary: {
       ptaType: 'PTA_512',
@@ -130,11 +130,75 @@ describe('validación del payload de audiometría', () => {
 
   it('rechaza palabras falladas mayores que las presentadas', () => {
     const summary = buildPayload().summary;
-    summary.ears.RIGHT.failedWords = 26;
+    summary.ears.RIGHT.failedWords = 11;
     expect(parse(buildBody({ summary })).success).toBe(false);
+  });
 
-    const speech = { ...buildPayload().speech, presentedWords: 3 };
-    expect(parse(buildBody({ speech })).success).toBe(false); // LEFT tiene 4 falladas
+  it('exige que las palabras presentadas correspondan al tipo de lista', () => {
+    const speech = buildPayload().speech;
+    expect(parse(buildBody({ speech: { ...speech, presentedWords: 25 } })).success).toBe(false);
+    expect(
+      parse(buildBody({ speech: { ...speech, wordListType: 'MONOSYLLABLE', wordListId: 'A' } }))
+        .success,
+    ).toBe(false); // monosílabos son 25, no 10
+    expect(
+      parse(
+        buildBody({
+          speech: { ...speech, wordListType: 'MONOSYLLABLE', wordListId: 'A', presentedWords: 25 },
+        }),
+      ).success,
+    ).toBe(true);
+    // Con el panel de palabras oculto basta con que sea el número de alguna lista.
+    const hidden = { ...speech, wordListType: null, wordListId: null };
+    expect(parse(buildBody({ speech: { ...hidden, presentedWords: 25 } })).success).toBe(true);
+    expect(parse(buildBody({ speech: { ...hidden, presentedWords: 17 } })).success).toBe(false);
+  });
+
+  it('rechaza una herramienta desconocida en marks', () => {
+    const marks = { ...buildPayload().marks, SOUND_FIELD: { RIGHT: {}, LEFT: {} } };
+    expect(parse(buildBody({ marks })).success).toBe(false);
+  });
+
+  it('solo permite enmascarar vía aérea y ósea', () => {
+    const mark = { thresholdDb: 80, isMasked: true, hasNoResponse: false };
+    const marks = buildPayload().marks;
+    marks.UCL.RIGHT = { '500': mark } as never;
+    expect(parse(buildBody({ marks })).success).toBe(false);
+    marks.UCL.RIGHT = {};
+    marks.BONE.RIGHT = { '500': mark } as never;
+    expect(parse(buildBody({ marks })).success).toBe(true);
+  });
+
+  it('exige un grado que exista en la escala elegida', () => {
+    const summary = buildPayload().summary;
+    summary.ears.LEFT.grade = 'SLIGHT';
+    summary.gradingScale = 'BIAP';
+    expect(parse(buildBody({ summary })).success).toBe(false);
+    summary.gradingScale = 'ASHA';
+    expect(parse(buildBody({ summary })).success).toBe(true);
+    summary.ears.LEFT.grade = 'TOTAL_LOSS';
+    expect(parse(buildBody({ summary })).success).toBe(false);
+    summary.gradingScale = 'BIAP';
+    expect(parse(buildBody({ summary })).success).toBe(true);
+  });
+
+  it('exige un PTA en pasos de 5 dB', () => {
+    const summary = buildPayload().summary;
+    summary.ears.RIGHT.pta = 27;
+    expect(parse(buildBody({ summary })).success).toBe(false);
+    summary.ears.RIGHT.pta = 25;
+    expect(parse(buildBody({ summary })).success).toBe(true);
+  });
+
+  it('rechaza intensidades con cero a la izquierda o que no son múltiplo de 5', () => {
+    const speech = buildPayload().speech;
+    const withKeys = (RIGHT: Record<string, number>) => ({
+      speech: { ...speech, marks: { RIGHT, LEFT: {} } },
+    });
+    expect(parse(buildBody(withKeys({ '05': 50 }))).success).toBe(false);
+    expect(parse(buildBody(withKeys({ '040': 50 }))).success).toBe(false);
+    expect(parse(buildBody(withKeys({ '42': 50 }))).success).toBe(false);
+    expect(parse(buildBody(withKeys({ '0': 5, '5': 10, '100': 100 }))).success).toBe(true);
   });
 
   it('rechaza una lista de palabras que no es del tipo elegido', () => {
@@ -177,6 +241,8 @@ describe('guardado de audiometrías', () => {
               uuid: r.uuid,
               createdAt: r.createdAt,
               createdByUuid: r.createdByUuid,
+              ptaType: 'PTA_512',
+              gradingScale: 'ASHA',
               ptaRight: 20,
               ptaLeft: 35,
             })),
@@ -242,7 +308,13 @@ describe('guardado de audiometrías', () => {
       ];
       const result = await build().execute(PATIENT, TENANT);
       expect(result.map((r) => r.uuid)).toEqual(['nuevo', 'viejo']);
-      expect(result[0]).toMatchObject({ createdByName: 'Dra. Ana', ptaRight: 20, ptaLeft: 35 });
+      expect(result[0]).toMatchObject({
+        createdByName: 'Dra. Ana',
+        ptaType: 'PTA_512',
+        gradingScale: 'ASHA',
+        ptaRight: 20,
+        ptaLeft: 35,
+      });
       expect(result[0]).not.toHaveProperty('payload');
     });
 
