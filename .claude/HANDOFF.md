@@ -1,6 +1,6 @@
 # Traspaso: niveles de acceso y aislamiento entre clínicas
 
-Rama `feature/roles-especialidades` (solo commits locales, sin push).
+Rama `feature/roles-especialidades` integrada en `develop` (2026-11-09).
 
 ## Qué quiere el usuario
 
@@ -18,12 +18,12 @@ Rama `feature/roles-especialidades` (solo commits locales, sin push).
 
 ## Dónde estamos
 
-- Terminado y probado, local sin push ni PR (rama `feature/roles-especialidades`). Jest: identity 145, medical-records 505; `test:isolation` 66; `last-owner-race` 3; regresión HTTP por rol (172 comprobaciones) y QA en navegador con los 6 usuarios QA contra la base local 5433, sin fallas.
+- Terminado, probado y en `develop` (2026-11-09); migraciones aplicadas en la base de desarrollo (Neon). Jest: identity 145, medical-records 505; `test:isolation` 66; `last-owner-race` 3; regresión HTTP por rol (172 comprobaciones) y QA en navegador con los 6 usuarios QA contra la base local 5433, sin fallas.
 - Migración `20261109120000_access_level_attends_patients` aplicada en la base local.
 
 ## Qué sigue
 
-1. Permiso del usuario para push y PR (incluida `feature/usuarios`).
+1. Salida a producción: PR de `develop` a `main` (corre las migraciones en producción al mergear).
 2. Antes de mergear: en producción, solo lectura, `SELECT UPPER(TRIM(role)), count(*) FROM "User" GROUP BY 1` para confirmar que todo rol existente tiene mapeo. La migración deja respaldo en `"_UserRoleBackup20261109"`.
 3. Deploy del API antes que el front (el front nuevo depende de `attendsPatients` en el token).
 4. Pendientes menores sin arreglar: el PATCH de paciente aún acepta `bloodType` de quien no atiende; borrar un documento no borra el archivo en R2; Zynka con especialidad DENTAL o GENERAL falla.
