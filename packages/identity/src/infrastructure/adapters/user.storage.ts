@@ -1,13 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, User as PrismaUser } from '@prisma/client';
+import { Prisma, Status, User as PrismaUser } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 import { User } from '../../domain/entities/user.entity';
-import { UserDomain, UserRole } from '../../domain/types/user.types';
+import { UserDomain, UserRole, UserStatus, UserStatusFilter } from '../../domain/types/user.types';
 import { PaginatedResponse } from '../..//domain/types/pagination.types';
 
 export type CreateUserParams = Omit<UserDomain, 'uuid' | 'createdAt'> & {
   password: string;
 };
+
+export type UpdateUserParams = {
+  fullName?: string;
+  phoneNumber?: string;
+  specialty?: string;
+  role?: UserRole;
+  signatureUrl?: string | null;
+  avatarUrl?: string | null;
+};
+
+const toUserStatus = (status: Status): UserStatus =>
+  status === Status.ACTIVE ? UserStatus.ACTIVE : UserStatus.INACTIVE;
 
 @Injectable()
 export class UserStorage {
@@ -35,6 +47,7 @@ export class UserStorage {
       name: user.name,
       password: user.password,
       role: user.role,
+      status: toUserStatus(user.status),
       tenantId: user.tenantId,
       tenantUuid: user.tenant.uuid,
       specialty: user.specialty,
@@ -42,27 +55,13 @@ export class UserStorage {
 
     return entity;
   }
+
   async findByUuid(uuid: string): Promise<UserDomain | null> {
     const record = await this.prisma.user.findUnique({
       where: { uuid },
     });
 
-    if (!record) return null;
-
-    return {
-      uuid: record.uuid,
-      email: record.email,
-      fullName: record.name,
-      role: record.role as UserRole,
-      tenantId: record.tenantId,
-      tenantUUID: record.tenantUUID,
-      specialty: record.specialty,
-      avatarUrl: record.avatarUrl,
-      signatureUrl: record.signatureUrl,
-      phoneNumber: record.phoneNumber,
-      createdAt: record.createdAt,
-      status: record.status,
-    };
+    return record ? this.toDomain(record) : null;
   }
 
   async findByUuidAndTenant(uuid: string, tenantUUID: string): Promise<UserDomain | null> {
@@ -70,59 +69,23 @@ export class UserStorage {
       where: { uuid, tenantUUID },
     });
 
-    if (!record) return null;
-
-    return {
-      uuid: record.uuid,
-      email: record.email,
-      fullName: record.name,
-      role: record.role as UserRole,
-      tenantId: record.tenantId,
-      tenantUUID: record.tenantUUID,
-      specialty: record.specialty,
-      avatarUrl: record.avatarUrl,
-      signatureUrl: record.signatureUrl,
-      phoneNumber: record.phoneNumber,
-      createdAt: record.createdAt,
-      status: record.status,
-    };
+    return record ? this.toDomain(record) : null;
   }
 
-  async update(
-    uuid: string,
-    data: {
-      fullName?: string;
-      phoneNumber?: string;
-      specialty?: string;
-      signatureUrl?: string | null;
-      avatarUrl?: string | null;
-    },
-  ): Promise<UserDomain> {
+  async update(uuid: string, data: UpdateUserParams): Promise<UserDomain> {
     const record = await this.prisma.user.update({
       where: { uuid },
       data: {
         ...(data.fullName !== undefined && { name: data.fullName }),
         ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
         ...(data.specialty !== undefined && { specialty: data.specialty }),
+        ...(data.role !== undefined && { role: data.role }),
         ...(data.signatureUrl !== undefined && { signatureUrl: data.signatureUrl }),
         ...(data.avatarUrl !== undefined && { avatarUrl: data.avatarUrl }),
       },
     });
 
-    return {
-      uuid: record.uuid,
-      email: record.email,
-      fullName: record.name,
-      role: record.role as UserRole,
-      tenantId: record.tenantId,
-      tenantUUID: record.tenantUUID,
-      specialty: record.specialty,
-      avatarUrl: record.avatarUrl,
-      signatureUrl: record.signatureUrl,
-      phoneNumber: record.phoneNumber,
-      createdAt: record.createdAt,
-      status: record.status,
-    };
+    return this.toDomain(record);
   }
 
   async save(data: CreateUserParams): Promise<UserDomain> {
@@ -137,10 +100,73 @@ export class UserStorage {
         specialty: data.specialty,
         phoneNumber: data.phoneNumber,
         avatarUrl: data.avatarUrl,
-        status: 'ACTIVE',
+        status: Status.ACTIVE,
       },
     });
 
+    return this.toDomain(record);
+  }
+
+  async updateStatus(uuid: string, status: UserStatus): Promise<void> {
+    await this.prisma.user.update({
+      where: { uuid },
+      data: { status },
+    });
+  }
+
+  async updatePassword(uuid: string, hashedPassword: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { uuid },
+      data: { password: hashedPassword },
+    });
+  }
+
+  /** Cuenta los OWNER activos de la clínica, sin contar al usuario `excludeUuid`. */
+  async countActiveOwners(tenantUUID: string, excludeUuid: string): Promise<number> {
+    return await this.prisma.user.count({
+      where: {
+        tenantUUID,
+        role: UserRole.OWNER,
+        status: Status.ACTIVE,
+        uuid: { not: excludeUuid },
+      },
+    });
+  }
+
+  async findAllByTenant(
+    tenantUUID: string,
+    page: number = 1,
+    limit: number = 10,
+    statusFilter: UserStatusFilter = UserStatusFilter.ALL,
+  ): Promise<PaginatedResponse<UserDomain>> {
+    const skip = (page - 1) * limit;
+    const where: Prisma.UserWhereInput = {
+      tenantUUID,
+      ...(statusFilter !== UserStatusFilter.ALL && { status: statusFilter }),
+    };
+
+    const [records, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      data: records.map((record) => this.toDomain(record)),
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  private toDomain(record: PrismaUser): UserDomain {
     return {
       uuid: record.uuid,
       email: record.email,
@@ -153,52 +179,7 @@ export class UserStorage {
       signatureUrl: record.signatureUrl,
       phoneNumber: record.phoneNumber,
       createdAt: record.createdAt,
-      status: record.status,
-    };
-  }
-
-  async softDelete(uuid: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { uuid },
-      data: { status: 'INACTIVE' },
-    });
-  }
-
-  async findAllByTenant(
-    tenantUUID: string,
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<PaginatedResponse<UserDomain>> {
-    const skip = (page - 1) * limit;
-
-    const [records, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where: { tenantUUID },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.user.count({ where: { tenantUUID } }),
-    ]);
-
-    return {
-      data: records.map((record) => ({
-        uuid: record.uuid,
-        email: record.email,
-        fullName: record.name,
-        role: record.role as UserRole,
-        tenantId: record.tenantId,
-        tenantUUID: record.tenantUUID,
-        specialty: record.specialty,
-        createdAt: record.createdAt,
-        status: record.status,
-      })),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      status: toUserStatus(record.status),
     };
   }
 }

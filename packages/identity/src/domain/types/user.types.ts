@@ -19,6 +19,33 @@ export enum UserRole {
   MEDICO = 'MEDICO',
 }
 
+/** Roles que se pueden asignar hoy; USER y MEDICO quedan solo por compatibilidad con datos viejos. */
+export const ASSIGNABLE_USER_ROLES = [
+  UserRole.OWNER,
+  UserRole.ADMIN,
+  UserRole.DOCTOR,
+  UserRole.STAFF,
+] as const;
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+
+export enum UserStatusFilter {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  ALL = 'ALL',
+}
+
+/** Quien hace la petición, tal como sale de su JWT. */
+export type UserActor = {
+  uuid: string;
+  role?: string | null;
+  tenantId: number;
+  tenantUuid: string;
+};
+
 export type UserDomain = {
   uuid: string;
   email: string;
@@ -30,6 +57,6 @@ export type UserDomain = {
   avatarUrl?: string | null;
   signatureUrl?: string | null;
   phoneNumber?: string | null;
-  status: string;
+  status: UserStatus;
   createdAt: Date;
 };

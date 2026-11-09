@@ -4,6 +4,7 @@ import { BcryptService } from '../../infrastructure/security/bcrypt.service';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from '../../app/dtos/login.dto';
 import { JwtPayload } from '@project/core';
+import { UserStatus } from '../types/user.types';
 
 export type LoginResult = {
   access_token: string;
@@ -29,6 +30,10 @@ export class LoginUseCase {
 
     const isMatch = await this.bcryptService.compare(dto.password, user.password);
     if (!isMatch) throw new UnauthorizedException('Credenciales inválidas');
+
+    // Mismo mensaje que una clave mala para no revelar que la cuenta existe.
+    if (user.status !== UserStatus.ACTIVE)
+      throw new UnauthorizedException('Credenciales inválidas');
 
     const payload: JwtPayload = {
       sub: user.uuid,

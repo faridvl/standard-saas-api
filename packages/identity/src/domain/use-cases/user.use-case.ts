@@ -3,16 +3,16 @@ import * as bcrypt from 'bcrypt';
 import { ConflictException, Injectable } from '@nestjs/common';
 import { CreateUserParams, UserStorage } from '../../infrastructure/adapters/user.storage';
 import { CreateUserDto } from '../dtos/create-user.dto';
-import { UserDomain } from '../types/user.types';
+import { assertCanAdministerUsers } from '../policies/user-admin.policy';
+import { UserActor, UserDomain, UserStatus } from '../types/user.types';
 
 @Injectable()
 export class CreateUserUseCase {
   constructor(private readonly userStorage: UserStorage) {}
 
-  async execute(
-    dto: CreateUserDto,
-    extra: { tenantId: number; tenantUUID: string },
-  ): Promise<UserDomain> {
+  async execute(dto: CreateUserDto, actor: UserActor): Promise<UserDomain> {
+    assertCanAdministerUsers(actor.role);
+
     const existingUser = await this.userStorage.findByEmail(dto.email);
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
@@ -26,12 +26,12 @@ export class CreateUserUseCase {
       fullName: dto.fullName,
       password: hashedPassword,
       role: dto.role,
-      tenantId: extra.tenantId,
-      tenantUUID: extra.tenantUUID,
+      tenantId: actor.tenantId,
+      tenantUUID: actor.tenantUuid,
       specialty: dto.specialty || null,
       phoneNumber: dto.phoneNumber || null,
       avatarUrl: null,
-      status: 'ACTIVE',
+      status: UserStatus.ACTIVE,
     };
 
     return await this.userStorage.save(saveParams);
