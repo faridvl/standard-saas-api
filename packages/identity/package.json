@@ -1,6 +1,6 @@
 {
   "name": "@project/identity-service",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "local": "dotenv -e .env -- ts-node-dev --respawn --transpile-only src/main.ts",
