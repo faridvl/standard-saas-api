@@ -5,8 +5,6 @@ import {
   Body,
   UseGuards,
   UsePipes,
-  Headers,
-  ForbiddenException,
   Delete,
   Param,
   Patch,
@@ -15,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
 import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { IdentityServiceGuard } from '@medical-records/app/guards/identity-service.guard';
 import { AnyLevel, MinLevel } from '@medical-records/app/decorators/access.decorators';
 import { AccessLevel } from '@medical-records/domain/policies/access.policy';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
@@ -86,20 +85,11 @@ export class AppointmentTypeController {
     await this.deleteUseCase.execute(user.tenantUuid, uuid);
   }
 
+  // Solo la llamada de servicio de identity al registrar una clínica (ver IdentityServiceGuard).
   @Post('initialize')
+  @UseGuards(IdentityServiceGuard)
   @UsePipes(new ZodValidationPipe(InitializeAppointmentTypesSchema))
-  async initialize(
-    @Body() dto: InitializeAppointmentTypesDto,
-    @Headers('x-internal-call') internalHeader: string | undefined,
-    @Headers('authorization') authHeader: string | undefined,
-  ): Promise<AppointmentTypeEntity[]> {
-    const isInternal = internalHeader === 'true';
-    const isUnauthenticated = !authHeader;
-
-    if (!isInternal && !isUnauthenticated) {
-      throw new ForbiddenException('Este endpoint es solo para llamadas internas');
-    }
-
+  async initialize(@Body() dto: InitializeAppointmentTypesDto): Promise<AppointmentTypeEntity[]> {
     return await this.initializeUseCase.execute(dto.tenantUuid);
   }
 }

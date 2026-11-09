@@ -8,6 +8,7 @@ import { RegisterTenantDto } from '../dtos/register-tenant.dto';
 import { IRegistrationResult } from '../dtos/registration-result.interface';
 import { BcryptService } from '../../infrastructure/security/bcrypt.service';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class RegisterTenantUseCase {
@@ -19,6 +20,7 @@ export class RegisterTenantUseCase {
     private readonly userStorage: UserStorage,
     private readonly bcryptService: BcryptService,
     private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async execute(dto: RegisterTenantDto): Promise<IRegistrationResult> {
@@ -80,11 +82,15 @@ export class RegisterTenantUseCase {
       this.configService.get<string>('MEDICAL_RECORDS_API_URL') ?? 'http://localhost:7071';
 
     try {
+      const serviceToken = await this.jwtService.signAsync(
+        { service: 'identity', tenantUuid },
+        { expiresIn: '1m' },
+      );
       const response = await fetch(`${medicalRecordsUrl}/appointment-types/initialize`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Internal-Call': 'true',
+          Authorization: `Bearer ${serviceToken}`,
         },
         body: JSON.stringify({ tenantUuid }),
       });
