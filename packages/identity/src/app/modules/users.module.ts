@@ -7,6 +7,7 @@ import { UpdateUserUseCase } from '../../domain/use-cases/users/update-user.use-
 import { DeleteUserUseCase } from '../../domain/use-cases/users/delete-user.use-case';
 import { SetUserStatusUseCase } from '../../domain/use-cases/users/set-user-status.use-case';
 import { ResetUserPasswordUseCase } from '../../domain/use-cases/users/reset-user-password.use-case';
+import { GetUserAuditUseCase } from '../../domain/use-cases/users/get-user-audit.use-case';
 import { UserStorage } from '../../infrastructure/adapters/user.storage';
 
 const CONTROLLERS = [UserController];
@@ -18,6 +19,7 @@ const USE_CASES = [
   DeleteUserUseCase,
   SetUserStatusUseCase,
   ResetUserPasswordUseCase,
+  GetUserAuditUseCase,
 ];
 const STORAGES = [UserStorage];
 

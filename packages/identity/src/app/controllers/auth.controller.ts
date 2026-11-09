@@ -53,6 +53,12 @@ export class AuthController {
     });
   }
 
+  @UseGuards(AuthGuard)
+  @Post('refresh')
+  async refresh(@CurrentUser() user: JwtPayload): Promise<LoginResult> {
+    return this.loginUseCase.refresh(user.sub, user.tenantUuid);
+  }
+
   @Get('health')
   healthCheck(): {
     status: string;

@@ -11,5 +11,8 @@ export type User = {
   status: UserStatus;
   tenantId: number;
   tenantUuid: string;
-  specialty?: string | null;
+  attendsPatients: boolean;
+  specialties: string[];
+  professionalTitle?: string | null;
+  licenseNumber?: string | null;
 };

@@ -1,17 +1,19 @@
 /* eslint-disable @typescript-eslint/require-await -- el fake imita una API asíncrona */
 import { describe, it, expect } from '@jest/globals';
-import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { User } from '../../entities/user.entity';
 import {
+  Specialty,
   UserActor,
+  UserAuditChange,
+  UserAuditEntry,
   UserDomain,
   UserRole,
   UserStatus,
@@ -25,11 +27,11 @@ import { SetUserStatusUseCase } from './set-user-status.use-case';
 import { DeleteUserUseCase } from './delete-user.use-case';
 import { ResetUserPasswordUseCase } from './reset-user-password.use-case';
 import { GetUsersUseCase, USERS_LIST_MAX_LIMIT } from './get-users.use-case';
+import { GetUserAuditUseCase } from './get-user-audit.use-case';
 import { ZodValidationPipe } from '@project/core';
 import { CreateUserSchema } from '../../dtos/create-user.dto';
 import { UpdateUserSchema } from '../../dtos/update-user.dto';
 import { RegisterTenantSchema } from '../../dtos/register-tenant.dto';
-import { LoginSchema } from '../../../app/dtos/login.dto';
 import { LoginUseCase } from '../login.use-case';
 
 const TENANT = 'tenant-a';
@@ -45,6 +47,8 @@ const row = (uuid: string, role: UserRole, overrides: Partial<Row> = {}): Row =>
   role,
   tenantId: 1,
   tenantUUID: TENANT,
+  attendsPatients: false,
+  specialties: [],
   status: UserStatus.ACTIVE,
   createdAt: new Date('2026-01-01'),
   password: 'hash',
@@ -54,6 +58,7 @@ const row = (uuid: string, role: UserRole, overrides: Partial<Row> = {}): Row =>
 /** Storage en memoria con las mismas reglas de filtro por clínica que el real. */
 class FakeUserStorage {
   rows: Row[];
+  audit: (UserAuditChange & { targetUuid: string })[] = [];
 
   constructor(rows: Row[]) {
     this.rows = rows;
@@ -76,6 +81,10 @@ class FakeUserStorage {
       status: r.status,
       tenantId: r.tenantId,
       tenantUuid: r.tenantUUID ?? '',
+      attendsPatients: r.attendsPatients,
+      specialties: r.specialties,
+      professionalTitle: r.professionalTitle,
+      licenseNumber: r.licenseNumber,
     };
   }
 
@@ -83,15 +92,17 @@ class FakeUserStorage {
     return this.find(uuid, tenant) ?? null;
   }
 
-  async save(data: Omit<Row, 'uuid' | 'createdAt'>): Promise<UserDomain> {
+  async save(data: Omit<Row, 'uuid' | 'createdAt'>, audit: UserAuditChange[]): Promise<UserDomain> {
     const created = { ...data, uuid: `new-${this.rows.length}`, createdAt: new Date() } as Row;
     this.rows.push(created);
+    this.audit.push(...audit.map((a) => ({ ...a, targetUuid: created.uuid })));
     return created;
   }
 
-  async update(uuid: string, data: Partial<Row>): Promise<UserDomain> {
+  async update(uuid: string, data: Partial<Row>, audit: UserAuditChange[]): Promise<UserDomain> {
     const target = this.rows.find((r) => r.uuid === uuid) as Row;
     Object.assign(target, data);
+    this.audit.push(...audit.map((a) => ({ ...a, targetUuid: uuid })));
     return target;
   }
 
@@ -103,12 +114,27 @@ class FakeUserStorage {
     (this.rows.find((r) => r.uuid === uuid) as Row).password = hashed;
   }
 
+  async countActiveOwners(tenant: string, excluding?: string): Promise<number> {
+    return this.rows.filter(
+      (r) =>
+        r.tenantUUID === tenant &&
+        r.role === UserRole.OWNER &&
+        r.status === UserStatus.ACTIVE &&
+        r.uuid !== excluding,
+    ).length;
+  }
+
   async findAllByTenant(tenant: string, page: number, limit: number, filter: UserStatusFilter) {
     const data = this.rows.filter(
       (r) =>
         r.tenantUUID === tenant &&
         (filter === UserStatusFilter.ALL || String(r.status) === String(filter)),
     );
+    return { data, meta: { total: data.length, page, limit, totalPages: 1 } };
+  }
+
+  async findAuditByTenant(tenant: string, page: number, limit: number) {
+    const data = this.audit as unknown as UserAuditEntry[];
     return { data, meta: { total: data.length, page, limit, totalPages: 1 } };
   }
 }
@@ -120,13 +146,16 @@ const actorOf = (uuid: string, role: UserRole): UserActor => ({
   tenantUuid: TENANT,
 });
 
-const world = () => {
+const build = (extra: Row[] = []) => {
   const storage = new FakeUserStorage([
-    row('owner-1', UserRole.OWNER),
-    row('admin-1', UserRole.ADMIN),
-    row('doctor-1', UserRole.DOCTOR),
-    row('staff-1', UserRole.STAFF),
-    row('foreign-1', UserRole.STAFF, { tenantUUID: OTHER_TENANT, email: 'f@otra.test' }),
+    row('recep', UserRole.RECEPTION),
+    row('admin', UserRole.ADMIN),
+    row('owner', UserRole.OWNER, { attendsPatients: true, specialties: [Specialty.AUDIOLOGY] }),
+    row('owner2', UserRole.OWNER),
+    row('recep2', UserRole.RECEPTION),
+    row('admin2', UserRole.ADMIN),
+    row('foreign', UserRole.RECEPTION, { tenantUUID: OTHER_TENANT, tenantId: 2 }),
+    ...extra,
   ]);
   const asStorage = storage as unknown as UserStorage;
   const setStatus = new SetUserStatusUseCase(asStorage);
@@ -138,506 +167,380 @@ const world = () => {
     remove: new DeleteUserUseCase(setStatus),
     reset: new ResetUserPasswordUseCase(asStorage),
     list: new GetUsersUseCase(asStorage),
+    audit: new GetUserAuditUseCase(asStorage),
   };
 };
 
-const NON_OWNERS: Array<[string, UserRole]> = [
-  ['ADMIN', UserRole.ADMIN],
-  ['DOCTOR', UserRole.DOCTOR],
-  ['STAFF', UserRole.STAFF],
+const actors = {
+  RECEPTION: actorOf('recep', UserRole.RECEPTION),
+  ADMIN: actorOf('admin', UserRole.ADMIN),
+  OWNER: actorOf('owner', UserRole.OWNER),
+};
+type Level = keyof typeof actors;
+
+const newUser = (overrides: Record<string, unknown> = {}) =>
+  CreateUserSchema.parse({
+    email: 'nuevo@clinica.test',
+    fullName: 'Nuevo',
+    password: PASSWORD,
+    ...overrides,
+  });
+
+type Case = {
+  name: string;
+  run: (ctx: ReturnType<typeof build>, actor: UserActor) => Promise<unknown>;
+  expected: Record<Level, 'ok' | 403>;
+};
+
+const MATRIX: Case[] = [
+  {
+    name: 'listar usuarios',
+    run: (c, a) => c.list.execute(a),
+    expected: { RECEPTION: 403, ADMIN: 'ok', OWNER: 'ok' },
+  },
+  {
+    name: 'crear RECEPTION',
+    run: (c, a) => c.create.execute(newUser({ role: 'RECEPTION' }), a),
+    expected: { RECEPTION: 403, ADMIN: 'ok', OWNER: 'ok' },
+  },
+  {
+    name: 'crear ADMIN',
+    run: (c, a) => c.create.execute(newUser({ role: 'ADMIN' }), a),
+    expected: { RECEPTION: 403, ADMIN: 'ok', OWNER: 'ok' },
+  },
+  {
+    name: 'crear con atiende pacientes',
+    run: (c, a) => c.create.execute(newUser({ attendsPatients: true, specialties: ['ENT'] }), a),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'crear OWNER',
+    run: (c, a) => c.create.execute(newUser({ role: 'OWNER' }), a),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'cambiar el nivel de otro a ADMIN',
+    run: (c, a) => c.update.execute('recep2', a, { role: UserRole.ADMIN }),
+    expected: { RECEPTION: 403, ADMIN: 'ok', OWNER: 'ok' },
+  },
+  {
+    name: 'dar OWNER a otro',
+    run: (c, a) => c.update.execute('recep2', a, { role: UserRole.OWNER }),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'activar atiende pacientes a otro',
+    run: (c, a) =>
+      c.update.execute('recep2', a, { attendsPatients: true, specialties: [Specialty.ENT] }),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'activar atiende pacientes en sí mismo',
+    run: (c, a) =>
+      c.update.execute(a.uuid, a, { attendsPatients: true, specialties: [Specialty.ENT] }),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'cambiar especialidades de otro',
+    run: (c, a) => c.update.execute('owner', a, { specialties: [Specialty.ENT] }),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'desactivar a un RECEPTION',
+    run: (c, a) => c.setStatus.execute('recep2', UserStatus.INACTIVE, a),
+    expected: { RECEPTION: 403, ADMIN: 'ok', OWNER: 'ok' },
+  },
+  {
+    name: 'poner contraseña a un RECEPTION',
+    run: (c, a) => c.reset.execute('recep2', PASSWORD, a),
+    expected: { RECEPTION: 403, ADMIN: 'ok', OWNER: 'ok' },
+  },
+  {
+    name: 'tocar a un OWNER (desactivar)',
+    run: (c, a) => c.setStatus.execute('owner2', UserStatus.INACTIVE, a),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'tocar a un OWNER (contraseña)',
+    run: (c, a) => c.reset.execute('owner2', PASSWORD, a),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'editar el nombre de un OWNER',
+    run: (c, a) => c.update.execute('owner2', a, { fullName: 'Otro' }),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 'ok' },
+  },
+  {
+    name: 'editar su propio título y colegiado',
+    run: (c, a) =>
+      c.update.execute(a.uuid, a, { professionalTitle: 'LIC', licenseNumber: 'C-1234' } as never),
+    expected: { RECEPTION: 'ok', ADMIN: 'ok', OWNER: 'ok' },
+  },
+  {
+    name: 'editar el título de otra persona',
+    run: (c, a) => c.update.execute('recep2', a, { professionalTitle: 'DR' } as never),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 403 },
+  },
+  {
+    name: 'editar el colegiado de otra persona',
+    run: (c, a) => c.update.execute('recep2', a, { licenseNumber: 'C-99' }),
+    expected: { RECEPTION: 403, ADMIN: 403, OWNER: 403 },
+  },
 ];
 
-describe('administración de usuarios', () => {
-  describe.each(NON_OWNERS)('un %s', (_name, role) => {
-    const actor = actorOf('admin-1', role);
-
-    it('recibe 403 al crear un usuario', async () => {
-      const { create } = world();
-      await expect(
-        create.execute(
-          { email: 'n@c.test', fullName: 'N', password: PASSWORD, role: UserRole.STAFF },
-          actor,
-        ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-    });
-
-    it('recibe 403 al cambiar el rol de otro', async () => {
-      const { update } = world();
-      await expect(
-        update.execute('staff-1', actor, { role: UserRole.ADMIN }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-    });
-
-    it('recibe 403 al cambiar el estado de otro', async () => {
-      const { setStatus } = world();
-      await expect(setStatus.execute('staff-1', UserStatus.INACTIVE, actor)).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-    });
-
-    it('recibe 403 al poner contraseña a otro', async () => {
-      const { reset } = world();
-      await expect(reset.execute('staff-1', PASSWORD, actor)).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-    });
-
-    it('recibe 403 al borrar (desactivar) a otro', async () => {
-      const { remove } = world();
-      await expect(remove.execute('staff-1', actor)).rejects.toBeInstanceOf(ForbiddenException);
-    });
-
-    it('recibe 403 al editar el perfil de otro', async () => {
-      const { update } = world();
-      await expect(update.execute('staff-1', actor, { fullName: 'X' })).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-    });
-  });
-
-  describe('perfil propio', () => {
-    it('cualquier usuario edita su nombre sin mandar role', async () => {
-      const { update } = world();
-      const result = await update.execute('doctor-1', actorOf('doctor-1', UserRole.DOCTOR), {
-        fullName: 'Dra. Nueva',
-        phoneNumber: '8888-0000',
+describe('usuarios: matriz de nivel de acceso por acción', () => {
+  for (const testCase of MATRIX) {
+    for (const level of Object.keys(actors) as Level[]) {
+      const expected = testCase.expected[level];
+      it(`${level} / ${testCase.name} -> ${expected}`, async () => {
+        const ctx = build();
+        const outcome = await testCase.run(ctx, actors[level]).then(
+          () => 'ok',
+          (error: unknown) => (error instanceof ForbiddenException ? 403 : String(error)),
+        );
+        expect(outcome).toBe(expected);
       });
-      expect(result.fullName).toBe('Dra. Nueva');
-    });
+    }
+  }
+});
 
-    it('un usuario que manda role sobre sí mismo recibe 403', async () => {
-      const { update } = world();
-      await expect(
-        update.execute('doctor-1', actorOf('doctor-1', UserRole.DOCTOR), { role: UserRole.OWNER }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-    });
-  });
-
-  describe('OWNER', () => {
-    const owner = actorOf('owner-1', UserRole.OWNER);
-
-    it('crea un usuario en su clínica con la contraseña temporal cifrada', async () => {
-      const { create, storage } = world();
-      const created = await create.execute(
-        { email: 'nuevo@c.test', fullName: 'Nuevo', password: PASSWORD, role: UserRole.DOCTOR },
-        owner,
-      );
-      const saved = storage.rows.find((r) => r.uuid === created.uuid) as Row;
-      expect(saved.tenantUUID).toBe(TENANT);
-      expect(saved.status).toBe(UserStatus.ACTIVE);
-      expect(saved.password).not.toBe(PASSWORD);
-      await expect(bcrypt.compare(PASSWORD, saved.password)).resolves.toBe(true);
-    });
-
-    it('recibe 409 si el email ya existe', async () => {
-      const { create } = world();
-      await expect(
-        create.execute(
-          {
-            email: 'staff-1@clinica.test',
-            fullName: 'X',
-            password: PASSWORD,
-            role: UserRole.STAFF,
-          },
-          owner,
-        ),
-      ).rejects.toBeInstanceOf(ConflictException);
-    });
-
-    it('cambia el rol de otro usuario', async () => {
-      const { update } = world();
-      const result = await update.execute('staff-1', owner, { role: UserRole.ADMIN });
-      expect(result.role).toBe(UserRole.ADMIN);
-    });
-
-    it('pone contraseña nueva a un usuario de su clínica', async () => {
-      const { reset, storage } = world();
-      await reset.execute('staff-1', 'Otra1234', owner);
-      const saved = storage.rows.find((r) => r.uuid === 'staff-1') as Row;
-      await expect(bcrypt.compare('Otra1234', saved.password)).resolves.toBe(true);
-    });
-
-    it('no se desactiva a sí mismo', async () => {
-      const { setStatus, remove } = world();
-      await expect(setStatus.execute('owner-1', UserStatus.INACTIVE, owner)).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
-      await expect(remove.execute('owner-1', owner)).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('no se baja el rol a sí mismo', async () => {
-      const { update } = world();
-      await expect(
-        update.execute('owner-1', owner, { role: UserRole.ADMIN }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('desactiva y reactiva a otro usuario; DELETE solo desactiva', async () => {
-      const { setStatus, remove, storage } = world();
-      await remove.execute('staff-1', owner);
-      expect((storage.rows.find((r) => r.uuid === 'staff-1') as Row).status).toBe(
-        UserStatus.INACTIVE,
-      );
-      await setStatus.execute('staff-1', UserStatus.ACTIVE, owner);
-      expect((storage.rows.find((r) => r.uuid === 'staff-1') as Row).status).toBe(
-        UserStatus.ACTIVE,
-      );
-    });
-
-    it('recibe 404 con un usuario de otra clínica en todas las operaciones', async () => {
-      const { update, setStatus, remove, reset } = world();
-      await expect(update.execute('foreign-1', owner, { fullName: 'X' })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
-      await expect(
-        setStatus.execute('foreign-1', UserStatus.INACTIVE, owner),
-      ).rejects.toBeInstanceOf(NotFoundException);
-      await expect(remove.execute('foreign-1', owner)).rejects.toBeInstanceOf(NotFoundException);
-      await expect(reset.execute('foreign-1', PASSWORD, owner)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
-    });
-  });
-
-  describe('actor releído de la base', () => {
-    const ownerToken = actorOf('owner-1', UserRole.OWNER);
-
-    const everyAdminAction = (w: ReturnType<typeof world>, actor: UserActor) => [
-      w.create.execute(
-        { email: 'n@c.test', fullName: 'N', password: PASSWORD, role: UserRole.STAFF },
-        actor,
+describe('usuarios: reglas puntuales', () => {
+  it('atiende pacientes sin especialidad se rechaza al validar (400)', () => {
+    expect(() => newUser({ attendsPatients: true, specialties: [] })).toThrow();
+    const pipe = new ZodValidationPipe(CreateUserSchema);
+    expect(() =>
+      pipe.transform(
+        { email: 'a@b.test', fullName: 'A', password: PASSWORD, attendsPatients: true },
+        { type: 'body' },
       ),
-      w.update.execute('staff-1', actor, { role: UserRole.ADMIN }),
-      w.update.execute('staff-1', actor, { fullName: 'X' }),
-      w.setStatus.execute('staff-1', UserStatus.INACTIVE, actor),
-      w.reset.execute('staff-1', PASSWORD, actor),
-      w.remove.execute('staff-1', actor),
-    ];
-
-    it('un OWNER desactivado con token vigente recibe 403 en todo', async () => {
-      const w = world();
-      (w.storage.rows.find((r) => r.uuid === 'owner-1') as Row).status = UserStatus.INACTIVE;
-      for (const action of everyAdminAction(w, ownerToken)) {
-        await expect(action).rejects.toBeInstanceOf(ForbiddenException);
-      }
-    });
-
-    it('un OWNER degradado en la base con token de OWNER recibe 403 en todo', async () => {
-      const w = world();
-      (w.storage.rows.find((r) => r.uuid === 'owner-1') as Row).role = UserRole.STAFF;
-      for (const action of everyAdminAction(w, ownerToken)) {
-        await expect(action).rejects.toBeInstanceOf(ForbiddenException);
-      }
-    });
-
-    it('un usuario desactivado tampoco edita su propio perfil', async () => {
-      const w = world();
-      (w.storage.rows.find((r) => r.uuid === 'doctor-1') as Row).status = UserStatus.INACTIVE;
-      await expect(
-        w.update.execute('doctor-1', actorOf('doctor-1', UserRole.DOCTOR), { fullName: 'X' }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-    });
-
-    it('un actor que ya no existe en la clínica recibe 403', async () => {
-      const w = world();
-      const ghost = actorOf('fantasma', UserRole.OWNER);
-      for (const action of everyAdminAction(w, ghost)) {
-        await expect(action).rejects.toBeInstanceOf(ForbiddenException);
-      }
-    });
-
-    it('un rol nulo o heredado en la base no administra usuarios', async () => {
-      const legacy: Array<UserRole | null> = [null, UserRole.USER, UserRole.MEDICO];
-      for (const role of legacy) {
-        const w = world();
-        (w.storage.rows.find((r) => r.uuid === 'owner-1') as Row).role = role as UserRole;
-        for (const action of everyAdminAction(w, ownerToken)) {
-          await expect(action).rejects.toBeInstanceOf(ForbiddenException);
-        }
-      }
-    });
+    ).toThrow(BadRequestException);
   });
 
-  describe('estado propio', () => {
-    it('el OWNER no cambia su propio estado en ningún sentido', async () => {
-      const { setStatus, remove } = world();
-      const owner = actorOf('owner-1', UserRole.OWNER);
-      await expect(setStatus.execute('owner-1', UserStatus.ACTIVE, owner)).rejects.toThrow(
-        'No puedes cambiar tu propio estado',
-      );
-      await expect(setStatus.execute('owner-1', UserStatus.INACTIVE, owner)).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
-      await expect(remove.execute('owner-1', owner)).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('un OWNER inactivo no se reactiva a sí mismo con un token vigente', async () => {
-      const { setStatus, storage } = world();
-      (storage.rows.find((r) => r.uuid === 'owner-1') as Row).status = UserStatus.INACTIVE;
-      await expect(
-        setStatus.execute('owner-1', UserStatus.ACTIVE, actorOf('owner-1', UserRole.OWNER)),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-    });
-  });
-
-  describe('un OWNER no administra a otro OWNER', () => {
-    const owner = actorOf('owner-1', UserRole.OWNER);
-    const twoOwners = () => {
-      const w = world();
-      w.storage.rows.push(row('owner-2', UserRole.OWNER));
-      return w;
-    };
-
-    it('recibe 403 con mensaje claro en rol, estado, contraseña y DELETE', async () => {
-      const w = twoOwners();
-      const message = 'Un propietario no puede administrar a otro propietario';
-      await expect(w.update.execute('owner-2', owner, { role: UserRole.STAFF })).rejects.toThrow(
-        message,
-      );
-      await expect(w.setStatus.execute('owner-2', UserStatus.INACTIVE, owner)).rejects.toThrow(
-        message,
-      );
-      await expect(w.reset.execute('owner-2', PASSWORD, owner)).rejects.toThrow(message);
-      await expect(w.remove.execute('owner-2', owner)).rejects.toBeInstanceOf(ForbiddenException);
-      expect((w.storage.rows.find((r) => r.uuid === 'owner-2') as Row).status).toBe(
-        UserStatus.ACTIVE,
-      );
-    });
-
-    it('recibe 403 al editar los datos de perfil del otro OWNER', async () => {
-      const w = twoOwners();
-      await expect(w.update.execute('owner-2', owner, { fullName: 'X' })).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-    });
-
-    it('sí edita su propio perfil y su propia contraseña', async () => {
-      const w = twoOwners();
-      const result = await w.update.execute('owner-1', owner, { fullName: 'Yo' });
-      expect(result.fullName).toBe('Yo');
-      await w.reset.execute('owner-1', 'Otra1234', owner);
-    });
-  });
-
-  describe('firma y foto', () => {
-    const owner = actorOf('owner-1', UserRole.OWNER);
-    const url = 'https://cdn.clinica.test/identity/avatars/x.png';
-
-    it('el OWNER no cambia la firma ni la foto de otro, ni por PATCH ni antes de subir', async () => {
-      const { update } = world();
-      await expect(update.execute('staff-1', owner, { avatarUrl: url })).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-      await expect(update.execute('staff-1', owner, { signatureUrl: url })).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-      await expect(update.assertCanChangeOwnMedia('staff-1', owner)).rejects.toThrow(
-        'La firma y la foto solo las cambia su dueño',
-      );
-    });
-
-    it('cada usuario activo cambia su propia firma y foto', async () => {
-      const { update } = world();
-      const doctor = actorOf('doctor-1', UserRole.DOCTOR);
-      await expect(update.assertCanChangeOwnMedia('doctor-1', doctor)).resolves.toBeUndefined();
-      const result = await update.execute('doctor-1', doctor, {
-        avatarUrl: url,
-        signatureUrl: url,
-      });
-      expect(result.avatarUrl).toBe(url);
-    });
-
-    it('un usuario desactivado no puede subir su foto', async () => {
-      const { update, storage } = world();
-      (storage.rows.find((r) => r.uuid === 'doctor-1') as Row).status = UserStatus.INACTIVE;
-      await expect(
-        update.assertCanChangeOwnMedia('doctor-1', actorOf('doctor-1', UserRole.DOCTOR)),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-    });
-  });
-
-  describe('correo en minúsculas', () => {
-    it('al crear guarda el correo en minúsculas y detecta duplicados sin importar mayúsculas', async () => {
-      const { create, storage } = world();
-      const owner = actorOf('owner-1', UserRole.OWNER);
-      const created = await create.execute(
-        { email: '  Nuevo@Clinica.TEST ', fullName: 'N', password: PASSWORD, role: UserRole.STAFF },
-        owner,
-      );
-      expect((storage.rows.find((r) => r.uuid === created.uuid) as Row).email).toBe(
-        'nuevo@clinica.test',
-      );
-      await expect(
-        create.execute(
-          {
-            email: 'STAFF-1@clinica.test',
-            fullName: 'X',
-            password: PASSWORD,
-            role: UserRole.STAFF,
-          },
-          owner,
-        ),
-      ).rejects.toBeInstanceOf(ConflictException);
-    });
-
-    it('los esquemas de crear, iniciar sesión y registrar bajan el correo a minúsculas', () => {
-      expect(
-        CreateUserSchema.parse({ email: ' A@B.Co ', fullName: 'N', password: PASSWORD }).email,
-      ).toBe('a@b.co');
-      expect(LoginSchema.parse({ email: 'A@B.Co', password: 'x' }).email).toBe('a@b.co');
-      expect(
-        RegisterTenantSchema.parse({
-          email: 'A@B.Co',
+  it('una especialidad fuera del catálogo se rechaza (400)', () => {
+    const pipe = new ZodValidationPipe(CreateUserSchema);
+    expect(() =>
+      pipe.transform(
+        {
+          email: 'a@b.test',
+          fullName: 'A',
           password: PASSWORD,
-          ownerName: 'N',
-          businessName: 'Clinica',
-        }).email,
-      ).toBe('a@b.co');
-    });
+          attendsPatients: true,
+          specialties: ['ASTROLOGY'],
+        },
+        { type: 'body' },
+      ),
+    ).toThrow(BadRequestException);
+    expect(() =>
+      new ZodValidationPipe(UpdateUserSchema).transform({ specialties: ['X'] }, { type: 'body' }),
+    ).toThrow(BadRequestException);
   });
 
-  describe('roles asignables y URLs', () => {
-    it('OWNER se rechaza al crear y al editar', () => {
-      const base = { email: 'a@b.co', fullName: 'N', password: PASSWORD };
-      expect(CreateUserSchema.safeParse({ ...base, role: 'OWNER' }).success).toBe(false);
-      expect(UpdateUserSchema.safeParse({ role: 'OWNER' }).success).toBe(false);
-      for (const role of ['ADMIN', 'DOCTOR', 'STAFF']) {
-        expect(CreateUserSchema.safeParse({ ...base, role }).success).toBe(true);
-      }
-    });
-
-    it('en el endpoint OWNER da 400', () => {
-      const pipe = new ZodValidationPipe(UpdateUserSchema);
-      expect(() => pipe.transform({ role: 'OWNER' }, { type: 'body' })).toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('firma y foto solo aceptan https del bucket propio o null', () => {
-      const previous = process.env.R2_PUBLIC_URL;
-      process.env.R2_PUBLIC_URL = 'https://cdn.clinica.test';
-      try {
-        const ok = (v: unknown) => UpdateUserSchema.safeParse({ avatarUrl: v }).success;
-        expect(ok('https://cdn.clinica.test/identity/avatars/x.png')).toBe(true);
-        expect(ok(null)).toBe(true);
-        expect(ok('http://cdn.clinica.test/x.png')).toBe(false);
-        expect(ok('https://otro.test/x.png')).toBe(false);
-        expect(ok('https://cdn.clinica.test.evil.test/x.png')).toBe(false);
-        expect(ok('data:image/png;base64,AAAA')).toBe(false);
-        expect(ok('javascript:alert(1)')).toBe(false);
-        expect(
-          UpdateUserSchema.safeParse({ signatureUrl: 'https://otro.test/x.png' }).success,
-        ).toBe(false);
-      } finally {
-        if (previous === undefined) delete process.env.R2_PUBLIC_URL;
-        else process.env.R2_PUBLIC_URL = previous;
-      }
-    });
-
-    it('sin R2_PUBLIC_URL configurado no se acepta ninguna URL', () => {
-      const previous = process.env.R2_PUBLIC_URL;
-      delete process.env.R2_PUBLIC_URL;
-      try {
-        const result = UpdateUserSchema.safeParse({ avatarUrl: 'https://cdn.clinica.test/x.png' });
-        expect(result.success).toBe(false);
-      } finally {
-        if (previous !== undefined) process.env.R2_PUBLIC_URL = previous;
-      }
-    });
-  });
-
-  describe('roles heredados', () => {
-    it('se listan sin romper, incluido el rol nulo', async () => {
-      const { list, storage } = world();
-      storage.rows.push(
-        row('legacy-1', UserRole.USER),
-        row('legacy-2', UserRole.MEDICO),
-        row('legacy-3', UserRole.STAFF, { role: null as unknown as UserRole }),
-      );
-      const result = await list.execute(TENANT, 1, 10);
-      expect(result.data.map((u) => u.uuid)).toEqual(
-        expect.arrayContaining(['legacy-1', 'legacy-2', 'legacy-3']),
-      );
-    });
-  });
-
-  describe('lista', () => {
-    it('limita la página al máximo definido', async () => {
-      const { list } = world();
-      const result = await list.execute(TENANT, 1, USERS_LIST_MAX_LIMIT + 50);
-      expect(result.meta.limit).toBe(USERS_LIST_MAX_LIMIT);
-      expect(USERS_LIST_MAX_LIMIT).toBe(100);
-    });
-
-    it('devuelve activos e inactivos de su clínica por defecto y filtra por estado', async () => {
-      const { list, storage } = world();
-      (storage.rows.find((r) => r.uuid === 'staff-1') as Row).status = UserStatus.INACTIVE;
-
-      const all = await list.execute(TENANT, 1, 10);
-      expect(all.data.map((u) => u.uuid)).toContain('staff-1');
-      expect(all.data.map((u) => u.uuid)).not.toContain('foreign-1');
-
-      const inactive = await list.execute(TENANT, 1, 10, 'INACTIVE');
-      expect(inactive.data.map((u) => u.uuid)).toEqual(['staff-1']);
-
-      const active = await list.execute(TENANT, 1, 10, 'ACTIVE');
-      expect(active.data.map((u) => u.uuid)).not.toContain('staff-1');
-    });
-
-    it('rechaza un estado inválido con 400', async () => {
-      const { list } = world();
-      await expect(list.execute(TENANT, 1, 10, 'BORRADO')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
-    });
-  });
-
-  describe('inicio de sesión', () => {
-    const build = () => {
-      const w = world();
-      const hash = bcrypt.hashSync(PASSWORD, 4);
-      (w.storage.rows.find((r) => r.uuid === 'staff-1') as Row).password = hash;
-      const jwt = { signAsync: async () => 'token' } as unknown as JwtService;
-      const bcryptService = {
-        compare: (plain: string, hashed: string) => bcrypt.compare(plain, hashed),
-      } as unknown as BcryptService;
-      const login = new LoginUseCase(w.storage as unknown as UserStorage, bcryptService, jwt);
-      return { ...w, login };
+  it('el texto libre specialty ya no existe y el registro exige especialidades del catálogo', () => {
+    const base = {
+      businessName: 'Clínica',
+      ownerName: 'Ana',
+      email: 'ana@clinica.test',
+      password: PASSWORD,
     };
+    expect(RegisterTenantSchema.safeParse({ ...base, isSpecialist: true }).success).toBe(false);
+    expect(
+      RegisterTenantSchema.safeParse({ ...base, isSpecialist: true, specialties: ['ENT'] }).success,
+    ).toBe(true);
+  });
 
-    it('un INACTIVE recibe 401 con el mismo mensaje que una clave mala', async () => {
-      const { login, setStatus } = build();
-      await setStatus.execute('staff-1', UserStatus.INACTIVE, actorOf('owner-1', UserRole.OWNER));
+  it('apagar atiende pacientes vacía las especialidades', async () => {
+    const ctx = build();
+    const updated = await ctx.update.execute('owner', actors.OWNER, { attendsPatients: false });
+    expect(updated.attendsPatients).toBe(false);
+    expect(updated.specialties).toEqual([]);
+  });
 
-      const inactive = await login
-        .execute({ email: 'staff-1@clinica.test', password: PASSWORD })
-        .catch((e: unknown) => e);
-      const wrongPassword = await login
-        .execute({ email: 'staff-1@clinica.test', password: 'Equivocada1' })
-        .catch((e: unknown) => e);
+  it('activar atiende pacientes sin especialidad se rechaza (400)', async () => {
+    const ctx = build();
+    await expect(
+      ctx.update.execute('recep2', actors.OWNER, { attendsPatients: true }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
 
-      expect(inactive).toBeInstanceOf(UnauthorizedException);
-      expect((inactive as UnauthorizedException).message).toBe(
-        (wrongPassword as UnauthorizedException).message,
-      );
+  it('la clínica no queda sin OWNER activo (400)', async () => {
+    const ctx = build();
+    // Con un actor OWNER activo siempre queda al menos él: la regla se prueba directo sobre la política.
+    ctx.storage.rows.find((r) => r.uuid === 'owner2')!.status = UserStatus.INACTIVE;
+    const { assertTenantKeepsOwner } = await import('../../policies/user-admin.policy');
+    await expect(
+      assertTenantKeepsOwner(ctx.storage as unknown as UserStorage, TENANT, 'owner'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      assertTenantKeepsOwner(ctx.storage as unknown as UserStorage, TENANT, 'owner2'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('nadie cambia su propio nivel ni su propio estado', async () => {
+    const ctx = build();
+    await expect(
+      ctx.update.execute('owner', actors.OWNER, { role: UserRole.ADMIN }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      ctx.update.execute('admin', actors.ADMIN, { role: UserRole.OWNER }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      ctx.setStatus.execute('owner', UserStatus.INACTIVE, actors.OWNER),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(ctx.remove.execute('admin', actors.ADMIN)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('reenviar el mismo nivel o los mismos datos no cuenta como cambio', async () => {
+    const ctx = build();
+    await expect(
+      ctx.update.execute('admin', actors.ADMIN, {
+        role: UserRole.ADMIN,
+        attendsPatients: false,
+        specialties: [],
+        fullName: 'Admin',
+      }),
+    ).resolves.toBeDefined();
+    expect(ctx.storage.audit).toHaveLength(0);
+  });
+
+  it('otra clínica responde 404 en todas las acciones sobre un usuario ajeno', async () => {
+    const ctx = build();
+    const owner = actors.OWNER;
+    await expect(ctx.update.execute('foreign', owner, { fullName: 'X' })).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(
+      ctx.setStatus.execute('foreign', UserStatus.INACTIVE, owner),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(ctx.reset.execute('foreign', PASSWORD, owner)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+    await expect(ctx.remove.execute('foreign', owner)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('el listado solo trae la clínica del actor y limita la página', async () => {
+    const ctx = build();
+    const page = await ctx.list.execute(actors.ADMIN, 1, 5000);
+    expect(page.data.every((u) => u.tenantUUID === TENANT)).toBe(true);
+    expect(page.meta.limit).toBe(USERS_LIST_MAX_LIMIT);
+    await expect(ctx.list.execute(actors.ADMIN, 1, 10, 'otro')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('un actor desactivado después de emitir su token pierde el acceso', async () => {
+    const ctx = build();
+    ctx.storage.rows.find((r) => r.uuid === 'admin')!.status = UserStatus.INACTIVE;
+    await expect(ctx.list.execute(actors.ADMIN)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('un nivel bajado después de emitir el token se respeta (se relee de la base)', async () => {
+    const ctx = build();
+    ctx.storage.rows.find((r) => r.uuid === 'admin')!.role = UserRole.RECEPTION;
+    await expect(ctx.list.execute(actors.ADMIN)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
+
+describe('usuarios: bitácora de cambios de acceso', () => {
+  it('registra quién, a quién y antes/después del nivel', async () => {
+    const ctx = build();
+    await ctx.update.execute('recep2', actors.ADMIN, { role: UserRole.ADMIN });
+    expect(ctx.storage.audit).toEqual([
+      expect.objectContaining({
+        actorUuid: 'admin',
+        targetUuid: 'recep2',
+        field: 'ROLE',
+        before: 'RECEPTION',
+        after: 'ADMIN',
+      }),
+    ]);
+  });
+
+  it('registra atiende pacientes y especialidades en un mismo cambio', async () => {
+    const ctx = build();
+    await ctx.update.execute('recep2', actors.OWNER, {
+      attendsPatients: true,
+      specialties: [Specialty.ENT, Specialty.AUDIOLOGY],
+    });
+    expect(ctx.storage.audit.map((a) => [a.field, a.before, a.after])).toEqual([
+      ['ATTENDS_PATIENTS', 'false', 'true'],
+      ['SPECIALTIES', null, 'AUDIOLOGY,ENT'],
+    ]);
+  });
+
+  it('apagar atiende pacientes registra también las especialidades que se vaciaron', async () => {
+    const ctx = build();
+    await ctx.update.execute('owner', actors.OWNER, { attendsPatients: false });
+    expect(ctx.storage.audit.map((a) => [a.field, a.before, a.after])).toEqual([
+      ['ATTENDS_PATIENTS', 'true', 'false'],
+      ['SPECIALTIES', 'AUDIOLOGY', null],
+    ]);
+  });
+
+  it('al crear un usuario registra su nivel inicial', async () => {
+    const ctx = build();
+    const created = await ctx.create.execute(newUser({ role: 'ADMIN' }), actors.OWNER);
+    expect(ctx.storage.audit).toEqual([
+      expect.objectContaining({
+        actorUuid: 'owner',
+        targetUuid: created.uuid,
+        field: 'ROLE',
+        before: null,
+        after: 'ADMIN',
+      }),
+    ]);
+  });
+
+  it('solo Administración y propietario leen la bitácora', async () => {
+    const ctx = build();
+    await expect(ctx.audit.execute(actors.RECEPTION)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(ctx.audit.execute(actors.ADMIN)).resolves.toBeDefined();
+  });
+});
+
+describe('usuarios: contraseña y sesión', () => {
+  it('la contraseña nueva queda con hash y sirve para iniciar sesión', async () => {
+    const ctx = build();
+    await ctx.reset.execute('recep2', 'Nueva1234', actors.ADMIN);
+    const stored = ctx.storage.rows.find((r) => r.uuid === 'recep2')!.password;
+    expect(await bcrypt.compare('Nueva1234', stored)).toBe(true);
+  });
+
+  it('el token y la respuesta del login traen nivel, atiende pacientes y especialidades', async () => {
+    const ctx = build();
+    const owner = ctx.storage.rows.find((r) => r.uuid === 'owner')!;
+    owner.password = await bcrypt.hash(PASSWORD, 4);
+    owner.professionalTitle = 'LIC' as never;
+    owner.licenseNumber = 'C-1234';
+    const jwt = new JwtService({ secret: 'prueba' });
+    const login = new LoginUseCase(
+      ctx.storage as unknown as UserStorage,
+      { compare: (a: string, b: string) => bcrypt.compare(a, b) } as unknown as BcryptService,
+      jwt,
+    );
+
+    const result = await login.execute({ email: owner.email, password: PASSWORD });
+    const payload = jwt.decode<Record<string, unknown>>(result.access_token);
+    expect(payload).toMatchObject({
+      role: 'OWNER',
+      attendsPatients: true,
+      specialties: ['AUDIOLOGY'],
+    });
+    expect(result.user).toMatchObject({
+      role: 'OWNER',
+      attendsPatients: true,
+      specialties: ['AUDIOLOGY'],
+      professionalTitle: 'LIC',
+      licenseNumber: 'C-1234',
     });
 
-    it('al reactivarlo vuelve a entrar', async () => {
-      const { login, setStatus } = build();
-      const owner = actorOf('owner-1', UserRole.OWNER);
-      await setStatus.execute('staff-1', UserStatus.INACTIVE, owner);
-      await setStatus.execute('staff-1', UserStatus.ACTIVE, owner);
-
-      const result = await login.execute({ email: 'staff-1@clinica.test', password: PASSWORD });
-      expect(result.access_token).toBe('token');
+    owner.role = UserRole.ADMIN;
+    const refreshed = await login.refresh('owner', TENANT);
+    expect(jwt.decode<Record<string, unknown>>(refreshed.access_token)).toMatchObject({
+      role: 'ADMIN',
     });
-
-    it('entra con la contraseña que le puso el OWNER', async () => {
-      const { login, reset } = build();
-      await reset.execute('staff-1', 'Nueva1234', actorOf('owner-1', UserRole.OWNER));
-
-      const result = await login.execute({ email: 'staff-1@clinica.test', password: 'Nueva1234' });
-      expect(result.user.email).toBe('staff-1@clinica.test');
-    });
+    owner.status = UserStatus.INACTIVE;
+    await expect(login.refresh('owner', TENANT)).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

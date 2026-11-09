@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserStorage } from '../../../infrastructure/adapters/user.storage';
-import { assertTargetNotOtherOwner, resolveUserAdmin } from '../../policies/user-admin.policy';
-import { UserActor, UserDomain, UserStatus } from '../../types/user.types';
+import {
+  assertCanManageTarget,
+  assertTenantKeepsOwner,
+  resolveUserAdmin,
+} from '../../policies/user-admin.policy';
+import { UserActor, UserDomain, UserRole, UserStatus } from '../../types/user.types';
 
 @Injectable()
 export class SetUserStatusUseCase {
@@ -17,7 +21,11 @@ export class SetUserStatusUseCase {
     const existing = await this.userStorage.findByUuidAndTenant(uuid, actor.tenantUuid);
     if (!existing) throw new NotFoundException('Usuario no encontrado');
 
-    assertTargetNotOtherOwner(admin, existing);
+    assertCanManageTarget(admin, existing);
+
+    if (status === UserStatus.INACTIVE && existing.role === UserRole.OWNER) {
+      await assertTenantKeepsOwner(this.userStorage, actor.tenantUuid, existing.uuid);
+    }
 
     await this.userStorage.updateStatus(uuid, status);
     return { ...existing, status };

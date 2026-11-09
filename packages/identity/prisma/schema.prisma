@@ -36,10 +36,13 @@ model User {
   email       String   @unique
   name        String   
   password    String
-  role String? @default("STAFF")
+  role String? @default("RECEPTION")
   status      Status   @default(ACTIVE)
   
-  specialty     String?
+  attendsPatients Boolean  @default(false)
+  specialties     String[] @default([])
+  professionalTitle String?
+  licenseNumber     String?
   avatarUrl     String?
   signatureUrl  String?
   phoneNumber   String?
@@ -52,3 +55,19 @@ model User {
   updatedAt   DateTime @updatedAt
 }
 
+model UserAudit {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  tenantUUID String
+  actorUuid  String
+  actorName  String
+  targetUuid String
+  targetName String
+  field      String
+  before     String?
+  after      String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantUUID, createdAt])
+  @@index([targetUuid])
+}

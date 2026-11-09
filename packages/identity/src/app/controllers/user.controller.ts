@@ -30,7 +30,15 @@ import {
   ResetUserPasswordDto,
   ResetUserPasswordSchema,
 } from '../../domain/dtos/reset-user-password.dto';
-import { UserDomain } from '../../domain/types/user.types';
+import { GetUserAuditUseCase } from '../../domain/use-cases/users/get-user-audit.use-case';
+import {
+  ADMIN_ASSIGNABLE_ROLES,
+  ASSIGNABLE_USER_ROLES,
+  ProfessionalTitle,
+  Specialty,
+  UserAuditEntry,
+  UserDomain,
+} from '../../domain/types/user.types';
 import { PaginatedResponse } from '../../domain/types/pagination.types';
 import { toUserActor } from '../utils/user-actor.util';
 
@@ -45,6 +53,7 @@ export class UserController {
     private readonly deleteUserUseCase: DeleteUserUseCase,
     private readonly setUserStatusUseCase: SetUserStatusUseCase,
     private readonly resetUserPasswordUseCase: ResetUserPasswordUseCase,
+    private readonly getUserAuditUseCase: GetUserAuditUseCase,
   ) {}
 
   @Post()
@@ -63,10 +72,40 @@ export class UserController {
     @Query('status') status?: string,
   ): Promise<PaginatedResponse<UserDomain>> {
     return await this.getUsersUseCase.execute(
-      currentUser.tenantUuid,
+      toUserActor(currentUser),
       Number(page),
       Number(limit),
       status,
+    );
+  }
+
+  @Get('catalogs')
+  getCatalogs(): {
+    roles: readonly string[];
+    adminAssignableRoles: readonly string[];
+    specialties: string[];
+    professionalTitles: string[];
+  } {
+    return {
+      roles: ASSIGNABLE_USER_ROLES,
+      adminAssignableRoles: ADMIN_ASSIGNABLE_ROLES,
+      specialties: Object.values(Specialty),
+      professionalTitles: Object.values(ProfessionalTitle),
+    };
+  }
+
+  @Get('audit')
+  async findAudit(
+    @CurrentUser() currentUser: JwtPayload,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '20',
+    @Query('targetUuid') targetUuid?: string,
+  ): Promise<PaginatedResponse<UserAuditEntry>> {
+    return await this.getUserAuditUseCase.execute(
+      toUserActor(currentUser),
+      Number(page),
+      Number(limit),
+      targetUuid,
     );
   }
 

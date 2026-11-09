@@ -49,7 +49,8 @@ export class RegisterTenantUseCase {
             tenant: { connect: { id: tenant.id } },
             tenantUUID: tenant.uuid,
             ...(dto.phone && { phoneNumber: dto.phone }),
-            ...(dto.isSpecialist && dto.specialty && { specialty: dto.specialty }),
+            attendsPatients: dto.isSpecialist,
+            specialties: dto.isSpecialist ? dto.specialties : [],
           },
           tx,
         );

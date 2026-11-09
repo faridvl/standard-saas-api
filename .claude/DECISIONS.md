@@ -161,3 +161,12 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - Sin movimiento excluye `isActive = false`, `deletedAt` y `status` distinto de ACTIVE (inactivos y fallecidos).
 - `GET /patients/stale` responde `[{ uuid, fullName, lastMovementAt }]` sin paginar, del más antiguo al más reciente; se declara antes de `/:uuid` para que no lo capture.
 - Prioridad: solo marca y filtro (`prioritySince`), no altera el orden de la lista. Migración sin backfill.
+
+## Niveles de acceso y atiende pacientes
+
+- Se reutiliza la columna `role` para el nivel; no hay columna nueva.
+- Bitácora en tabla `UserAudit`, escrita en la misma transacción que el cambio; incluye el nivel inicial al crear.
+- El actor se relee de la base en cada acción (activo y nivel vigente); el JWT no decide permisos de administración.
+- Los cambios de acceso aplican en el JWT al renovarlo (1 h) o antes con `POST /auth/refresh`.
+- medical-records sigue usando los roles viejos (`CLINICAL_ACCESS_ROLES`, `@Roles`): queda para el siguiente encargo.
+- La variable de plantilla "profesional" se resuelve en el front, no en el API.

@@ -1177,3 +1177,22 @@ Variables permitidas (constante `DOCUMENT_TEMPLATE_VARIABLES` en `domain/types/d
 ```
 
 Errores: 400 body inválido o variable desconocida (el mensaje nombra las claves, p. ej. `{{cedula}}`), 401 sin token, 403 `STAFF` al escribir, 404 plantilla inexistente o de otro negocio, 409 nombre repetido en el negocio (sin distinguir mayúsculas).
+
+## Niveles de acceso y atiende pacientes (identity)
+
+Nivel: `RECEPTION` | `ADMIN` | `OWNER` (campo `role`). `attendsPatients` (bool) y `specialties` (catálogo `AUDIOLOGY`, `ENT`, `SPEECH_THERAPY`, `GENERAL_MEDICINE`). `professionalTitle` (`LIC`, `LICDA`, `MSC`, `DR`, `DRA`) y `licenseNumber`.
+
+| Método y ruta | Quién | Notas |
+|---|---|---|
+| `GET /users/catalogs` | Cualquier usuario | `{ roles, adminAssignableRoles, specialties, professionalTitles }` |
+| `GET /users` | ADMIN, OWNER | 403 a RECEPTION |
+| `POST /users` | ADMIN, OWNER | `role` OWNER, `attendsPatients` o `specialties` solo OWNER (ADMIN recibe 403) |
+| `PATCH /users/:uuid` | ADMIN, OWNER; título y colegiado solo el propio usuario | Nivel: ADMIN asigna RECEPTION/ADMIN; OWNER da o quita OWNER. `attendsPatients` y `specialties` solo OWNER. Nadie cambia su propio nivel (400). Otro OWNER solo lo toca un OWNER (403). |
+| `PATCH /users/:uuid/status`, `DELETE /users/:uuid` | ADMIN, OWNER | Propio estado 400; último OWNER activo 400 |
+| `PUT /users/:uuid/password` | ADMIN, OWNER | A un OWNER solo otro OWNER |
+| `GET /users/audit?page&limit&targetUuid` | ADMIN, OWNER | Bitácora: `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field` (`ROLE`, `ATTENDS_PATIENTS`, `SPECIALTIES`), `before`, `after`, `createdAt` |
+| `POST /auth/refresh` | Con token | Relee la base y reemite token y `user` con el acceso actual |
+
+Errores: 400 atiende pacientes sin especialidad, especialidad o título fuera de catálogo, cambio de nivel o estado propio, último OWNER; 403 sin nivel suficiente; 404 usuario de otra clínica.
+`GET /auth/me` devuelve `{ user, tenant }`; `user` trae `role`, `attendsPatients`, `specialties`, `professionalTitle`, `licenseNumber`. Login devuelve esos campos en `user`. JWT: `role`, `attendsPatients`, `specialties`.
+Se quitó el texto libre `specialty` (también en `POST /auth/register`: ahora `specialties[]`).

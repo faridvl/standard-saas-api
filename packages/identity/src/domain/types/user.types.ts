@@ -1,26 +1,35 @@
-export type CreateUserPersistence = {
-  email: string;
-  name: string;
-  password: string;
-  role: UserRole;
-  tenantId: number;
-  tenantUUID: string;
-  specialty?: string | null;
-  phoneNumber?: string | null;
-  avatarUrl?: string | null;
-};
-
+/** Nivel de acceso, acumulativo: RECEPTION < ADMIN < OWNER. Vive en la columna `User.role`. */
 export enum UserRole {
-  OWNER = 'OWNER',
+  RECEPTION = 'RECEPTION',
   ADMIN = 'ADMIN',
-  DOCTOR = 'DOCTOR',
-  STAFF = 'STAFF',
-  USER = 'USER',
-  MEDICO = 'MEDICO',
+  OWNER = 'OWNER',
 }
 
-/** Roles que se pueden asignar; OWNER nace solo al registrar la clínica y USER y MEDICO quedan por compatibilidad con datos viejos. */
-export const ASSIGNABLE_USER_ROLES = [UserRole.ADMIN, UserRole.DOCTOR, UserRole.STAFF] as const;
+/** Niveles que puede asignar Administración; OWNER lo da solo un OWNER. */
+export const ADMIN_ASSIGNABLE_ROLES = [UserRole.RECEPTION, UserRole.ADMIN] as const;
+export const ASSIGNABLE_USER_ROLES = [UserRole.RECEPTION, UserRole.ADMIN, UserRole.OWNER] as const;
+
+/** Catálogo fijo de la plataforma; los nombres visibles los pone el front. */
+export enum Specialty {
+  AUDIOLOGY = 'AUDIOLOGY',
+  ENT = 'ENT',
+  SPEECH_THERAPY = 'SPEECH_THERAPY',
+  GENERAL_MEDICINE = 'GENERAL_MEDICINE',
+}
+
+export enum ProfessionalTitle {
+  LIC = 'LIC',
+  LICDA = 'LICDA',
+  MSC = 'MSC',
+  DR = 'DR',
+  DRA = 'DRA',
+}
+
+export enum UserAuditField {
+  ROLE = 'ROLE',
+  ATTENDS_PATIENTS = 'ATTENDS_PATIENTS',
+  SPECIALTIES = 'SPECIALTIES',
+}
 
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
@@ -48,10 +57,34 @@ export type UserDomain = {
   role?: UserRole | null;
   tenantId: number;
   tenantUUID?: string | null;
-  specialty?: string | null;
+  attendsPatients: boolean;
+  specialties: Specialty[];
+  professionalTitle?: ProfessionalTitle | null;
+  licenseNumber?: string | null;
   avatarUrl?: string | null;
   signatureUrl?: string | null;
   phoneNumber?: string | null;
   status: UserStatus;
   createdAt: Date;
+};
+
+export type UserAuditEntry = {
+  uuid: string;
+  actorUuid: string;
+  actorName: string;
+  targetUuid: string;
+  targetName: string;
+  field: UserAuditField;
+  before: string | null;
+  after: string | null;
+  createdAt: Date;
+};
+
+/** Cambio por registrar; la fecha, el uuid y el usuario afectado los completa el storage. */
+export type UserAuditChange = {
+  actorUuid: string;
+  actorName: string;
+  field: UserAuditField;
+  before: string | null;
+  after: string | null;
 };

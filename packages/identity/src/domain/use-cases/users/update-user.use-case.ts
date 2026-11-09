@@ -5,13 +5,19 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserStorage, UpdateUserParams } from '../../../infrastructure/adapters/user.storage';
+import { ATTENDS_PATIENTS_NEEDS_SPECIALTY_MESSAGE } from '../../validations/professional.schema';
 import {
+  OWNER_ONLY_MESSAGE,
   OWN_MEDIA_ONLY_MESSAGE,
+  OWN_PROFESSIONAL_ONLY_MESSAGE,
   assertCanAdministerUsers,
-  assertTargetNotOtherOwner,
+  assertCanManageTarget,
+  assertTenantKeepsOwner,
+  isOwner,
   resolveActiveActor,
 } from '../../policies/user-admin.policy';
-import { UserActor, UserDomain } from '../../types/user.types';
+import { diffAccess, sameSpecialties } from '../../utils/user-audit.util';
+import { UserActor, UserDomain, UserRole } from '../../types/user.types';
 
 export type UpdateUserData = UpdateUserParams;
 
@@ -33,11 +39,6 @@ export class UpdateUserUseCase {
       throw new ForbiddenException(OWN_MEDIA_ONLY_MESSAGE);
     }
 
-    if (data.role !== undefined) {
-      assertCanAdministerUsers(current);
-      if (isSelf) throw new BadRequestException('No puedes cambiar tu propio rol');
-    }
-
     if (!isSelf) assertCanAdministerUsers(current);
 
     const existing = isSelf
@@ -45,8 +46,49 @@ export class UpdateUserUseCase {
       : await this.userStorage.findByUuidAndTenant(uuid, actor.tenantUuid);
     if (!existing) throw new NotFoundException('Usuario no encontrado');
 
-    assertTargetNotOtherOwner(current, existing);
+    if (!isSelf) assertCanManageTarget(current, existing);
 
-    return await this.userStorage.update(uuid, data);
+    // Se compara con el valor actual para que un formulario que reenvía lo mismo no falle.
+    const titleChanged =
+      data.professionalTitle !== undefined &&
+      (data.professionalTitle ?? null) !== (existing.professionalTitle ?? null);
+    const licenseChanged =
+      data.licenseNumber !== undefined &&
+      (data.licenseNumber ?? null) !== (existing.licenseNumber ?? null);
+    if ((titleChanged || licenseChanged) && !isSelf) {
+      throw new ForbiddenException(OWN_PROFESSIONAL_ONLY_MESSAGE);
+    }
+
+    const roleChanged = data.role !== undefined && data.role !== existing.role;
+    if (roleChanged) {
+      assertCanAdministerUsers(current);
+      if (isSelf) throw new BadRequestException('No puedes cambiar tu propio nivel de acceso');
+      const touchesOwnerLevel = data.role === UserRole.OWNER || existing.role === UserRole.OWNER;
+      if (touchesOwnerLevel && !isOwner(current)) throw new ForbiddenException(OWNER_ONLY_MESSAGE);
+    }
+
+    const attendsChanged =
+      data.attendsPatients !== undefined && data.attendsPatients !== existing.attendsPatients;
+    const specialtiesChanged =
+      data.specialties !== undefined && !sameSpecialties(data.specialties, existing.specialties);
+    if ((attendsChanged || specialtiesChanged) && !isOwner(current)) {
+      throw new ForbiddenException(OWNER_ONLY_MESSAGE);
+    }
+
+    const attendsPatients = data.attendsPatients ?? existing.attendsPatients;
+    let specialties = data.specialties ?? existing.specialties;
+    if (!attendsPatients) specialties = [];
+    else if (specialties.length === 0) {
+      throw new BadRequestException(ATTENDS_PATIENTS_NEEDS_SPECIALTY_MESSAGE);
+    }
+
+    if (roleChanged && existing.role === UserRole.OWNER) {
+      await assertTenantKeepsOwner(this.userStorage, actor.tenantUuid, existing.uuid);
+    }
+
+    const role = data.role ?? existing.role;
+    const audit = diffAccess(current, existing, { role, attendsPatients, specialties });
+
+    return await this.userStorage.update(uuid, { ...data, attendsPatients, specialties }, audit);
   }
 }

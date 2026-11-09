@@ -4,5 +4,7 @@ export interface JwtPayload {
   role?: string | null;
   tenantId: number;
   tenantUuid: string;
-  specialty?: string | null;
+  /** Se fija al emitir el token: un cambio de acceso aplica al renovarlo (POST /auth/refresh o nuevo login). */
+  attendsPatients?: boolean;
+  specialties?: string[];
 }

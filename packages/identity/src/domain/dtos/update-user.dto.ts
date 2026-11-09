@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { ASSIGNABLE_USER_ROLES } from '../types/user.types';
 import { isOwnBucketUrl } from '../utils/bucket-url.util';
+import {
+  licenseNumberSchema,
+  professionalTitleSchema,
+  specialtiesSchema,
+} from '../validations/professional.schema';
 
 const bucketUrlSchema = z
   .string()
@@ -10,8 +15,11 @@ const bucketUrlSchema = z
 export const UpdateUserSchema = z.object({
   fullName: z.string().min(1, 'El nombre es obligatorio').optional(),
   phoneNumber: z.string().optional(),
-  specialty: z.string().optional(),
   role: z.enum(ASSIGNABLE_USER_ROLES).optional(),
+  attendsPatients: z.boolean().optional(),
+  specialties: specialtiesSchema.optional(),
+  professionalTitle: professionalTitleSchema.optional().nullable(),
+  licenseNumber: licenseNumberSchema.optional().nullable(),
   signatureUrl: bucketUrlSchema.optional().nullable(),
   avatarUrl: bucketUrlSchema.optional().nullable(),
 });

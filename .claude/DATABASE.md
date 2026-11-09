@@ -312,3 +312,9 @@ HAVING COUNT(pu.id) < p."min_stock";
 -- Users for a tenant (identity database)
 SELECT uuid, email, name, role, status FROM "User" WHERE "tenantUUID" = '<uuid>';
 ```
+
+## User: nivel de acceso y datos profesionales
+
+`User.role` ahora guarda el nivel (`RECEPTION` por defecto, `ADMIN`, `OWNER`). Columnas nuevas: `attendsPatients` (bool, false), `specialties` (TEXT[]), `professionalTitle`, `licenseNumber`. Se eliminó `specialty`. Migración `20261109120000_access_level_attends_patients`: OWNER y DOCTOR pasan a `attendsPatients=true` con `AUDIOLOGY`; OWNER y ADMIN conservan nivel; el resto queda RECEPTION.
+
+Tabla `UserAudit` (`uuid`, `tenantUUID`, `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field`, `before`, `after`, `createdAt`), escrita en la misma transacción del cambio.
