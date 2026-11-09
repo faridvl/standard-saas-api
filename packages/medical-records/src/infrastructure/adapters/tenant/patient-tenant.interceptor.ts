@@ -10,7 +10,12 @@ import { Observable } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 
 const PATIENT_PARAMS = ['patientUuid', 'patientUUID'] as const;
-const PATIENT_ROUTE_PREFIXES = ['/patients/:uuid', '/encounters/patient/', '/studies/patient/'];
+const PATIENT_ROUTE_PREFIXES = [
+  '/patients/:uuid',
+  '/encounters/patient/',
+  '/studies/patient/',
+  '/upload/patients/:uuid',
+];
 const PATIENT_ROUTE_MARKER = '/patient/:uuid';
 
 /**

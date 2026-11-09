@@ -129,7 +129,7 @@ export const ROUTES_MANIFEST: Record<string, ManifestEntry> = {
   'PATCH /product-units/:uuid': withBody({ params: { uuid: 'unit' } }, { notes: 'Hackeado' }),
   'GET /studies/patient/:uuid': patient,
   'GET /studies/:uuid': {},
-  'POST /upload/patients/:uuid/audiometrias': { exempt: PENDING_BODY },
-  'POST /upload/patients/:uuid/imagenes': { exempt: PENDING_BODY },
-  'POST /upload/patients/:uuid/informes': { exempt: PENDING_BODY },
+  'POST /upload/patients/:uuid/audiometrias': patient,
+  'POST /upload/patients/:uuid/imagenes': patient,
+  'POST /upload/patients/:uuid/informes': patient,
 };

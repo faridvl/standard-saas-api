@@ -35,6 +35,7 @@ describeIfEnabled('aislamiento por clínica: sondas HTTP con el token de otra cl
   let tokenA: string;
   let tokenB: string;
   const seed = {} as Record<SeedKey, string>;
+  let encounterA: string;
 
   const sign = (tenantUuid: string, tenantId: number): string =>
     new JwtService({ secret: process.env.JWT_SECRET }).sign(
@@ -146,10 +147,24 @@ describeIfEnabled('aislamiento por clínica: sondas HTTP con el token de otra cl
         },
       })
     ).uuid;
+    encounterA = (
+      await prisma.encounter.create({
+        data: {
+          patientUuid: patient.uuid,
+          tenantUuid: TENANT_A,
+          autorUuid: randomUUID(),
+          especialidad: 'AUDIOLOGY',
+        },
+      })
+    ).uuid;
   });
 
   afterAll(async () => {
     if (!prisma) return;
+    await prisma.study.deleteMany({ where: { tenantUuid: { in: [TENANT_A, TENANT_B] } } });
+    await prisma.maintenance.deleteMany({ where: { tenantUuid: { in: [TENANT_A, TENANT_B] } } });
+    await prisma.encounter.deleteMany({ where: { tenantUuid: { in: [TENANT_A, TENANT_B] } } });
+    await prisma.patient.deleteMany({ where: { tenantUuid: TENANT_B } });
     await prisma.appointment.deleteMany({ where: { tenantUUID: TENANT_A } });
     await prisma.appointmentType.deleteMany({ where: { tenantUUID: TENANT_A } });
     await prisma.medicalControl.deleteMany({ where: { tenantUUID: TENANT_A } });
@@ -233,5 +248,78 @@ describeIfEnabled('aislamiento por clínica: sondas HTTP con el token de otra cl
     });
     expect(response.status).toBe(404);
     expect(await snapshot()).toBe(before);
+  });
+
+  describe('ids en el cuerpo que pertenecen a otra clínica', () => {
+    let patientB: string;
+
+    beforeAll(async () => {
+      patientB = (
+        await prisma.patient.create({
+          data: {
+            firstName: 'Paciente',
+            lastName: `Cuerpo B ${SUFFIX}`,
+            tenantId: 9002,
+            tenantUuid: TENANT_B,
+            createdBy: 'aislamiento',
+          },
+        })
+      ).uuid;
+    });
+
+    const countsOfB = async (): Promise<number[]> => [
+      await prisma.encounter.count({ where: { tenantUuid: TENANT_B } }),
+      await prisma.maintenance.count({ where: { tenantUuid: TENANT_B } }),
+      await prisma.study.count({ where: { tenantUuid: TENANT_B } }),
+    ];
+
+    const cases: Array<[string, string, () => Record<string, unknown>]> = [
+      [
+        'POST /encounters con la cita de otra clínica',
+        '/encounters',
+        () => ({
+          patientUuid: patientB,
+          especialidad: 'AUDIOLOGY',
+          appointmentUuid: seed.appointment,
+        }),
+      ],
+      [
+        'POST /encounters con el paciente de otra clínica',
+        '/encounters',
+        () => ({ patientUuid: seed.patient, especialidad: 'AUDIOLOGY' }),
+      ],
+      [
+        'POST /maintenance con el dispositivo de otra clínica',
+        '/maintenance',
+        () => ({ patientUuid: patientB, description: 'Limpieza', deviceUuid: seed.device }),
+      ],
+      [
+        'POST /maintenance con el encuentro de otra clínica',
+        '/maintenance',
+        () => ({ patientUuid: patientB, description: 'Limpieza', encounterUuid: encounterA }),
+      ],
+      [
+        'POST /studies con el encuentro de otra clínica',
+        '/studies',
+        () => ({
+          patientUuid: patientB,
+          encounterUuid: encounterA,
+          tipo: 'AUDIOMETRIA_TONAL',
+          payload: {},
+        }),
+      ],
+    ];
+
+    it.each(cases)('%s da 404 y no crea nada', async (_name, path, body) => {
+      const before = await countsOfB();
+      const response = await call('POST', path, tokenB, body());
+      expect(response.status).toBe(404);
+      expect(await countsOfB()).toEqual(before);
+    });
+
+    it('GET /encounters/:uuid de la clínica dueña no mezcla hijos de otra clínica', async () => {
+      const response = await call('GET', `/encounters/${encounterA}`, tokenA);
+      expect(response.status).toBe(200);
+    });
   });
 });
