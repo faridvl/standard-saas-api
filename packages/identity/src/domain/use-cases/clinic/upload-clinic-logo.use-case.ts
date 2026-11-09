@@ -5,6 +5,7 @@ import { CLINIC_LOGO_MAX_BYTES, ClinicDomain } from '../../types/clinic.types';
 import {
   buildClinicLogoKey,
   CLINIC_LOGO_FORMAT_ERROR,
+  clinicLogoDisposition,
   detectClinicLogoFormat,
   toClinicDomain,
 } from '../../utils/clinic-logo.util';
@@ -40,12 +41,17 @@ export class UploadClinicLogoUseCase {
     if (!current) throw new NotFoundException('Clínica no encontrada');
 
     const key = buildClinicLogoKey(tenantUuid, format.extension);
-    await this.storageService.putObject(key, file.buffer, format.mimeType);
+    await this.storageService.putObject(
+      key,
+      file.buffer,
+      format.mimeType,
+      clinicLogoDisposition(format),
+    );
 
     const updated = await this.tenantStorage.setClinicLogoKey(tenantUuid, key);
     if (!updated) throw new NotFoundException('Clínica no encontrada');
 
-    if (current.logoKey) await this.deleteQuietly(current.logoKey);
+    if (current.logoKey && current.logoKey !== key) await this.deleteQuietly(current.logoKey);
     return toClinicDomain(updated, (value) => this.storageService.getPublicUrl(value));
   }
 

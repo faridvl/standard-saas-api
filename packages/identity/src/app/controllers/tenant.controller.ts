@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { assertCanManageClinic } from '../../domain/utils/clinic-permissions.util';
 import { UpdateTenantUseCase } from '../../domain/use-cases/tenants/update-tenant.use-case';
 import { UpdateTenantDto, UpdateTenantSchema } from '../../domain/dtos/update-tenant.dto';
 import { TenantDomain } from '../../domain/types/auth.types';
@@ -88,6 +89,7 @@ export class TenantController {
     @Body() dto: UpdateTenantDto,
     @CurrentUser() currentUser: JwtPayload,
   ): Promise<TenantDomain> {
+    assertCanManageClinic(currentUser.role);
     return await this.updateTenantUseCase.execute(uuid, currentUser.tenantUuid, dto);
   }
 }

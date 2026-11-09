@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { StorageService, ZodValidationPipe } from '@project/core';
 import { TenantStorage } from '../../../infrastructure/adapters/tenant.storage';
@@ -7,6 +7,7 @@ import {
   CLINIC_NAME_MAX_LENGTH,
   UpdateClinicContactSchema,
 } from '../../dtos/update-clinic-contact.dto';
+import { buildClinicLogoKey } from '../../utils/clinic-logo.util';
 import { GetClinicUseCase } from './get-clinic.use-case';
 import { UpdateClinicContactUseCase } from './update-clinic-contact.use-case';
 import { UploadClinicLogoUseCase } from './upload-clinic-logo.use-case';
@@ -73,12 +74,17 @@ class FakeTenantStorage extends TenantStorage {
 }
 
 class FakeStorageService extends StorageService {
-  objects = new Map<string, { size: number; contentType: string }>();
+  objects = new Map<string, { size: number; contentType: string; disposition?: string }>();
   deleted: string[] = [];
   failDelete = false;
 
-  putObject(key: string, body: Buffer, contentType: string): Promise<string> {
-    this.objects.set(key, { size: body.length, contentType });
+  putObject(
+    key: string,
+    body: Buffer,
+    contentType: string,
+    contentDisposition?: string,
+  ): Promise<string> {
+    this.objects.set(key, { size: body.length, contentType, disposition: contentDisposition });
     return Promise.resolve(key);
   }
 
@@ -276,6 +282,7 @@ describe('Datos de la clínica', () => {
       expect(key.endsWith(`.${ext}`)).toBe(true);
       expect(result.logoUrl).toBe(`${PUBLIC_BASE}/${key}`);
       expect(files.objects.get(key)?.contentType).toBe(mime);
+      expect(files.objects.get(key)?.disposition).toBe(ext === 'svg' ? 'attachment' : undefined);
       expect(stored?.logoUrl).toBeNull();
     });
 
@@ -322,6 +329,19 @@ describe('Datos de la clínica', () => {
         '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>',
         '<svg xmlns="http://www.w3.org/2000/svg"><a href="javascript:alert(1)"/></svg>',
         '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><x:script xmlns:x="http://www.w3.org/2000/svg">alert(1)</x:script></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><h:script xmlns:h="http://www.w3.org/1999/xhtml">alert(1)</h:script></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><h:iframe xmlns:h="http://www.w3.org/1999/xhtml"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><a xlink:href="&#106;avascript:alert(1)"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><a href="java&#9;script:alert(1)"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><a href="java\tscript:alert(1)"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><a href=" vbscript:msgbox(1)"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><image href="data:text/html,<b>x</b>"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:x="http://www.w3.org/2001/xml-events" x:onload="alert(1)"></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><circle onclick = "alert(1)"/></svg>',
+        '<svg xmlns="http://www.w3.org/2000/svg"><x:handler xmlns:x="http://www.w3.org/2001/xml-events"/></svg>',
+        '<!DOCTYPE svg [<!ENTITY a "b">]><svg xmlns="http://www.w3.org/2000/svg"></svg>',
+        '<!DOCTYPE svg><svg xmlns="http://www.w3.org/2000/svg"></svg>',
       ];
       for (const content of malicious) {
         await expect(
@@ -329,6 +349,17 @@ describe('Datos de la clínica', () => {
         ).rejects.toThrow('El SVG no puede contener scripts');
       }
       expect(files.objects.size).toBe(0);
+    });
+
+    it('acepta un SVG limpio con enlaces internos', async () => {
+      const clean =
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">' +
+        '<defs><linearGradient id="g"><stop offset="0" stop-color="#fff"/></linearGradient></defs>' +
+        '<use xlink:href="#g"/><a href="https://audiocolors.cr"><text>Audio Color</text></a></svg>';
+
+      await expect(
+        uploadLogo.execute(TENANT_A, 'OWNER', file(Buffer.from(clean))),
+      ).resolves.toBeDefined();
     });
 
     it('rechaza un archivo que dice ser imagen pero no lo es', async () => {
@@ -354,6 +385,18 @@ describe('Datos de la clínica', () => {
       expect(second).not.toBe(first);
       expect(files.deleted).toEqual([first]);
       expect(files.objects.has(second)).toBe(true);
+    });
+
+    it('no borra el objeto recién subido si la key anterior es la misma', async () => {
+      const key = buildClinicLogoKey(TENANT_A, 'png', 123);
+      storage.rows.set(TENANT_A, row({ logoKey: key }));
+      const now = jest.spyOn(Date, 'now').mockReturnValue(123);
+
+      await uploadLogo.execute(TENANT_A, 'OWNER', file(PNG));
+      now.mockRestore();
+
+      expect(files.deleted).toEqual([]);
+      expect(files.objects.has(key)).toBe(true);
     });
 
     it('si falla borrar el anterior, el reemplazo igual funciona', async () => {

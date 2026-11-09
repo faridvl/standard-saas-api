@@ -31,6 +31,7 @@ export class StorageService {
    * @param tipo         Subcarpeta: 'logos' | 'signatures' | 'audiometrias' | etc.
    * @param file         Objeto Multer
    * @param id           UUID opcional (usuario, paciente) para subcarpeta adicional
+   * @param contentDisposition  Opcional, ej. 'attachment' para que la URL directa descargue
    */
   async upload(
     api: string,
@@ -38,6 +39,7 @@ export class StorageService {
     tipo: string,
     file: Express.Multer.File,
     id?: string,
+    contentDisposition?: string,
   ): Promise<string> {
     const timestamp = Date.now();
     const ext = extname(file.originalname);
@@ -54,6 +56,7 @@ export class StorageService {
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype,
+        ...(contentDisposition && { ContentDisposition: contentDisposition }),
       }),
     );
 
@@ -61,7 +64,12 @@ export class StorageService {
   }
 
   /** Sube un objeto con una key ya decidida y devuelve la key (la URL se arma al leer). */
-  async putObject(key: string, body: Buffer, contentType: string): Promise<string> {
+  async putObject(
+    key: string,
+    body: Buffer,
+    contentType: string,
+    contentDisposition?: string,
+  ): Promise<string> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -69,6 +77,7 @@ export class StorageService {
         Body: body,
         ContentType: contentType,
         CacheControl: 'public, max-age=31536000, immutable',
+        ...(contentDisposition && { ContentDisposition: contentDisposition }),
       }),
     );
     return key;
