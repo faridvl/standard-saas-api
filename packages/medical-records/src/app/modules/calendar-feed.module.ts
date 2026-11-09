@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { UsersModule } from './users.module';
 import { CalendarFeedController } from '../controllers/calendar-feed.controller';
 import { CalendarFeedStorage } from '@medical-records/infrastructure/adapters/calendarFeedRepository/calendar-feed.storage';
 import {
@@ -20,6 +21,7 @@ const USE_CASES = [
 const STORAGES = [CalendarFeedStorage];
 
 @Module({
+  imports: [UsersModule],
   controllers: [...CONTROLLERS],
   providers: [...USE_CASES, ...STORAGES],
 })
