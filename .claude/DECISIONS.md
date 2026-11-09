@@ -9,9 +9,10 @@
   la audiometría; `GET /patients/:patientUuid/notes` lo devuelve como `string | null`. El uuid de la audiometría se genera
   en la API antes de insertar para poder armar ambas filas en un solo lote.
 - Marcar la audiometría como "mal hecha" no toca la nota.
-- La migración `20261108160000_patient_audiometry_notes_in_evolution` corre después de la de tipos (antes compartían el
-  prefijo `20261108150000`). Agrega la columna, enlaza las notas ya creadas con el texto sin tipo, les pone el texto con
-  tipo y crea la nota de las audiometrías que no tenían; se puede reaplicar sin duplicar.
+- La migración `20261108150000_patient_audiometry_notes_in_evolution` (ya en develop) no se edita: crea la nota sin tipo.
+  La migración `20261108160000_patient_note_audiometry_link` corre después de la de tipos (`20261108150000_audiometry_types`;
+  Prisma ordena por nombre de carpeta). Agrega la columna, enlaza las notas ya creadas con el texto sin tipo, les pone el
+  texto con tipo y crea la nota de las audiometrías que no tenían; se puede reaplicar sin duplicar.
 
 ## 2026-11-08 - Tipos de audiometría (clínica y de rastreo)
 

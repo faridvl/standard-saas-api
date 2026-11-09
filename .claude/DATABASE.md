@@ -281,7 +281,8 @@ expresa `lower()` en el schema); da el 409 por nombre repetido sin distinguir ma
 | 20261108130000_document_templates | Tabla DocumentTemplate (plantillas de documento por negocio) con índice único (tenantUuid, lower(name)) |
 | 20261108140000_patient_audiometry_entry_invalidation | Columnas `PatientAudiometryEntry.invalidatedAt`, `invalidatedByUuid`, `invalidationReason` (todas nulas, sin backfill) |
 | 20261108150000_audiometry_types | Tabla AudiometryType con `CLINICAL` y `SCREENING`; columna `PatientAudiometryEntry.typeCode` NOT NULL default `'CLINICAL'` (backfill de las existentes) con FK |
-| 20261108160000_patient_audiometry_notes_in_evolution | Columna `PatientNote.audiometryEntryUuid` (nula, FK a `PatientAudiometryEntry.uuid`, SET NULL) con índice; datos: enlaza las notas de audiometría ya creadas, les pone el texto con el tipo y crea la de las audiometrías que no tenían; idempotente |
+| 20261108150000_patient_audiometry_notes_in_evolution | Datos: una nota `EXTERNAL_TEST` en PatientNote por cada audiometría ya guardada, con texto sin tipo; idempotente (ya estaba en develop: no se edita) |
+| 20261108160000_patient_note_audiometry_link | Columna `PatientNote.audiometryEntryUuid` (nula, FK a `PatientAudiometryEntry.uuid`, SET NULL) con índice; datos: enlaza las notas de audiometría ya creadas, les pone el texto con el tipo y crea la de las audiometrías que no tenían; idempotente |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)
