@@ -99,30 +99,31 @@
 ---
 
 ### POST /users
-**Auth:** Required  
+**Auth:** Required. Solo OWNER (lista `USER_ADMIN_ROLES`); otro rol recibe 403.
 **Body:**
 ```json
 {
   "email": "string (email)",
   "fullName": "string",
-  "password": "string (min 8, uppercase, digit)",
-  "role": "ADMIN | DOCTOR | STAFF | USER | MEDICO (default: ADMIN)",
+  "password": "string (contraseña temporal; min 8, mayúscula y número)",
+  "role": "ADMIN | DOCTOR | STAFF (default: ADMIN)",
   "specialty": "string (optional)",
   "phoneNumber": "string (optional)"
 }
 ```
-**Response 201:** Created user domain object.  
-**Status:** Implemented. Creates user under authenticated user's tenant.
+**Response 201:** Created user domain object.
+**Errors:** 403 si no es OWNER; 409 si el email ya existe.
+**Status:** Implemented. Crea el usuario en la clínica del JWT (el cliente nunca manda tenant). Nace ACTIVE. No se puede crear otro OWNER por aquí.
 
 ---
 
 ### GET /users
-**Auth:** Required  
-**Query params:** `page` (default 1), `limit` (default 10)  
+**Auth:** Required (cualquier usuario de la clínica).
+**Query params:** `page` (default 1), `limit` (default 10), `status` = `ACTIVE | INACTIVE | ALL` (default `ALL`, el comportamiento anterior: incluye inactivos). Un valor inválido da 400.
 **Response 200:**
 ```json
 {
-  "data": [ { "uuid": "...", "email": "...", "fullName": "...", "role": "...", "tenantId": N, ... } ],
+  "data": [ { "uuid": "...", "email": "...", "fullName": "...", "role": "...", "status": "ACTIVE", "phoneNumber": "...", "tenantId": N, ... } ],
   "meta": { "total": N, "page": N, "limit": N, "totalPages": N }
 }
 ```
@@ -131,31 +132,53 @@
 ---
 
 ### GET /users/:uuid
-**Auth:** Required  
-**Response 200:** `UserDetail` — `{ uuid, fullName, email, role, specialty?, phoneNumber?, tenantId, createdAt }`  
-**Status:** Implemented. Scoped to caller's tenant.
+**Auth:** Required
+**Response 200:** `UserDetail` — `{ uuid, fullName, email, role, specialty?, phoneNumber?, tenantId, createdAt }`
+**Status:** Implemented. Scoped to caller's tenant. Devuelve también usuarios INACTIVE: medical-records lo usa para el nombre del autor de notas viejas.
 
 ---
 
 ### PATCH /users/:uuid
-**Auth:** Required  
+**Auth:** Required. El propio usuario (sin `role`) u OWNER sobre cualquier usuario de su clínica. Otro usuario sobre un tercero recibe 403.
 **Body (all optional):**
 ```json
 {
   "fullName": "string",
   "phoneNumber": "string",
-  "specialty": "string"
+  "specialty": "string",
+  "signatureUrl": "string",
+  "avatarUrl": "string",
+  "role": "ADMIN | DOCTOR | STAFF (solo OWNER, nunca sobre sí mismo)"
 }
 ```
-**Response 200:** Updated user domain object.  
-**Status:** Implemented. Email and role are not editable via this endpoint.
+**Response 200:** Updated user domain object.
+**Errors:** 403 si manda `role` sin ser OWNER; 400 si el OWNER se cambia su propio rol; 409 si quitaría el último OWNER activo; 404 si el usuario es de otra clínica.
+**Status:** Implemented. El email no es editable. Las subidas `POST /upload/users/:uuid/signature` y `/avatar` aplican la misma regla (propio usuario u OWNER).
+
+---
+
+### PATCH /users/:uuid/status
+**Auth:** Required. Solo OWNER.
+**Body:** `{ "status": "ACTIVE | INACTIVE" }`
+**Response 200:** El usuario actualizado.
+**Errors:** 403 si no es OWNER; 400 si el OWNER se desactiva a sí mismo; 409 si desactiva al último OWNER activo; 404 si es de otra clínica.
+**Status:** Implemented. Un INACTIVE no inicia sesión (401 "Credenciales inválidas") y `GET /auth/me` lo rechaza con 401. Reactivarlo le devuelve el acceso.
+
+---
+
+### PUT /users/:uuid/password
+**Auth:** Required. Solo OWNER.
+**Body:** `{ "password": "string (min 8, mayúscula y número)" }`
+**Response 204:** No content.
+**Errors:** 403 si no es OWNER; 404 si es de otra clínica.
+**Status:** Implemented. El OWNER pone la contraseña nueva a cualquier usuario de su clínica.
 
 ---
 
 ### DELETE /users/:uuid
-**Auth:** Required
+**Auth:** Required. Solo OWNER.
 **Response 204:** No content.
-**Status:** Implemented. Scoped to caller's tenant.
+**Status:** Implemented. No borra: es alias de `PATCH /users/:uuid/status` con `INACTIVE`, con las mismas reglas.
 
 ---
 

@@ -28,6 +28,7 @@
 - Medical records service: audiometría marcada como "mal hecha" — `POST /patients/:patientUuid/audiometry-entries/:entryUuid/invalidate` con `{ reason }` (obligatorio, máximo 500 caracteres), definitiva (409 si ya está marcada), el payload no cambia. Lista y detalle devuelven `invalidatedAt`, `invalidatedByUuid`, `invalidatedByName` e `invalidationReason`. Migración `20261108140000_patient_audiometry_entry_invalidation`, aplicada solo en la base local de pruebas
 - Identity service: nombre y logo de la clínica — `PATCH /tenants/current` acepta `name`; `POST` y `DELETE /tenants/current/logo` (PNG/JPG/WEBP/SVG, 2 MB, OWNER y ADMIN); `Tenant.logoKey` y `logoUrl` resuelto en `/auth/me` y `/tenants/current`. Migración `20261108150000_tenant_logo_key`
 - Identity service: datos de contacto de la clínica — `Tenant.phone/email/address`, `GET` y `PATCH /tenants/current` (escritura solo OWNER y ADMIN); variables de plantilla `otoscopia_od/oi`, `diagnostico`, `observaciones` y `clinica_*`. Migración `20261108130000_tenant_contact_fields`
+- Identity service: administración de usuarios por el OWNER — `POST /users`, `PATCH /users/:uuid` (con `role`), `PATCH /users/:uuid/status`, `PUT /users/:uuid/password`, `DELETE /users/:uuid` (desactiva) y `GET /users?status=`. Un INACTIVE no inicia sesión. Medical-records refresca la copia local del usuario cada 5 minutos. Sin migración (el enum `Status` ya existía)
 
 ## 🔄 EN PROGRESO
 

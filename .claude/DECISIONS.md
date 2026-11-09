@@ -1,5 +1,17 @@
 # Decisiones
 
+## 2026-11-08 - Administración de usuarios por el OWNER (D70)
+
+- Solo el OWNER administra usuarios, con la lista nombrada `USER_ADMIN_ROLES = [OWNER]` verificada en el servidor (`assertCanAdministerUsers`); sin permiso, 403. Roles asignables: ADMIN, DOCTOR y STAFF; no se crea otro OWNER por la API.
+- Alta con contraseña temporal escrita por el OWNER (`POST /users`), que también puede ponérsela nueva a cualquier usuario de su clínica (`PUT /users/:uuid/password`, 204). No hay correo ni enlace de recuperación.
+- No se borra: se desactiva y se reactiva (`Status` ACTIVE/INACTIVE). `DELETE /users/:uuid` es alias de desactivar. Un INACTIVE da 401 con el mismo mensaje genérico que una clave mala (no revela que la cuenta existe) y `GET /auth/me` lo rechaza.
+- Nadie se desactiva ni se cambia el rol a sí mismo (400). La clínica nunca queda sin un OWNER activo: desactivar o bajar de rol al último da 409; con dos activos sí se puede.
+- Todo se filtra por el tenant del JWT; un usuario de otra clínica da 404. El cliente nunca manda tenant.
+- Cualquier usuario edita su propio perfil (nombre, teléfono, especialidad, firma, avatar) sin `role`; con `role` recibe 403. Las subidas de firma y avatar aplican la misma regla (antes cualquiera podía subir la de otro).
+- `GET /users` sin `status` devuelve todos (ALL), el comportamiento anterior. `PATCH /users/:uuid/status` responde 200 con el usuario actualizado.
+- Token ya emitido: el JWT dura 1 hora (`expiresIn: '1h'` en `identity.module.ts`) y `AuthGuard` no consulta la base, así que un usuario desactivado con un token vigente sigue entrando a identity y medical-records hasta que venza. No se cambió: cerrarlo exige consultar el estado en cada petición o una lista de tokens revocados.
+- Caché de usuarios de medical-records: la copia local sirve 5 minutos (`USER_CACHE_TTL_MS`) y luego se vuelve a pedir a identity, así un usuario nuevo o renombrado se ve con su nombre en notas e historial. Si identity no responde se usa el nombre local. `GET /users/:uuid` sigue devolviendo INACTIVE para no perder el nombre del autor de notas viejas.
+
 ## 2026-11-08 - La nota de audiometría lleva el tipo y el uuid de la audiometría
 
 - Cada audiometría guardada deja una nota `EXTERNAL_TEST` ("Pruebas") en Control de evolución, en la misma transacción:
