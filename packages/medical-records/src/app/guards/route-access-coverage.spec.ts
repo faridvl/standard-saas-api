@@ -5,6 +5,8 @@ import { describe, expect, it } from '@jest/globals';
 import { AuthGuard } from '@project/core';
 import { ACCESS_METADATA_KEY } from '@medical-records/app/decorators/access.decorators';
 import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AccessLevel } from '@medical-records/domain/policies/access.policy';
+import { PatientController } from '@medical-records/app/controllers/patient.controllers';
 
 const CONTROLLERS_DIR = join(__dirname, '..', 'controllers');
 
@@ -83,5 +85,15 @@ describe('cobertura de acceso de las rutas', () => {
       expect(ids.has(id)).toBe(true);
       expect(routes.find((r) => r.id === id)?.hasGuards).toBe(false);
     }
+  });
+
+  it('borrar un paciente exige ADMIN y cambiar un mantenimiento exige atender pacientes', () => {
+    const proto = PatientController.prototype as unknown as Record<string, Handler>;
+    expect(Reflect.getMetadata(ACCESS_METADATA_KEY, proto.softDelete)).toEqual({
+      minLevel: AccessLevel.ADMIN,
+    });
+    expect(Reflect.getMetadata(ACCESS_METADATA_KEY, proto.updateMaintenance)).toEqual({
+      clinical: true,
+    });
   });
 });

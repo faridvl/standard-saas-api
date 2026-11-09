@@ -15,8 +15,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessLevel } from '@medical-records/domain/policies/access.policy';
+import { filterPatientClinicalFields } from '@medical-records/domain/policies/patient-clinical-fields.policy';
 import { AccessGuard } from '@medical-records/app/guards/access.guard';
-import { AnyLevel, ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
+import {
+  AnyLevel,
+  ClinicalAccess,
+  MinLevel,
+} from '@medical-records/app/decorators/access.decorators';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
 import { GetPatientsUseCase } from '@medical-records/domain/use-cases/get-patients.use-case';
@@ -153,11 +159,12 @@ export class PatientController {
     @Body() body: CreatePatientDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.createUseCase.execute(body, {
+    const created = await this.createUseCase.execute(body, {
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
       sub: user.sub,
     });
+    return filterPatientClinicalFields(created, user.attendsPatients === true);
   }
 
   @Get()
@@ -202,6 +209,7 @@ export class PatientController {
         hearingAidsInLabSentDay: parseDayKey(hearingAidsInLabDate),
         nextAppointmentKinds: parseKinds(nextAppointmentKind),
       },
+      user.attendsPatients === true,
     );
   }
 
@@ -212,6 +220,7 @@ export class PatientController {
   }
 
   @Delete(':uuid')
+  @MinLevel(AccessLevel.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async softDelete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.softDeletePatientUseCase.execute(uuid, user.tenantUuid);
@@ -222,7 +231,11 @@ export class PatientController {
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.getPatientByUuidUseCase.execute(uuid, user.tenantUuid);
+    return await this.getPatientByUuidUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      user.attendsPatients === true,
+    );
   }
 
   @Patch(':uuid')
@@ -232,7 +245,8 @@ export class PatientController {
     @Body() dto: UpdatePatientDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
+    const updated = await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
+    return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
 
   @Put(':uuid/status')
@@ -242,7 +256,13 @@ export class PatientController {
     @Body() dto: UpdatePatientStatusDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.updatePatientStatusUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
+    const updated = await this.updatePatientStatusUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      user.sub,
+      dto,
+    );
+    return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
 
   @Put(':uuid/flags')
@@ -252,16 +272,18 @@ export class PatientController {
     @Body() dto: UpdatePatientFlagsDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.updatePatientFlagsUseCase.execute(
+    const updated = await this.updatePatientFlagsUseCase.execute(
       uuid,
       user.tenantUuid,
       user.sub,
       dto,
       user.attendsPatients,
     );
+    return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
 
   @Put(':uuid/maintenances/:number')
+  @ClinicalAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientMaintenanceSchema))
   async updateMaintenance(
     @Param('uuid') uuid: string,
