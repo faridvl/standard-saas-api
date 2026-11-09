@@ -731,7 +731,7 @@ original (si falla, queda un warning en el log).
 `typeName` y `patientName` son copias al momento de la acción.
 
 ### GET /patient-activity
-**Auth:** Required. 403 para el rol `STAFF` en `/patient-activity`, `/months` y `/summary`; `/actors` queda abierto (solo nombres, lo usa la agenda).  
+**Auth:** Required. ADMIN u OWNER en `/patient-activity`, `/months` y `/summary`; `/actors` es de cualquier nivel (solo nombres, lo usa la agenda para "Agendó…").  
 **Query:**
 - `page` (default `1`), `limit` (default `20`, máx `100`)
 - `actorUuid` — solo acciones de ese usuario
@@ -1207,6 +1207,6 @@ Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (REC
 | Clínico | `attendsPatients` | `patients/:id/background`, `physical-exam`, notas, preguntas, audiometrías y otoscopías (leer), documentos, encuentros, controles médicos, estudios, `maintenance` (incluye el cambio de estado), mantenimientos del paciente (GET y notas), `audiometry-types`, `upload/*` |
 | Prueba | `attendsPatients` + AUDIOLOGY | crear o anular audiometrías; crear o editar otoscopías |
 | Configuración | ADMIN u OWNER | crear, editar y borrar `appointment-types`, `clinical-templates` y `document-templates`; `DELETE /patients/:uuid` |
-| Bitácora | ADMIN u OWNER | `patient-activity` (listado, `actors`, `months`, `summary`) |
+| Bitácora | ADMIN u OWNER | `patient-activity` (listado, `months`, `summary`); `actors` es de cualquier nivel |
 
 El resumen de bitácora y las notas de envíos a laboratorio solo muestran lo clínico a quien atiende. En `GET /patients`, `GET /patients/:uuid` y las respuestas de escritura de pacientes, `bloodType` solo aparece si el usuario atiende pacientes. `GET /calendar-feed/:file` responde 404 si el dueño del enlace no existe o no está ACTIVE. `POST /appointment-types/initialize` exige el JWT de servicio de identity (1 minuto, atado a la clínica); otro token da 401.

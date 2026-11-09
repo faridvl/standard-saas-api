@@ -172,7 +172,7 @@ const GROUPS: Group[] = [
     name: 'bitácora: usuarios',
     controller: PatientActivityController,
     method: 'findActors',
-    needs: { adminOrOwner: true },
+    needs: {},
   },
 ];
 

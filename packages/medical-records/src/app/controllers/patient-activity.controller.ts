@@ -1,7 +1,7 @@
 import { BadRequestException, Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload } from '@project/core';
 import { AccessGuard } from '@medical-records/app/guards/access.guard';
-import { MinLevel } from '@medical-records/app/decorators/access.decorators';
+import { AnyLevel, MinLevel } from '@medical-records/app/decorators/access.decorators';
 import { AccessLevel } from '@medical-records/domain/policies/access.policy';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import {
@@ -41,7 +41,7 @@ function parseActions(value: string | undefined): PatientActivityAction[] | unde
 
 /**
  * Bitácora de acciones sobre los pacientes del tenant (solo lectura). Nombra
- * datos clínicos: STAFF no la ve. `actors` queda abierto porque solo da nombres
+ * datos clínicos: solo ADMIN u OWNER. `actors` queda abierto porque solo da nombres
  * de usuarios y la agenda lo usa para mostrar quién agendó.
  */
 @Controller('patient-activity')
@@ -82,6 +82,7 @@ export class PatientActivityController {
   }
 
   @Get('actors')
+  @AnyLevel()
   async findActors(@CurrentUser() user: JwtPayload): Promise<PatientActivityActor[]> {
     return await this.findActorsUseCase.execute(user.tenantUuid);
   }
