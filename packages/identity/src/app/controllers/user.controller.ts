@@ -16,7 +16,10 @@ import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/
 import { CreateUserUseCase } from '../../domain/use-cases/user.use-case';
 import { CreateUserDto, CreateUserSchema } from '../../domain/dtos/create-user.dto';
 import { GetUsersUseCase } from '../../domain/use-cases/users/get-users.use-case';
-import { FindOneUserUseCase } from '../../domain/use-cases/users/find-one-user.use-case';
+import {
+  FindOneUserUseCase,
+  UserSummary,
+} from '../../domain/use-cases/users/find-one-user.use-case';
 import { UpdateUserUseCase } from '../../domain/use-cases/users/update-user.use-case';
 import { UpdateUserDto, UpdateUserSchema } from '../../domain/dtos/update-user.dto';
 import { DeleteUserUseCase } from '../../domain/use-cases/users/delete-user.use-case';
@@ -113,8 +116,8 @@ export class UserController {
   async findOne(
     @Param('uuid') uuid: string,
     @CurrentUser() currentUser: JwtPayload,
-  ): Promise<UserDomain> {
-    return await this.findOneUserUseCase.execute(uuid, currentUser.tenantUuid);
+  ): Promise<UserDomain | UserSummary> {
+    return await this.findOneUserUseCase.execute(uuid, toUserActor(currentUser));
   }
 
   @Patch(':uuid')
