@@ -210,14 +210,27 @@ WHERE p."hearingAidsInLabSince" IS NOT NULL
   );
 ```
 
+#### `AudiometryType` (catálogo global de tipos de audiometría)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| code | String (unique) | `CLINICAL`, `SCREENING`; es lo que referencia `PatientAudiometryEntry.typeCode` |
+| name | String | texto que ve el usuario ("Clínica", "De rastreo") |
+| sortOrder | Int | orden del selector |
+| isActive | Boolean | default true; un tipo inactivo no acepta guardados nuevos |
+| createdAt | DateTime | |
+
+No es por negocio. Un tipo nuevo necesita fila acá y un schema Zod en el código.
+
 #### `PatientAudiometryEntry` (historial de audiometrías)
 | Column | Type | Notes |
 |--------|------|-------|
 | id | Int (PK, autoincrement) | |
 | uuid | String (unique) | |
 | tenantUuid / patientUuid | String | `patientUuid` es FK a `Patient.uuid` |
+| typeCode | String | default `'CLINICAL'`; FK a `AudiometryType.code` (RESTRICT al borrar) |
 | schemaVersion | Int | versión del contrato del payload (hoy 1) |
-| payload | Json | audiometría completa, validada con Zod al guardar |
+| payload | Json | audiometría completa, validada con Zod al guardar; su forma depende de `typeCode` |
 | createdAt | DateTime | |
 | createdByUuid | String | autor, sale del token |
 | invalidatedAt | DateTime? | marca definitiva de "mal hecha"; nulo = vigente |
@@ -226,8 +239,8 @@ WHERE p."hearingAidsInLabSince" IS NOT NULL
 
 Index: `@@index([tenantUuid, patientUuid, createdAt])`. Cada guardado es un registro inmutable
 (sin edición ni borrado); lo único que cambia es la marca de "mal hecha", que se pone una sola vez
-y nunca se quita, y los tres campos van juntos o todos nulos. La lista no trae el `payload`: lee solo `summary.ptaType`,
-`summary.gradingScale` y el PTA de cada oído con `payload #>> '{...}'`.
+y nunca se quita, y los tres campos van juntos o todos nulos. La lista no trae el `payload`: lee solo `result` (rastreo),
+`summary.ptaType`, `summary.gradingScale` y el PTA de cada oído con `payload #>> '{...}'`, y une con `AudiometryType` para el nombre.
 
 #### `DocumentTemplate` (plantillas de documento)
 | Column | Type | Notes |
@@ -262,6 +275,7 @@ expresa `lower()` en el schema); da el 409 por nombre repetido sin distinguir ma
 | 20261108120000_patient_audiometry_entries | Tabla PatientAudiometryEntry (historial de audiometrías, un registro inmutable por guardado) |
 | 20261108130000_document_templates | Tabla DocumentTemplate (plantillas de documento por negocio) con índice único (tenantUuid, lower(name)) |
 | 20261108140000_patient_audiometry_entry_invalidation | Columnas `PatientAudiometryEntry.invalidatedAt`, `invalidatedByUuid`, `invalidationReason` (todas nulas, sin backfill) |
+| 20261108150000_audiometry_types | Tabla AudiometryType con `CLINICAL` y `SCREENING`; columna `PatientAudiometryEntry.typeCode` NOT NULL default `'CLINICAL'` (backfill de las existentes) con FK |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

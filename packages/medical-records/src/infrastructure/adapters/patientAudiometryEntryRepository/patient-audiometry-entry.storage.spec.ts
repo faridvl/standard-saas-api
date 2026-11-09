@@ -29,6 +29,7 @@ describe('PatientAudiometryEntryStorage', () => {
         tenantUuid: TENANT,
         patient: { deletedAt: null },
       },
+      include: { type: { select: { name: true } } },
     });
   });
 
@@ -36,6 +37,9 @@ describe('PatientAudiometryEntryStorage', () => {
     queryRaw.mockResolvedValue([
       {
         uuid: 'entry-1',
+        typeCode: 'CLINICAL',
+        typeName: 'Clínica',
+        screeningResult: null,
         createdAt: new Date('2026-11-01T10:00:00.000Z'),
         createdByUuid: 'author-1',
         invalidatedAt: new Date('2026-11-02T08:00:00.000Z'),
@@ -51,11 +55,14 @@ describe('PatientAudiometryEntryStorage', () => {
 
     const [strings, ...values] = queryRaw.mock.calls[0] as [string[], ...unknown[]];
     expect(values).toEqual([TENANT, PATIENT]);
-    expect(strings.join('?')).toContain('"tenantUuid" = ?');
+    expect(strings.join('?')).toContain('e."tenantUuid" = ?');
     expect(strings.join('?')).not.toContain('"payload",');
     expect(result).toEqual([
       {
         uuid: 'entry-1',
+        typeCode: 'CLINICAL',
+        typeName: 'Clínica',
+        screeningResult: null,
         createdAt: '2026-11-01T10:00:00.000Z',
         createdByUuid: 'author-1',
         invalidatedAt: '2026-11-02T08:00:00.000Z',
@@ -69,10 +76,64 @@ describe('PatientAudiometryEntryStorage', () => {
     ]);
   });
 
+  it('la lista de un rastreo trae el resultado y deja los PTA en null', async () => {
+    queryRaw.mockResolvedValue([
+      {
+        uuid: 'entry-3',
+        typeCode: 'SCREENING',
+        typeName: 'De rastreo',
+        screeningResult: 'REFER',
+        createdAt: new Date('2026-11-01T10:00:00.000Z'),
+        createdByUuid: 'author-1',
+        invalidatedAt: null,
+        invalidatedByUuid: null,
+        invalidationReason: null,
+        ptaType: null,
+        gradingScale: null,
+        ptaRight: null,
+        ptaLeft: null,
+      },
+    ]);
+    const [row] = await storage.findAllByPatient(PATIENT, TENANT);
+    expect(row).toMatchObject({
+      typeCode: 'SCREENING',
+      typeName: 'De rastreo',
+      screeningResult: 'REFER',
+      ptaType: null,
+      gradingScale: null,
+      ptaRight: null,
+      ptaLeft: null,
+    });
+  });
+
+  it('findByUuid arma el payload según el tipo guardado', async () => {
+    findFirst.mockResolvedValue({
+      uuid: 'entry-3',
+      patientUuid: PATIENT,
+      schemaVersion: 1,
+      typeCode: 'SCREENING',
+      type: { name: 'De rastreo' },
+      payload: { result: 'PASS' },
+      createdAt: new Date('2026-11-01T10:00:00.000Z'),
+      createdByUuid: 'author-1',
+      invalidatedAt: null,
+      invalidatedByUuid: null,
+      invalidationReason: null,
+    });
+    await expect(storage.findByUuid('entry-3', PATIENT, TENANT)).resolves.toMatchObject({
+      typeCode: 'SCREENING',
+      typeName: 'De rastreo',
+      payload: { result: 'PASS' },
+    });
+  });
+
   it('la lista devuelve la marca en null cuando la fila no está marcada', async () => {
     queryRaw.mockResolvedValue([
       {
         uuid: 'entry-2',
+        typeCode: 'CLINICAL',
+        typeName: 'Clínica',
+        screeningResult: null,
         createdAt: new Date('2026-11-01T10:00:00.000Z'),
         createdByUuid: 'author-1',
         invalidatedAt: null,

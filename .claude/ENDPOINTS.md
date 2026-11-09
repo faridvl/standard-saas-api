@@ -1001,12 +1001,29 @@ Un token que no existe (revocado o inventado) responde **200 con un calendario v
 
 | Método | Ruta | Qué hace |
 |---|---|---|
+| `GET` | `/audiometry-types` | Tipos de audiometría activos para el selector, por `sortOrder`: `[{ "code", "name" }]` |
 | `GET` | `/patients/:patientUuid/audiometry-entries` | Historial resumido, el más reciente primero |
 | `GET` | `/patients/:patientUuid/audiometry-entries/:entryUuid` | Registro completo |
 | `POST` | `/patients/:patientUuid/audiometry-entries` | Guarda una audiometría nueva (201) |
 | `POST` | `/patients/:patientUuid/audiometry-entries/:entryUuid/invalidate` | Marca la audiometría como "mal hecha" (200), definitivo |
 
-Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT`. `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` 10 si el tipo es `BISYLLABLE`, 25 si es `MONOSYLLABLE` (con `wordListType` en `null` vale cualquiera de los dos). Las intensidades (claves de `speech.marks`) van de 0 a 100 en pasos de 5 y sin ceros a la izquierda (`"5"`, no `"05"`). `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `pta` va en pasos de 5 dB y `grade` debe existir en la escala elegida (`ASHA` no tiene `TOTAL_LOSS`; `BIAP` no tiene `SLIGHT` ni `MODERATELY_SEVERE`). `isMasked: true` solo se acepta en `AIR` y `BONE`. `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos (incluida una herramienta que no sea de las 5): 400. El `GET :entryUuid` y el `POST` responden 404 si el paciente está borrado (`deletedAt`).
+Tipos (`GET /audiometry-types`, mismos roles clínicos): `CLINICAL` "Clínica" y `SCREENING` "De rastreo". Es un catálogo global (tabla `AudiometryType`), no por negocio. Body de `POST`: `{ "typeCode"?: "CLINICAL" | "SCREENING", "schemaVersion": 1, "payload": { ... } }`. `typeCode` es opcional y, sin él, vale `CLINICAL` (el body clínico de siempre no cambia). Un `typeCode` desconocido, o de un tipo desactivado en la tabla, responde 400.
+
+**Rastreo (`typeCode: "SCREENING"`, `schemaVersion` 1):** `payload` = `{ "marks": { "AIR": { "RIGHT": {...}, "LEFT": {...} } }, "result": "PASS" | "REFER", "notes": { "observations": "..." } }`. Solo vía aérea, con las mismas frecuencias y marcas tonales que la clínica pero `isMasked` siempre `false` (`true` es 400); `result` es obligatorio; `notes.observations` es texto recortado de máximo 1000 caracteres. Cualquier otra clave (`BONE`, `weber`, `summary`, etc.) es 400.
+
+```json
+{
+  "typeCode": "SCREENING",
+  "schemaVersion": 1,
+  "payload": {
+    "marks": { "AIR": { "RIGHT": { "1000": { "thresholdDb": 20, "isMasked": false, "hasNoResponse": false } }, "LEFT": { "1000": { "thresholdDb": 25, "isMasked": false, "hasNoResponse": false } } } },
+    "result": "PASS",
+    "notes": { "observations": "Sin hallazgos" }
+  }
+}
+```
+
+**Clínica (`typeCode` ausente o `"CLINICAL"`).** Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT`. `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` 10 si el tipo es `BISYLLABLE`, 25 si es `MONOSYLLABLE` (con `wordListType` en `null` vale cualquiera de los dos). Las intensidades (claves de `speech.marks`) van de 0 a 100 en pasos de 5 y sin ceros a la izquierda (`"5"`, no `"05"`). `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `pta` va en pasos de 5 dB y `grade` debe existir en la escala elegida (`ASHA` no tiene `TOTAL_LOSS`; `BIAP` no tiene `SLIGHT` ni `MODERATELY_SEVERE`). `isMasked: true` solo se acepta en `AIR` y `BONE`. `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos (incluida una herramienta que no sea de las 5): 400. El `GET :entryUuid` y el `POST` responden 404 si el paciente está borrado (`deletedAt`).
 
 ```json
 {
@@ -1033,11 +1050,13 @@ Body de `POST`: `{ "schemaVersion": 1, "payload": { ... } }`. Reglas del payload
 }
 ```
 
-Respuesta de `POST` (201) y de `GET :entryUuid` (200): `{ "uuid", "patientUuid", "schemaVersion", "payload", "createdAt", "createdByUuid", "createdByName", "invalidatedAt", "invalidatedByUuid", "invalidatedByName", "invalidationReason" }`. `createdByName` e `invalidatedByName` pueden ser `null` si identity no responde. Los cuatro campos de la marca son `null` mientras la audiometría no esté marcada.
+Respuesta de `POST` (201) y de `GET :entryUuid` (200): `{ "uuid", "patientUuid", "schemaVersion", "typeCode", "typeName", "payload", "createdAt", "createdByUuid", "createdByName", "invalidatedAt", "invalidatedByUuid", "invalidatedByName", "invalidationReason" }`. `createdByName` e `invalidatedByName` pueden ser `null` si identity no responde. Los cuatro campos de la marca son `null` mientras la audiometría no esté marcada.
 
-Cada item del `GET` (lista, sin payload): `{ "uuid", "createdAt", "createdByUuid", "createdByName", "invalidatedAt", "invalidatedByUuid", "invalidatedByName", "invalidationReason", "ptaType", "gradingScale", "ptaRight", "ptaLeft" }` (`ptaType` y `gradingScale` salen del `summary` guardado, con los mismos valores del contrato; los PTA pueden ser `null`). La lista lee solo esas rutas del JSON, no el payload completo. Una audiometría marcada sigue apareciendo en la lista.
+Cada item del `GET` (lista, sin payload): `{ "uuid", "typeCode", "typeName", "screeningResult", "createdAt", "createdByUuid", "createdByName", "invalidatedAt", "invalidatedByUuid", "invalidatedByName", "invalidationReason", "ptaType", "gradingScale", "ptaRight", "ptaLeft" }` (`ptaType` y `gradingScale` salen del `summary` guardado, con los mismos valores del contrato; los PTA pueden ser `null`). `screeningResult` (`PASS`/`REFER`) solo viene en rastreo; en la clínica es `null`, y en el rastreo `ptaType`, `gradingScale`, `ptaRight` y `ptaLeft` son `null`. La lista lee solo esas rutas del JSON, no el payload completo. Una audiometría marcada sigue apareciendo en la lista.
 
-Errores: 400 payload inválido (detalle por campo), 401 sin token, 403 `STAFF`, 404 paciente o registro inexistente, borrado o de otro negocio/paciente.
+Marcar como "mal hecha" funciona igual para ambos tipos.
+
+Errores: 400 payload inválido (detalle por campo) o tipo no válido, 401 sin token, 403 `STAFF`, 404 paciente o registro inexistente, borrado o de otro negocio/paciente.
 
 ### Marcar una audiometría como "mal hecha"
 

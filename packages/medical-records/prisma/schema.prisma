@@ -330,6 +330,8 @@ model PatientAudiometryEntry {
   patientUuid   String
   // Version del contrato del payload; permite leer registros viejos si el contrato cambia.
   schemaVersion Int
+  // Tipo de audiometría (AudiometryType.code); decide qué contrato tiene el payload.
+  typeCode      String   @default("CLINICAL")
   payload       Json
   createdAt     DateTime @default(now())
   createdByUuid String
@@ -339,8 +341,21 @@ model PatientAudiometryEntry {
   invalidationReason String?
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+  type          AudiometryType @relation(fields: [typeCode], references: [code])
 
   @@index([tenantUuid, patientUuid, createdAt])
+}
+
+/// Catálogo global (no por clínica) de tipos de audiometría. Sumar un tipo = una fila acá + su schema de payload en el código.
+model AudiometryType {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  sortOrder Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  entries   PatientAudiometryEntry[]
 }
 
 /// El texto que tenía un registro de otoscopia justo antes de cada corrección: nada se borra.

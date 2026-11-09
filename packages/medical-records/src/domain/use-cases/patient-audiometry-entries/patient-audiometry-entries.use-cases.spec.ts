@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import {
+  BadRequestException,
   ConflictException,
   ExecutionContext,
   ForbiddenException,
@@ -13,6 +14,7 @@ import {
 } from '@medical-records/app/dtos/patient-audiometry-entry.dto';
 import { PatientAudiometryEntryController } from '@medical-records/app/controllers/patient-audiometry-entry.controller';
 import { CreatePatientAudiometryEntryUseCase } from './create-patient-audiometry-entry.use-case';
+import { FindAudiometryTypesUseCase } from './find-audiometry-types.use-case';
 import { FindPatientAudiometryEntriesUseCase } from './find-patient-audiometry-entries.use-case';
 import { FindPatientAudiometryEntryUseCase } from './find-patient-audiometry-entry.use-case';
 import { InvalidatePatientAudiometryEntryUseCase } from './invalidate-patient-audiometry-entry.use-case';
@@ -72,11 +74,35 @@ function buildBody(payloadOverrides: Record<string, unknown> = {}, extra = {}) {
   return { schemaVersion: 1, payload: buildPayload(payloadOverrides), ...extra };
 }
 
+function buildScreeningPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    marks: {
+      AIR: {
+        RIGHT: { '1000': { thresholdDb: 20, isMasked: false, hasNoResponse: false } },
+        LEFT: { '1000': { thresholdDb: 25, isMasked: false, hasNoResponse: false } },
+      },
+    },
+    result: 'PASS',
+    notes: { observations: 'Sin hallazgos' },
+    ...overrides,
+  };
+}
+
+function buildScreeningBody(payloadOverrides: Record<string, unknown> = {}) {
+  return {
+    typeCode: 'SCREENING',
+    schemaVersion: 1,
+    payload: buildScreeningPayload(payloadOverrides),
+  };
+}
+
 function buildRecord(overrides: Record<string, unknown> = {}) {
   return {
     uuid: ENTRY,
     patientUuid: PATIENT,
     schemaVersion: 1,
+    typeCode: 'CLINICAL',
+    typeName: 'Clínica',
     payload: buildPayload(),
     createdAt: '2026-11-01T16:00:00.000Z',
     createdByUuid: AUTHOR,
@@ -94,13 +120,21 @@ describe('validación del payload de audiometría', () => {
     const result = CreatePatientAudiometryEntrySchema.parse(
       buildBody({ notes: { diagnosis: '  Normal  ', observations: '' } }),
     );
+    if (result.typeCode !== 'CLINICAL') throw new Error('se esperaba una audiometría clínica');
     expect(result.payload.notes.diagnosis).toBe('Normal');
+  });
+
+  it('sin typeCode el body se trata como clínico', () => {
+    const result = CreatePatientAudiometryEntrySchema.parse(buildBody());
+    expect(result.typeCode).toBe('CLINICAL');
   });
 
   it('acepta weber ausente y lo deja vacío', () => {
     const body = buildBody();
     delete (body.payload as Record<string, unknown>).weber;
-    expect(CreatePatientAudiometryEntrySchema.parse(body).payload.weber).toEqual({});
+    const result = CreatePatientAudiometryEntrySchema.parse(body);
+    if (result.typeCode !== 'CLINICAL') throw new Error('se esperaba una audiometría clínica');
+    expect(result.payload.weber).toEqual({});
   });
 
   it('rechaza un oído desconocido', () => {
@@ -233,6 +267,52 @@ describe('validación del payload de audiometría', () => {
   });
 });
 
+describe('validación del payload de rastreo', () => {
+  const parse = (body: unknown) => CreatePatientAudiometryEntrySchema.safeParse(body);
+
+  it('acepta un rastreo válido', () => {
+    const result = parse(buildScreeningBody());
+    expect(result.success).toBe(true);
+    expect(result.data?.typeCode).toBe('SCREENING');
+  });
+
+  it('acepta REFER y sin observaciones', () => {
+    expect(
+      parse(buildScreeningBody({ result: 'REFER', notes: { observations: '' } })).success,
+    ).toBe(true);
+  });
+
+  it('exige el resultado', () => {
+    const payload = buildScreeningPayload();
+    delete (payload as Record<string, unknown>).result;
+    expect(parse({ typeCode: 'SCREENING', schemaVersion: 1, payload }).success).toBe(false);
+    expect(parse(buildScreeningBody({ result: 'MAYBE' })).success).toBe(false);
+  });
+
+  it('rechaza una marca enmascarada', () => {
+    const marks = {
+      AIR: {
+        RIGHT: { '1000': { thresholdDb: 20, isMasked: true, hasNoResponse: false } },
+        LEFT: {},
+      },
+    };
+    expect(parse(buildScreeningBody({ marks })).success).toBe(false);
+  });
+
+  it('rechaza herramientas que no son vía aérea', () => {
+    const marks = { ...buildScreeningPayload().marks, BONE: { RIGHT: {}, LEFT: {} } };
+    expect(parse(buildScreeningBody({ marks })).success).toBe(false);
+  });
+
+  it('rechaza un typeCode desconocido', () => {
+    expect(parse({ ...buildBody(), typeCode: 'OTRO' }).success).toBe(false);
+  });
+
+  it('un rastreo no acepta el payload clínico', () => {
+    expect(parse({ ...buildBody(), typeCode: 'SCREENING' }).success).toBe(false);
+  });
+});
+
 describe('validación del motivo de audiometría mal hecha', () => {
   const parse = (body: unknown) => InvalidatePatientAudiometryEntrySchema.safeParse(body);
 
@@ -260,12 +340,25 @@ describe('guardado de audiometrías', () => {
   let created: Record<string, unknown>[];
   let invalidateCalls: Record<string, unknown>[];
   let storage: Record<string, unknown>;
+  let activeTypes: string[];
+  let typeStorage: Record<string, unknown>;
   let getOrCreateUser: { execute: (uuid: string) => Promise<string | null> };
 
   beforeEach(() => {
     records = [];
     created = [];
     invalidateCalls = [];
+    activeTypes = ['CLINICAL', 'SCREENING'];
+    typeStorage = {
+      isActive: (code: string) => Promise.resolve(activeTypes.includes(code)),
+      findActive: () =>
+        Promise.resolve(
+          [
+            { code: 'CLINICAL', name: 'Clínica' },
+            { code: 'SCREENING', name: 'De rastreo' },
+          ].filter((t) => activeTypes.includes(t.code)),
+        ),
+    };
     storage = {
       patientExists: (patientUuid: string, tenantUuid: string) =>
         Promise.resolve([PATIENT, OTHER_PATIENT].includes(patientUuid) && tenantUuid === TENANT),
@@ -276,6 +369,9 @@ describe('guardado de audiometrías', () => {
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
             .map((r) => ({
               uuid: r.uuid,
+              typeCode: r.typeCode,
+              typeName: r.typeName,
+              screeningResult: null,
               createdAt: r.createdAt,
               createdByUuid: r.createdByUuid,
               invalidatedAt: r.invalidatedAt,
@@ -325,7 +421,11 @@ describe('guardado de audiometrías', () => {
 
   describe('crear', () => {
     const build = () =>
-      new CreatePatientAudiometryEntryUseCase(storage as never, getOrCreateUser as never);
+      new CreatePatientAudiometryEntryUseCase(
+        storage as never,
+        typeStorage as never,
+        getOrCreateUser as never,
+      );
     const dto = () => CreatePatientAudiometryEntrySchema.parse(buildBody());
 
     it('guarda con el autor del JWT y devuelve su nombre', async () => {
@@ -335,8 +435,32 @@ describe('guardado de audiometrías', () => {
         patientUuid: PATIENT,
         createdByUuid: AUTHOR,
         schemaVersion: 1,
+        typeCode: 'CLINICAL',
       });
-      expect(result).toMatchObject({ uuid: 'entry-new', createdByName: 'Dra. Ana' });
+      expect(result).toMatchObject({
+        uuid: 'entry-new',
+        typeCode: 'CLINICAL',
+        typeName: 'Clínica',
+        createdByName: 'Dra. Ana',
+      });
+    });
+
+    it('guarda un rastreo con su tipo y su payload', async () => {
+      const screening = CreatePatientAudiometryEntrySchema.parse(buildScreeningBody());
+      await build().execute(PATIENT, TENANT, AUTHOR, screening);
+      expect(created[0]).toMatchObject({
+        typeCode: 'SCREENING',
+        payload: { result: 'PASS' },
+      });
+    });
+
+    it('un tipo inactivo da 400 y no guarda nada', async () => {
+      activeTypes = ['CLINICAL'];
+      const screening = CreatePatientAudiometryEntrySchema.parse(buildScreeningBody());
+      await expect(build().execute(PATIENT, TENANT, AUTHOR, screening)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(created).toHaveLength(0);
     });
 
     it('ignora un autor mandado en el body', async () => {
@@ -358,6 +482,23 @@ describe('guardado de audiometrías', () => {
     });
   });
 
+  describe('tipos', () => {
+    it('lista los activos como code y name', async () => {
+      activeTypes = ['CLINICAL', 'SCREENING'];
+      const result = await new FindAudiometryTypesUseCase(typeStorage as never).execute();
+      expect(result).toEqual([
+        { code: 'CLINICAL', name: 'Clínica' },
+        { code: 'SCREENING', name: 'De rastreo' },
+      ]);
+    });
+
+    it('omite los desactivados', async () => {
+      activeTypes = ['CLINICAL'];
+      const result = await new FindAudiometryTypesUseCase(typeStorage as never).execute();
+      expect(result).toEqual([{ code: 'CLINICAL', name: 'Clínica' }]);
+    });
+  });
+
   describe('listar', () => {
     const build = () =>
       new FindPatientAudiometryEntriesUseCase(storage as never, getOrCreateUser as never);
@@ -371,6 +512,9 @@ describe('guardado de audiometrías', () => {
       expect(result.map((r) => r.uuid)).toEqual(['nuevo', 'viejo']);
       expect(result[0]).toMatchObject({
         createdByName: 'Dra. Ana',
+        typeCode: 'CLINICAL',
+        typeName: 'Clínica',
+        screeningResult: null,
         ptaType: 'PTA_512',
         gradingScale: 'ASHA',
         ptaRight: 20,
@@ -508,6 +652,7 @@ describe('guardado de audiometrías', () => {
       records = [buildRecord()];
       const result = await build().execute(PATIENT, ENTRY, TENANT);
       expect(result).toMatchObject({ uuid: ENTRY, createdByName: 'Dra. Ana' });
+      if (result.typeCode !== 'CLINICAL') throw new Error('se esperaba una audiometría clínica');
       expect(result.payload.summary.ears.RIGHT.pta).toBe(20);
     });
 

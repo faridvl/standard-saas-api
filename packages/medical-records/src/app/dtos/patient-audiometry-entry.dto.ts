@@ -201,10 +201,51 @@ export const AudiometryPayloadV1Schema = z
     });
   });
 
-export const CreatePatientAudiometryEntrySchema = z.object({
+/** Un tipo existe en el código solo si tiene schema acá; que esté activo lo decide la tabla AudiometryType. */
+export const AudiometryTypeCodeSchema = z.enum(['CLINICAL', 'SCREENING']);
+export const AUDIOMETRY_DEFAULT_TYPE_CODE = 'CLINICAL' satisfies z.infer<
+  typeof AudiometryTypeCodeSchema
+>;
+
+export const ScreeningResultSchema = z.enum(['PASS', 'REFER']);
+
+/** El rastreo no enmascara: reutiliza la marca tonal clínica fijando `isMasked` en false. */
+const ScreeningToneMarkSchema = ToneMarkSchema.extend({
+  isMasked: z.literal(false, 'El rastreo no admite enmascaramiento'),
+});
+
+export const ScreeningPayloadV1Schema = z.object({
+  marks: z.strictObject({
+    AIR: ear(z.partialRecord(z.enum(TONAL_FREQUENCIES_HZ), ScreeningToneMarkSchema)),
+  }),
+  result: ScreeningResultSchema,
+  notes: z.object({ observations: notesText }),
+});
+
+const ClinicalEntryBodySchema = z.object({
+  typeCode: z.literal('CLINICAL'),
   schemaVersion: z.literal(AUDIOMETRY_SCHEMA_VERSION),
   payload: AudiometryPayloadV1Schema,
 });
+
+const ScreeningEntryBodySchema = z.object({
+  typeCode: z.literal('SCREENING'),
+  schemaVersion: z.literal(AUDIOMETRY_SCHEMA_VERSION),
+  payload: ScreeningPayloadV1Schema,
+});
+
+/** `typeCode` es opcional por compatibilidad: sin él, el body se trata como clínico. */
+const withDefaultTypeCode = (input: unknown): unknown =>
+  typeof input === 'object' && input !== null && !('typeCode' in input)
+    ? { ...input, typeCode: AUDIOMETRY_DEFAULT_TYPE_CODE }
+    : input;
+
+export const CreatePatientAudiometryEntrySchema = z.preprocess(
+  withDefaultTypeCode,
+  z.discriminatedUnion('typeCode', [ClinicalEntryBodySchema, ScreeningEntryBodySchema], {
+    error: 'Tipo de audiometría no válido',
+  }),
+);
 
 export const AUDIOMETRY_INVALIDATION_REASON_MAX_LENGTH = 500;
 
@@ -220,6 +261,9 @@ export const InvalidatePatientAudiometryEntrySchema = z.object({
 });
 
 export type AudiometryPayloadV1 = z.infer<typeof AudiometryPayloadV1Schema>;
+export type ScreeningPayloadV1 = z.infer<typeof ScreeningPayloadV1Schema>;
+export type AudiometryTypeCode = z.infer<typeof AudiometryTypeCodeSchema>;
+export type ScreeningResult = z.infer<typeof ScreeningResultSchema>;
 export type CreatePatientAudiometryEntryDto = z.infer<typeof CreatePatientAudiometryEntrySchema>;
 export type InvalidatePatientAudiometryEntryDto = z.infer<
   typeof InvalidatePatientAudiometryEntrySchema

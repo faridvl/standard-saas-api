@@ -1,14 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, PatientAudiometryEntry } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { AudiometryPayloadV1 } from '@medical-records/app/dtos/patient-audiometry-entry.dto';
+import {
+  AudiometryPayloadV1,
+  ScreeningPayloadV1,
+  ScreeningResult,
+} from '@medical-records/app/dtos/patient-audiometry-entry.dto';
 import {
   CreatePatientAudiometryEntryData,
   PatientAudiometryEntryEntity,
   PatientAudiometryEntrySummary,
 } from '@medical-records/domain/entities/patient-audiometry-entry.entity';
 
-export type PatientAudiometryEntryRecord = Omit<
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+
+export type PatientAudiometryEntryRecord = DistributiveOmit<
   PatientAudiometryEntryEntity,
   'createdByName' | 'invalidatedByName'
 >;
@@ -17,8 +23,15 @@ export type PatientAudiometryEntrySummaryRecord = Omit<
   'createdByName' | 'invalidatedByName'
 >;
 
+type PatientAudiometryEntryWithType = PatientAudiometryEntry & { type: { name: string } };
+
+const INCLUDE_TYPE_NAME = { type: { select: { name: true } } } as const;
+
 interface AudiometryListRow {
   uuid: string;
+  typeCode: string;
+  typeName: string;
+  screeningResult: ScreeningResult | null;
   createdAt: Date;
   createdByUuid: string;
   invalidatedAt: Date | null;
@@ -34,18 +47,30 @@ interface AudiometryListRow {
 export class PatientAudiometryEntryStorage {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapToRecord(record: PatientAudiometryEntry): PatientAudiometryEntryRecord {
-    return {
+  private mapToRecord(record: PatientAudiometryEntryWithType): PatientAudiometryEntryRecord {
+    const base = {
       uuid: record.uuid,
       patientUuid: record.patientUuid,
       schemaVersion: record.schemaVersion,
-      // Se valida con Zod al escribir; la columna solo guarda lo que pasó ese filtro.
-      payload: record.payload as unknown as AudiometryPayloadV1,
+      typeName: record.type.name,
       createdAt: record.createdAt.toISOString(),
       createdByUuid: record.createdByUuid,
       invalidatedAt: record.invalidatedAt?.toISOString() ?? null,
       invalidatedByUuid: record.invalidatedByUuid,
       invalidationReason: record.invalidationReason,
+    };
+    // Se valida con Zod al escribir; la columna solo guarda lo que pasó ese filtro.
+    if (record.typeCode === 'SCREENING') {
+      return {
+        ...base,
+        typeCode: 'SCREENING',
+        payload: record.payload as unknown as ScreeningPayloadV1,
+      };
+    }
+    return {
+      ...base,
+      typeCode: 'CLINICAL',
+      payload: record.payload as unknown as AudiometryPayloadV1,
     };
   }
 
@@ -61,6 +86,7 @@ export class PatientAudiometryEntryStorage {
   async create(data: CreatePatientAudiometryEntryData): Promise<PatientAudiometryEntryRecord> {
     const record = await this.prisma.patientAudiometryEntry.create({
       data: { ...data, payload: data.payload as unknown as Prisma.InputJsonObject },
+      include: INCLUDE_TYPE_NAME,
     });
     return this.mapToRecord(record);
   }
@@ -72,22 +98,29 @@ export class PatientAudiometryEntryStorage {
     // Trae solo las rutas del resumen: los payloads completos pesan mucho y la lista no los usa.
     const rows = await this.prisma.$queryRaw<AudiometryListRow[]>`
       SELECT
-        "uuid",
-        "createdAt",
-        "createdByUuid",
-        "invalidatedAt",
-        "invalidatedByUuid",
-        "invalidationReason",
-        "payload" #>> '{summary,ptaType}' AS "ptaType",
-        "payload" #>> '{summary,gradingScale}' AS "gradingScale",
-        ("payload" #>> '{summary,ears,RIGHT,pta}')::double precision AS "ptaRight",
-        ("payload" #>> '{summary,ears,LEFT,pta}')::double precision AS "ptaLeft"
-      FROM "PatientAudiometryEntry"
-      WHERE "tenantUuid" = ${tenantUuid} AND "patientUuid" = ${patientUuid}
-      ORDER BY "createdAt" DESC, "id" DESC
+        e."uuid",
+        e."createdAt",
+        e."createdByUuid",
+        e."invalidatedAt",
+        e."invalidatedByUuid",
+        e."invalidationReason",
+        e."typeCode",
+        t."name" AS "typeName",
+        e."payload" #>> '{result}' AS "screeningResult",
+        e."payload" #>> '{summary,ptaType}' AS "ptaType",
+        e."payload" #>> '{summary,gradingScale}' AS "gradingScale",
+        (e."payload" #>> '{summary,ears,RIGHT,pta}')::double precision AS "ptaRight",
+        (e."payload" #>> '{summary,ears,LEFT,pta}')::double precision AS "ptaLeft"
+      FROM "PatientAudiometryEntry" e
+      JOIN "AudiometryType" t ON t."code" = e."typeCode"
+      WHERE e."tenantUuid" = ${tenantUuid} AND e."patientUuid" = ${patientUuid}
+      ORDER BY e."createdAt" DESC, e."id" DESC
     `;
     return rows.map((row) => ({
       uuid: row.uuid,
+      typeCode: row.typeCode,
+      typeName: row.typeName,
+      screeningResult: row.screeningResult,
       createdAt: row.createdAt.toISOString(),
       createdByUuid: row.createdByUuid,
       invalidatedAt: row.invalidatedAt?.toISOString() ?? null,
@@ -109,6 +142,7 @@ export class PatientAudiometryEntryStorage {
   ): Promise<PatientAudiometryEntryRecord | null> {
     const record = await this.prisma.patientAudiometryEntry.findFirst({
       where: { uuid: entryUuid, patientUuid, tenantUuid, patient: { deletedAt: null } },
+      include: INCLUDE_TYPE_NAME,
     });
     return record ? this.mapToRecord(record) : null;
   }

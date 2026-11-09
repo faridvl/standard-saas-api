@@ -1,10 +1,14 @@
-import { AudiometryPayloadV1 } from '@medical-records/app/dtos/patient-audiometry-entry.dto';
+import {
+  AudiometryPayloadV1,
+  ScreeningPayloadV1,
+  ScreeningResult,
+} from '@medical-records/app/dtos/patient-audiometry-entry.dto';
 
-export interface PatientAudiometryEntryEntity {
+interface PatientAudiometryEntryBase {
   uuid: string;
   patientUuid: string;
   schemaVersion: number;
-  payload: AudiometryPayloadV1;
+  typeName: string;
   createdAt: string;
   createdByUuid: string;
   /** Null si identity no pudo resolver el nombre. */
@@ -16,9 +20,26 @@ export interface PatientAudiometryEntryEntity {
   invalidationReason: string | null;
 }
 
+export interface ClinicalAudiometryEntryEntity extends PatientAudiometryEntryBase {
+  typeCode: 'CLINICAL';
+  payload: AudiometryPayloadV1;
+}
+
+export interface ScreeningAudiometryEntryEntity extends PatientAudiometryEntryBase {
+  typeCode: 'SCREENING';
+  payload: ScreeningPayloadV1;
+}
+
+/** El payload depende del tipo: discriminar por `typeCode` antes de leerlo. */
+export type PatientAudiometryEntryEntity =
+  | ClinicalAudiometryEntryEntity
+  | ScreeningAudiometryEntryEntity;
+
 /** Fila del historial: lo justo para el selector, sin el payload completo. */
 export interface PatientAudiometryEntrySummary {
   uuid: string;
+  typeCode: string;
+  typeName: string;
   createdAt: string;
   createdByUuid: string;
   createdByName: string | null;
@@ -26,17 +47,29 @@ export interface PatientAudiometryEntrySummary {
   invalidatedByUuid: string | null;
   invalidatedByName: string | null;
   invalidationReason: string | null;
-  /** Con qué método y escala se calcularon los PTA y los grados de este registro. */
-  ptaType: AudiometryPayloadV1['summary']['ptaType'];
-  gradingScale: AudiometryPayloadV1['summary']['gradingScale'];
+  /** Solo rastreo; null en los demás tipos. */
+  screeningResult: ScreeningResult | null;
+  /** Con qué método y escala se calcularon los PTA y los grados; null si el tipo no los calcula (rastreo). */
+  ptaType: AudiometryPayloadV1['summary']['ptaType'] | null;
+  gradingScale: AudiometryPayloadV1['summary']['gradingScale'] | null;
   ptaRight: number | null;
   ptaLeft: number | null;
 }
 
-export interface CreatePatientAudiometryEntryData {
+interface CreatePatientAudiometryEntryBase {
   tenantUuid: string;
   patientUuid: string;
   createdByUuid: string;
   schemaVersion: number;
-  payload: AudiometryPayloadV1;
+}
+
+export type CreatePatientAudiometryEntryData = CreatePatientAudiometryEntryBase &
+  (
+    | { typeCode: 'CLINICAL'; payload: AudiometryPayloadV1 }
+    | { typeCode: 'SCREENING'; payload: ScreeningPayloadV1 }
+  );
+
+export interface AudiometryTypeItem {
+  code: string;
+  name: string;
 }

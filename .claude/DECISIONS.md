@@ -1,5 +1,22 @@
 # Decisiones
 
+## 2026-11-08 - Tipos de audiometría (clínica y de rastreo)
+
+- Catálogo global `AudiometryType` (`code` único, `name`, `sortOrder`, `isActive`) con `CLINICAL` y `SCREENING`;
+  `PatientAudiometryEntry.typeCode` es NOT NULL con default `'CLINICAL'` y FK a `AudiometryType.code`. La migración inserta
+  el catálogo antes de crear la FK, así las audiometrías existentes quedan como clínicas sin un UPDATE aparte.
+- Un tipo nuevo se agrega con una fila en el catálogo y un schema Zod en el DTO; la entidad y el storage discriminan el
+  payload por `typeCode`. Desactivar un tipo (`isActive = false`) basta para dejar de aceptarlo.
+- `POST` acepta `typeCode` opcional (sin él, `CLINICAL`) para no romper al front actual. Como Zod 4 no aplica `default`
+  al discriminador ausente, un `z.preprocess` lo inyecta antes de la unión discriminada.
+- El rastreo (`schemaVersion` 1) guarda solo vía aérea, `result` `PASS|REFER` obligatorio y observaciones; reutiliza la marca
+  tonal clínica fijando `isMasked` en `false`. Sin hueso, Weber, logoaudiometría ni resumen: por eso la lista devuelve
+  `ptaType`, `gradingScale` y PTA en `null` para ese tipo.
+- Que el tipo exista y esté activo se valida en el caso de uso contra la tabla (400); el schema Zod solo conoce los tipos que
+  tienen contrato en el código.
+- `GET /audiometry-types` devuelve solo los activos por `sortOrder`, con los mismos guards y roles que leer audiometrías.
+- Marcar como "mal hecha" es igual para ambos tipos y no depende de `typeCode`.
+
 ## 2026-11-08 - Datos de contacto de la clínica y variables nuevas de plantilla
 
 - `Tenant` gana `phone`, `email` y `address` (nulos). Endpoints nuevos `GET` y `PATCH /tenants/current` en identity; la
