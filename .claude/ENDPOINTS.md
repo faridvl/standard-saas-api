@@ -133,7 +133,7 @@
 
 ### GET /users/:uuid
 **Auth:** Required
-**Response 200:** `UserDetail` — `{ uuid, fullName, email, role, specialty?, phoneNumber?, tenantId, createdAt }`
+**Response 200:** ADMIN, OWNER o el propio usuario: la ficha completa (`UserDomain`, igual que el listado). RECEPTION viendo a otro: solo `{ uuid, fullName, status }`.
 **Status:** Implemented. Scoped to caller's tenant. Devuelve también usuarios INACTIVE: medical-records lo usa para el nombre del autor de notas viejas.
 
 ---
@@ -1195,7 +1195,7 @@ Nivel: `RECEPTION` | `ADMIN` | `OWNER` (campo `role`). `attendsPatients` (bool) 
 
 Errores: 400 atiende pacientes sin especialidad, especialidad o título fuera de catálogo, cambio de nivel o estado propio, último OWNER; 403 sin nivel suficiente; 404 usuario de otra clínica.
 `GET /auth/me` devuelve `{ user, tenant }`; `user` trae `role`, `attendsPatients`, `specialties`, `professionalTitle`, `licenseNumber`. Login devuelve esos campos en `user`. JWT: `role`, `attendsPatients`, `specialties`.
-Se quitó el texto libre `specialty` (también en `POST /auth/register`: ahora `specialties[]`).
+Se quitó el texto libre `specialty` (también en `POST /auth/register`: ahora `specialties[]`). Compatibilidad: si un cliente viejo manda `specialty` con un código del catálogo y no manda `specialties`, se toma como `specialties: [codigo]`; cualquier otro valor se ignora.
 
 ## Acceso por ruta (medical-records)
 
@@ -1203,10 +1203,10 @@ Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (REC
 
 | Grupo | Exige | Rutas |
 |---|---|---|
-| Cualquier nivel | token con nivel válido | pacientes (datos generales, prioridad, estado), contactos, citas, agenda, `next-appointment`, dispositivos, productos y unidades, sedes, envíos a laboratorio, `calendar-feed` (autenticadas), lectura de `appointment-types`, `clinical-templates` y `document-templates` |
-| Clínico | `attendsPatients` | `patients/:id/background`, `physical-exam`, notas, preguntas, audiometrías y otoscopías (leer), documentos, encuentros, controles médicos, estudios, `maintenance`, mantenimientos del paciente (GET y notas), `audiometry-types`, `upload/*` |
+| Cualquier nivel | token con nivel válido | pacientes (datos generales sin tipo de sangre, prioridad, estado; borrar paciente es ADMIN u OWNER), contactos, citas, agenda, `next-appointment`, dispositivos, productos y unidades, sedes, envíos a laboratorio, `calendar-feed` (autenticadas), lectura de `appointment-types`, `clinical-templates` y `document-templates` |
+| Clínico | `attendsPatients` | `patients/:id/background`, `physical-exam`, notas, preguntas, audiometrías y otoscopías (leer), documentos, encuentros, controles médicos, estudios, `maintenance` (incluye el cambio de estado), mantenimientos del paciente (GET y notas), `audiometry-types`, `upload/*` |
 | Prueba | `attendsPatients` + AUDIOLOGY | crear o anular audiometrías; crear o editar otoscopías |
-| Configuración | ADMIN u OWNER | crear, editar y borrar `appointment-types`, `clinical-templates` y `document-templates` |
+| Configuración | ADMIN u OWNER | crear, editar y borrar `appointment-types`, `clinical-templates` y `document-templates`; `DELETE /patients/:uuid` |
 | Bitácora | ADMIN u OWNER | `patient-activity` (listado, `actors`, `months`, `summary`) |
 
-El resumen de bitácora y las notas de envíos a laboratorio solo muestran lo clínico a quien atiende.
+El resumen de bitácora y las notas de envíos a laboratorio solo muestran lo clínico a quien atiende. En `GET /patients`, `GET /patients/:uuid` y las respuestas de escritura de pacientes, `bloodType` solo aparece si el usuario atiende pacientes. `GET /calendar-feed/:file` responde 404 si el dueño del enlace no existe o no está ACTIVE. `POST /appointment-types/initialize` exige el JWT de servicio de identity (1 minuto, atado a la clínica); otro token da 401.

@@ -1,5 +1,17 @@
 # Decisiones
 
+## 2026-11-09 - Cierre de la revisión de niveles de acceso (D71): migración, tokens, ids del cuerpo, initialize, paciente general y calendario
+
+- Migración de niveles (`20261109120000_access_level_attends_patients`): normaliza `User.role` a `UPPER(TRIM(role))` y mapea los roles viejos; guarda el rol y la especialidad anteriores en la tabla de respaldo `"_UserRoleBackup20261109"` (se borra a mano cuando producción esté estable). Antes de aplicarla en producción se corre, solo lectura, `SELECT UPPER(TRIM(role)), count(*) FROM "User" GROUP BY 1` para ver qué valores hay y confirmar que ninguno queda sin mapear.
+- Token anterior al modelo de niveles (sin el claim `attendsPatients` o con rol viejo): 401, no 403, para que el cliente cierre sesión y entre de nuevo con un token nuevo.
+- Ids en el cuerpo o en subidas (paciente, cita, dispositivo, encuentro, documento): se verifica que sean de la clínica de la sesión antes de actuar; otra clínica da 404 y no llega al almacenamiento.
+- `POST /appointment-types/initialize` ya no es abierto: solo acepta el JWT de servicio de 1 minuto que identity firma atado a la clínica (mismo `JWT_SECRET`, sin variables nuevas). Un token de usuario o de otra clínica da 401.
+- Paciente general (P2.8): borrar un paciente pide ADMIN u OWNER; el tipo de sangre (`bloodType`) solo se devuelve a quien atiende pacientes, en detalle, listado y respuestas de escritura; cambiar el estado de un mantenimiento es acceso clínico. `statusReason` y `gender` quedan visibles para cualquier nivel. Aceptado: `PATCH` todavía puede escribir `bloodType` a quien no atiende.
+- Calendario publicado (P2.7): al servir `GET /calendar-feed/:file` se consulta a identity por el dueño del enlace; si no existe, no está ACTIVE o identity no responde, 404 (se cierra ante la duda). Un token inexistente sigue devolviendo un calendario vacío.
+- Detalle de usuario (P2.11): `GET /users/:uuid` devuelve la ficha completa a ADMIN, OWNER y al propio usuario; a RECEPTION le devuelve solo `uuid`, `fullName` y `status` de otro. Historias lo sigue usando con un token del propio usuario, así que lee también a los inactivos.
+- Clientes viejos (P2.12): Zynka manda una sola `specialty` al registrar, crear y editar usuarios. El API la toma como `specialties: [codigo]` si es un código del catálogo y `specialties` no viene; si no, la ignora. Zynka sigue sin entender los roles nuevos (manda DOCTOR y STAFF) ni lee `specialties`: queda pendiente de adaptar.
+- Aceptado: quitar la atención de pacientes o desactivar a alguien deja su token vigente hasta 1 hora (el JWT no consulta la base). `POST /auth/refresh` relee la base y reemite el acceso actual; las acciones de administración sí releen al actor en cada llamada.
+
 ## 2026-11-09 - Aislamiento entre clínicas: todo acceso por id lleva tenant
 
 - Regla: Todo endpoint que reciba un id (leer, editar, borrar o crear algo colgado de otro registro) filtra por `{ uuid, tenantUuid }` en la misma consulta o verifica antes que el padre sea del tenant de la sesión. Otra clínica responde 404, nunca 403. Cada endpoint nuevo lleva su prueba de aislamiento.
@@ -20,6 +32,8 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 `CLINICAL_ACCESS_ROLES` y el permiso de usuarios solo para OWNER (D70).
 
 ## 2026-11-08 - Administración de usuarios por el OWNER (D70)
+
+> Reemplazada por D71 (ver "Niveles de acceso y atiende pacientes"): administran ADMIN y OWNER, y los roles son RECEPTION, ADMIN y OWNER. Lo demás de esta entrada (desactivar en vez de borrar, relectura del actor, aislamiento por clínica) sigue vigente.
 
 - Solo el OWNER administra usuarios, con la lista nombrada `USER_ADMIN_ROLES = [OWNER]` verificada en el servidor (`assertCanAdministerUsers`); sin permiso, 403. El actor se relee de la base en cada acción (ACTIVE y rol OWNER); el rol del token no se usa para autorizar y un rol nulo o heredado no administra. Roles asignables: ADMIN, DOCTOR y STAFF; OWNER no se asigna por la API (400), nace solo al registrar la clínica.
 - Alta con contraseña temporal escrita por el OWNER (`POST /users`), que también puede ponérsela nueva a cualquier usuario de su clínica (`PUT /users/:uuid/password`, 204). No hay correo ni enlace de recuperación.
