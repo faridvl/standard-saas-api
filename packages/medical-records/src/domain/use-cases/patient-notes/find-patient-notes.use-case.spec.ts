@@ -46,3 +46,21 @@ describe('FindPatientNotesUseCase: autores', () => {
     expect(identityCalls).toBe(0);
   });
 });
+
+describe('FindPatientNotesUseCase: audiometría enlazada', () => {
+  it('devuelve el uuid de la audiometría en su nota y null en las demás', async () => {
+    const storage = {
+      findAllByPatient: () =>
+        Promise.resolve([
+          { uuid: 'n1', authorUuid: 'u1', audiometryEntryUuid: 'a1' },
+          { uuid: 'n2', authorUuid: 'u1', audiometryEntryUuid: null },
+        ]),
+    };
+    const getOrCreateUser = { execute: () => Promise.resolve('Dra. Ana') };
+    const useCase = new FindPatientNotesUseCase(storage as never, getOrCreateUser as never);
+
+    const result = await useCase.execute('p1', 't1');
+
+    expect(result.map((note) => note.audiometryEntryUuid)).toEqual(['a1', null]);
+  });
+});

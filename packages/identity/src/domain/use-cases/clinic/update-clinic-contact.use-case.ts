@@ -1,22 +1,27 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { StorageService } from '@project/core';
 import { TenantStorage } from '../../../infrastructure/adapters/tenant.storage';
-import { CLINIC_SETTINGS_ROLES, ClinicContactData, ClinicDomain } from '../../types/clinic.types';
+import { ClinicContactData, ClinicDomain } from '../../types/clinic.types';
+import { toClinicDomain } from '../../utils/clinic-logo.util';
+import { assertCanManageClinic } from '../../utils/clinic-permissions.util';
 
 @Injectable()
 export class UpdateClinicContactUseCase {
-  constructor(private readonly tenantStorage: TenantStorage) {}
+  constructor(
+    private readonly tenantStorage: TenantStorage,
+    private readonly storageService: StorageService,
+  ) {}
 
-  /** Solo guarda teléfono, correo y dirección: el resto del body nunca llega al storage. */
+  /** Solo guarda nombre, teléfono, correo y dirección: el resto del body nunca llega al storage. */
   async execute(
     tenantUuid: string,
     role: string | null | undefined,
     data: ClinicContactData,
   ): Promise<ClinicDomain> {
-    if (!role || !CLINIC_SETTINGS_ROLES.includes(role)) {
-      throw new ForbiddenException('No tienes permiso para modificar los datos de la clínica');
-    }
+    assertCanManageClinic(role);
 
     const contact: ClinicContactData = {
+      ...(data.name !== undefined && { name: data.name }),
       ...(data.phone !== undefined && { phone: data.phone }),
       ...(data.email !== undefined && { email: data.email }),
       ...(data.address !== undefined && { address: data.address }),
@@ -24,6 +29,6 @@ export class UpdateClinicContactUseCase {
 
     const clinic = await this.tenantStorage.updateClinicContact(tenantUuid, contact);
     if (!clinic) throw new NotFoundException('Clínica no encontrada');
-    return clinic;
+    return toClinicDomain(clinic, (key) => this.storageService.getPublicUrl(key));
   }
 }

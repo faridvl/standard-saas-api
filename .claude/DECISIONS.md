@@ -1,5 +1,18 @@
 # Decisiones
 
+## 2026-11-08 - La nota de audiometría lleva el tipo y el uuid de la audiometría
+
+- Cada audiometría guardada deja una nota `EXTERNAL_TEST` ("Pruebas") en Control de evolución, en la misma transacción:
+  `Se realizó audiometría clínica el dd/MM/yyyy` o `... de rastreo ...`, según el tipo (mapa por código de tipo en
+  `audiometry-note-text.util.ts`; un tipo nuevo suma ahí su etiqueta). El día se lee en hora de Costa Rica.
+- La nota queda enlazada por `PatientNote.audiometryEntryUuid` (nula, FK con `ON DELETE SET NULL`) para que Evolución abra
+  la audiometría; `GET /patients/:patientUuid/notes` lo devuelve como `string | null`. El uuid de la audiometría se genera
+  en la API antes de insertar para poder armar ambas filas en un solo lote.
+- Marcar la audiometría como "mal hecha" no toca la nota.
+- La migración `20261108160000_patient_audiometry_notes_in_evolution` corre después de la de tipos (antes compartían el
+  prefijo `20261108150000`). Agrega la columna, enlaza las notas ya creadas con el texto sin tipo, les pone el texto con
+  tipo y crea la nota de las audiometrías que no tenían; se puede reaplicar sin duplicar.
+
 ## 2026-11-08 - Tipos de audiometría (clínica y de rastreo)
 
 - Catálogo global `AudiometryType` (`code` único, `name`, `sortOrder`, `isActive`) con `CLINICAL` y `SCREENING`;
@@ -16,6 +29,20 @@
   tienen contrato en el código.
 - `GET /audiometry-types` devuelve solo los activos por `sortOrder`, con los mismos guards y roles que leer audiometrías.
 - Marcar como "mal hecha" es igual para ambos tipos y no depende de `typeCode`.
+
+## 2026-11-08 - Nombre y logo de la clínica
+
+- `PATCH /tenants/current` acepta también `name` (se guarda en `Tenant.businessName`): opcional, sin espacios en los extremos, de 1 a 100 caracteres. El nombre no es identificador: `businessName` no es único, no va en el JWT, no se usa en Dynamo ni en ningún slug o clave. Se puede cambiar sin migrar nada.
+- Logo: el tenant guarda la key del storage en `Tenant.logoKey`, nunca la imagen ni la URL completa. La URL se arma al leer con `StorageService.getPublicUrl(key)` y es pública y sin expiración, usable en `<img>` e impresión. `/auth/me` (`tenant.logoUrl`) y `/tenants/current` la devuelven resuelta, o `null`.
+- `logoUrl` heredado: si el tenant solo tiene la columna vieja `logoUrl`, se devuelve esa hasta que se suba un logo nuevo. Subir o quitar deja `logoUrl` en `null` y manda `logoKey`.
+- Endpoints: `POST` y `DELETE /tenants/current/logo`, mismos permisos que Configuración (`OWNER` y `ADMIN`, comprobados en el caso de uso). Al reemplazar o quitar se borra el objeto anterior; si el borrado falla, no falla la operación (queda un archivo huérfano, no un logo roto).
+- Formatos PNG, JPG, WEBP y SVG, máximo 2 MB. El formato se detecta por el contenido (firma del archivo), no por la extensión ni el `Content-Type` del cliente, así que no hay `fileFilter` en multer. Multer corta en 10 MB solo para no cargar archivos enormes en memoria; el límite real de 2 MB lo valida el caso de uso con un mensaje en español.
+- Riesgo XSS del SVG: un SVG abierto directo desde el bucket puede ejecutar JavaScript en ese origen. Mitigaciones: (1) el SVG se guarda en el storage con `ContentDisposition: attachment` (parámetro opcional de `putObject` y `upload`; los demás llamadores no cambian), así abrir la URL directa lo descarga en vez de ejecutarlo; (2) un filtro rechaza etiquetas activas con o sin prefijo de namespace (`script`, `foreignObject`, `iframe`, `embed`, `object`, `audio`, `video`, `handler`, `listener`), atributos `on*` con o sin prefijo, `&#` o entidades de separador (`&colon;`, `&tab;`, `&newline;`) dentro de `href`/`xlink:href`, `javascript:`, `vbscript:` y `data:` (también tras decodificar entidades numéricas y quitar espacios y caracteres de control), `<!ENTITY` y `<!DOCTYPE`. Consecuencia: un SVG con imágenes incrustadas en `data:` se rechaza. El filtro sigue siendo por patrones y es una defensa adicional, no un sanitizador completo; el front muestra el logo siempre dentro de `<img>`. Si algún día se muestra incrustado (`<object>`, `<iframe>` o inline), hay que sanitizar con una librería.
+- La key es `identity/{tenantUuid}/logos/logo-{timestamp}.{ext}`: cambia en cada subida, así el caché de un año (`immutable`) no sirve un logo viejo.
+- `StorageService` gana `putObject`, `deleteObject` y `getPublicUrl`; `upload()` conserva su comportamiento.
+- Los endpoints heredados `/upload/tenants/:uuid/logo` y `PATCH /tenants/:uuid` mantienen su forma de respuesta, pero ahora también exigen `OWNER` o `ADMIN` (`assertCanManageClinic` en el controlador; un `DOCTOR` recibe 403). El upload heredado valida el formato por el contenido con la misma detección del logo (PNG, JPG, WEBP o SVG; un PDF ya no pasa), guarda el `ContentType` detectado y no el que manda el cliente, y sirve el SVG como attachment.
+- Al reemplazar el logo, el objeto anterior se borra solo si su key es distinta de la nueva (dos subidas en el mismo milisegundo no borran el logo recién guardado).
+- Migración `20261108150000_tenant_logo_key`: `Tenant.logoKey` (TEXT nulo, sin backfill).
 
 ## 2026-11-08 - Datos de contacto de la clínica y variables nuevas de plantilla
 

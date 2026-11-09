@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, Tenant } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 import { TenantDomain, TenantPlan } from '../../domain/types/auth.types';
-import { ClinicContactData, ClinicDomain } from '../../domain/types/clinic.types';
+import { ClinicContactData, ClinicRecord } from '../../domain/types/clinic.types';
 
 @Injectable()
 export class TenantStorage {
@@ -36,22 +36,40 @@ export class TenantStorage {
     };
   }
 
-  async findClinicByUuid(uuid: string): Promise<ClinicDomain | null> {
+  async findClinicByUuid(uuid: string): Promise<ClinicRecord | null> {
     const record = await this.prisma.tenant.findUnique({
       where: { uuid },
-      select: { businessName: true, logoUrl: true, phone: true, email: true, address: true },
+      select: {
+        businessName: true,
+        logoKey: true,
+        logoUrl: true,
+        phone: true,
+        email: true,
+        address: true,
+      },
     });
     return record ?? null;
   }
 
-  async updateClinicContact(uuid: string, data: ClinicContactData): Promise<ClinicDomain | null> {
+  async updateClinicContact(uuid: string, data: ClinicContactData): Promise<ClinicRecord | null> {
     const result = await this.prisma.tenant.updateMany({
       where: { uuid },
       data: {
+        ...(data.name !== undefined && { businessName: data.name }),
         ...(data.phone !== undefined && { phone: data.phone }),
         ...(data.email !== undefined && { email: data.email }),
         ...(data.address !== undefined && { address: data.address }),
       },
+    });
+    if (result.count === 0) return null;
+    return this.findClinicByUuid(uuid);
+  }
+
+  /** Guarda la key del logo (o la quita con null) y descarta la URL heredada. */
+  async setClinicLogoKey(uuid: string, logoKey: string | null): Promise<ClinicRecord | null> {
+    const result = await this.prisma.tenant.updateMany({
+      where: { uuid },
+      data: { logoKey, logoUrl: null },
     });
     if (result.count === 0) return null;
     return this.findClinicByUuid(uuid);
@@ -69,6 +87,7 @@ export class TenantStorage {
       businessName: record.businessName,
       businessType: record.businessType ?? undefined,
       logoUrl: record.logoUrl ?? undefined,
+      logoKey: record.logoKey,
       plan: (record.plan as TenantPlan) ?? TenantPlan.FREE,
       createdAt: record.createdAt,
     };

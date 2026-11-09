@@ -187,3 +187,90 @@ describe('PatientAudiometryEntryStorage', () => {
     );
   });
 });
+
+describe('PatientAudiometryEntryStorage.create', () => {
+  function buildCreateStorage(failNote = false) {
+    const calls: string[] = [];
+    const created: Record<string, unknown>[] = [];
+    const notes: Record<string, unknown>[] = [];
+    const prisma = {
+      patientAudiometryEntry: {
+        create: ({ data }: { data: Record<string, unknown> }) => {
+          calls.push('create');
+          created.push(data);
+          return Promise.resolve({ invalidatedAt: null, ...data, type: { name: 'Tipo' } });
+        },
+      },
+      patientNote: {
+        create: ({ data }: { data: Record<string, unknown> }) => {
+          calls.push('note');
+          if (failNote) return Promise.reject(new Error('falla la nota'));
+          notes.push(data);
+          return Promise.resolve(data);
+        },
+      },
+      $transaction: async (work: Promise<unknown>[]) => {
+        try {
+          return await Promise.all(work);
+        } catch (error) {
+          created.length = 0;
+          notes.length = 0;
+          throw error;
+        }
+      },
+    };
+    return { storage: new PatientAudiometryEntryStorage(prisma as never), calls, created, notes };
+  }
+
+  const data = {
+    tenantUuid: TENANT,
+    patientUuid: PATIENT,
+    createdByUuid: 'user-1',
+    schemaVersion: 1,
+    typeCode: 'CLINICAL' as const,
+    payload: {} as never,
+  };
+
+  it('crea la audiometría y una nota de Pruebas con autor, texto y la misma fecha', async () => {
+    const { storage, calls, created, notes } = buildCreateStorage();
+
+    await storage.create(data);
+
+    expect(calls).toEqual(['create', 'note']);
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toMatchObject({
+      patientUuid: PATIENT,
+      tenantUuid: TENANT,
+      authorUuid: 'user-1',
+      category: 'EXTERNAL_TEST',
+      text: expect.stringMatching(/^Se realizó audiometría clínica el \d{2}\/\d{2}\/\d{4}$/),
+    });
+    expect(created[0].createdAt).toBeInstanceOf(Date);
+    expect(notes[0].createdAt).toBe(created[0].createdAt);
+  });
+
+  it('la nota de una audiometría de rastreo lleva el tipo en el texto', async () => {
+    const { storage, notes } = buildCreateStorage();
+
+    await storage.create({ ...data, typeCode: 'SCREENING', payload: {} as never });
+
+    expect(notes[0].text).toMatch(/^Se realizó audiometría de rastreo el \d{2}\/\d{2}\/\d{4}$/);
+  });
+
+  it('enlaza la nota con la audiometría por su uuid', async () => {
+    const { storage, created, notes } = buildCreateStorage();
+
+    const record = await storage.create(data);
+
+    expect(created[0].uuid).toEqual(expect.any(String));
+    expect(notes[0].audiometryEntryUuid).toBe(created[0].uuid);
+    expect(record.uuid).toBe(created[0].uuid);
+  });
+
+  it('si falla la nota, falla todo y no queda la audiometría', async () => {
+    const { storage, created } = buildCreateStorage(true);
+
+    await expect(storage.create(data)).rejects.toThrow('falla la nota');
+    expect(created).toHaveLength(0);
+  });
+});

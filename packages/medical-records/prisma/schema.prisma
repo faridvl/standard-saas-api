@@ -342,6 +342,7 @@ model PatientAudiometryEntry {
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
   type          AudiometryType @relation(fields: [typeCode], references: [code])
+  notes         PatientNote[]
 
   @@index([tenantUuid, patientUuid, createdAt])
 }
@@ -404,11 +405,15 @@ model PatientNote {
   category    DocumentCategory @default(EVOLUTION_CONTROL)
   text        String           @db.VarChar(2500)
   createdAt   DateTime         @default(now())
+  // Solo en las notas que deja una audiometría: permite abrirla desde Evolución.
+  audiometryEntryUuid String?
 
   patient     Patient          @relation(fields: [patientUuid], references: [uuid])
+  audiometryEntry PatientAudiometryEntry? @relation(fields: [audiometryEntryUuid], references: [uuid])
 
   @@index([patientUuid])
   @@index([tenantUuid])
+  @@index([audiometryEntryUuid])
 }
 
 // Historial de notas de los mantenimientos 1 a 4 de un paciente. Append-only: las notas

@@ -18,6 +18,7 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | phone | String? | teléfono de contacto de la clínica; null por defecto |
 | email | String? | correo de contacto de la clínica; null por defecto |
 | address | String? | dirección de la clínica (máx. 300 en la API); null por defecto |
+| logoKey | String? | key del logo en el storage (la URL se arma al leer); null si no hay logo |
 | status | Enum(ACTIVE, INACTIVE) | default ACTIVE |
 | createdAt | DateTime | |
 | updatedAt | DateTime | |
@@ -48,6 +49,7 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | 20260215201508_add_users_fields | Added specialty, avatarUrl, phoneNumber |
 | 20260215202931_new_role | Added new role values |
 | 20261108130000_tenant_contact_fields | `Tenant.phone`, `Tenant.email`, `Tenant.address` (TEXT nulos, sin backfill) |
+| 20261108150000_tenant_logo_key | `Tenant.logoKey` (TEXT nulo, sin backfill) |
 
 ---
 
@@ -242,6 +244,9 @@ Index: `@@index([tenantUuid, patientUuid, createdAt])`. Cada guardado es un regi
 y nunca se quita, y los tres campos van juntos o todos nulos. La lista no trae el `payload`: lee solo `result` (rastreo),
 `summary.ptaType`, `summary.gradingScale` y el PTA de cada oído con `payload #>> '{...}'`, y une con `AudiometryType` para el nombre.
 
+`PatientNote.audiometryEntryUuid` (String?, FK a `PatientAudiometryEntry.uuid`, `ON DELETE SET NULL`, con índice): lo llena
+solo la nota de Pruebas que crea cada audiometría, en la misma transacción que el registro. Es nulo en las demás notas.
+
 #### `DocumentTemplate` (plantillas de documento)
 | Column | Type | Notes |
 |--------|------|-------|
@@ -276,6 +281,7 @@ expresa `lower()` en el schema); da el 409 por nombre repetido sin distinguir ma
 | 20261108130000_document_templates | Tabla DocumentTemplate (plantillas de documento por negocio) con índice único (tenantUuid, lower(name)) |
 | 20261108140000_patient_audiometry_entry_invalidation | Columnas `PatientAudiometryEntry.invalidatedAt`, `invalidatedByUuid`, `invalidationReason` (todas nulas, sin backfill) |
 | 20261108150000_audiometry_types | Tabla AudiometryType con `CLINICAL` y `SCREENING`; columna `PatientAudiometryEntry.typeCode` NOT NULL default `'CLINICAL'` (backfill de las existentes) con FK |
+| 20261108160000_patient_audiometry_notes_in_evolution | Columna `PatientNote.audiometryEntryUuid` (nula, FK a `PatientAudiometryEntry.uuid`, SET NULL) con índice; datos: enlaza las notas de audiometría ya creadas, les pone el texto con el tipo y crea la de las audiometrías que no tenían; idempotente |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma, PatientAudiometryEntry } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,6 +12,7 @@ import {
   PatientAudiometryEntryEntity,
   PatientAudiometryEntrySummary,
 } from '@medical-records/domain/entities/patient-audiometry-entry.entity';
+import { buildAudiometryNoteData } from '@medical-records/domain/utils/audiometry-note-text.util';
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 
@@ -84,10 +86,17 @@ export class PatientAudiometryEntryStorage {
   }
 
   async create(data: CreatePatientAudiometryEntryData): Promise<PatientAudiometryEntryRecord> {
-    const record = await this.prisma.patientAudiometryEntry.create({
-      data: { ...data, payload: data.payload as unknown as Prisma.InputJsonObject },
-      include: INCLUDE_TYPE_NAME,
-    });
+    // La nota de Control de evolución se crea con el registro en un solo lote, con la misma fecha y
+    // enlazada por uuid. Marcar la audiometría como mal hecha no la toca.
+    const uuid = randomUUID();
+    const createdAt = new Date();
+    const [record] = await this.prisma.$transaction([
+      this.prisma.patientAudiometryEntry.create({
+        data: { ...data, uuid, createdAt, payload: data.payload as unknown as Prisma.InputJsonObject },
+        include: INCLUDE_TYPE_NAME,
+      }),
+      this.prisma.patientNote.create({ data: buildAudiometryNoteData(data, createdAt, uuid) }),
+    ]);
     return this.mapToRecord(record);
   }
 
