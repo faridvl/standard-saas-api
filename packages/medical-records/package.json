@@ -6,6 +6,7 @@
     "start": "node dist/main.js",
     "prisma:migrate": "dotenv -e .env -- prisma migrate dev",
     "prisma:generate": "dotenv -e .env -- prisma generate",
+    "test": "jest -c jest.config.js",
     "build": "prisma generate && tsc -b tsconfig.json && tsc-alias",
     "local": "dotenv -e .env -- ts-node-dev -r tsconfig-paths/register --respawn --transpile-only src/main.ts"
   },

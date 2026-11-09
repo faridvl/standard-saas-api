@@ -6,13 +6,20 @@ import { PrismaModule } from '@medical-records/infrastructure/adapters/prisma/pr
 import { PatientsModule } from './modules/patients.module';
 import { PatientContactsModule } from './modules/patient-contacts.module';
 import { PatientNotesModule } from './modules/patient-notes.module';
+import { PatientMaintenanceNotesModule } from './modules/patient-maintenance-notes.module';
+import { PatientQuestionnaireEntriesModule } from './modules/patient-questionnaire-entries.module';
+import { PatientOtoscopyEntriesModule } from './modules/patient-otoscopy-entries.module';
+import { PatientAudiometryEntriesModule } from './modules/patient-audiometry-entries.module';
+import { PatientLabShipmentsModule } from './modules/patient-lab-shipments.module';
 import { PatientBackgroundModule } from './modules/patient-background.module';
+import { PatientPhysicalExamModule } from './modules/patient-physical-exam.module';
 import { PatientDeviceModule } from './modules/patient-device.module';
 import { PatientDocumentsModule } from './modules/patient-documents.module';
 import { AppointmentsModule } from './modules/appointments.module';
 import { AppointmentTypesModule } from './modules/appointment-types.module';
 import { MedicalControlModule } from './modules/medical-control.module';
 import { ClinicalTemplatesModule } from './modules/clinical-templates.module';
+import { DocumentTemplatesModule } from './modules/document-templates.module';
 import { MaintenanceModule } from './modules/maintenance.module';
 import { EncountersModule } from './modules/encounters.module';
 import { StudiesModule } from './modules/studies.module';
@@ -41,13 +48,20 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     PatientsModule,
     PatientContactsModule,
     PatientNotesModule,
+    PatientMaintenanceNotesModule,
+    PatientQuestionnaireEntriesModule,
+    PatientOtoscopyEntriesModule,
+    PatientAudiometryEntriesModule,
+    PatientLabShipmentsModule,
     PatientBackgroundModule,
+    PatientPhysicalExamModule,
     PatientDeviceModule,
     PatientDocumentsModule,
     AppointmentsModule,
     AppointmentTypesModule,
     MedicalControlModule,
     ClinicalTemplatesModule,
+    DocumentTemplatesModule,
     MaintenanceModule,
     EncountersModule,
     StudiesModule,

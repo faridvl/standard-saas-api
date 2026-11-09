@@ -55,9 +55,9 @@ export class PatientActivityStorage {
     const and: Prisma.PatientActivityWhereInput[] = [];
 
     if (filters.branchUuid) {
-      // Sede actual del paciente: la bitácora no guarda la sede del momento.
+      // Sedes actuales del paciente: la bitácora no guarda la sede del momento.
       const patientsInBranch = await this.prisma.patient.findMany({
-        where: { tenantUuid, branchUuid: filters.branchUuid },
+        where: { tenantUuid, branches: { some: { branchUuid: filters.branchUuid } } },
         select: { uuid: true },
       });
       and.push({ patientUuid: { in: patientsInBranch.map((patient) => patient.uuid) } });

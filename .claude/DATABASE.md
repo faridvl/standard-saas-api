@@ -15,6 +15,10 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | uuid | String (unique) | public identifier, auto-generated UUID |
 | businessName | String | |
 | businessType | String? | optional |
+| phone | String? | teléfono de contacto de la clínica; null por defecto |
+| email | String? | correo de contacto de la clínica; null por defecto |
+| address | String? | dirección de la clínica (máx. 300 en la API); null por defecto |
+| logoKey | String? | key del logo en el storage (la URL se arma al leer); null si no hay logo |
 | status | Enum(ACTIVE, INACTIVE) | default ACTIVE |
 | createdAt | DateTime | |
 | updatedAt | DateTime | |
@@ -44,6 +48,8 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | 20260214193921_first | First schema update |
 | 20260215201508_add_users_fields | Added specialty, avatarUrl, phoneNumber |
 | 20260215202931_new_role | Added new role values |
+| 20261108130000_tenant_contact_fields | `Tenant.phone`, `Tenant.email`, `Tenant.address` (TEXT nulos, sin backfill) |
+| 20261108150000_tenant_logo_key | `Tenant.logoKey` (TEXT nulo, sin backfill) |
 
 ---
 
@@ -60,7 +66,7 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | lastName | String | |
 | phone | String? | |
 | address | String? | |
-| birthDate | DateTime | |
+| birthDate | DateTime? | opcional |
 | email | String? | |
 | gender | String? | |
 | tenantId | Int | not FK, denormalized |
@@ -169,6 +175,93 @@ trade-off que documenta `service-core-comx` para el mismo patrón.
 
 Index: `@@index([tenantUuid])`
 
+#### `PatientLabShipment` (historial de envíos de audífonos al laboratorio)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| uuid | String (unique) | |
+| tenantUuid / patientUuid | String | FK a `Patient.uuid` |
+| sentAt | DateTime | día de envío, a mediodía UTC |
+| deliveredAt | DateTime? | día de entrega a mediodía UTC; null = sigue en laboratorio |
+| note | String? | nota de la entrega (máx. 1000) |
+| createdByUuid / deliveredByUuid | String? | quién envió / quién entregó |
+| createdAt / updatedAt | DateTime | |
+
+Index: `@@index([tenantUuid, patientUuid, sentAt])`. Máximo un envío abierto por paciente:
+índice parcial único `PatientLabShipment_one_open_per_patient` (`WHERE "deliveredAt" IS NULL`),
+solo en el SQL de la migración (Prisma no lo expresa). `Patient.hearingAidsInLabSince` sigue
+siendo el interruptor; el envío abierto lleva el mismo día.
+
+Reconciliación tras desplegar (idempotente; interruptor y envíos pueden haber quedado
+desalineados si la migración corrió antes que el código nuevo). Correrla solo con permiso y
+nunca contra una base que no sea la local de pruebas:
+```sql
+-- Cierra los envíos abiertos de pacientes con el interruptor apagado.
+UPDATE "PatientLabShipment" s
+SET "deliveredAt" = s."sentAt", "updatedAt" = CURRENT_TIMESTAMP
+FROM "Patient" p
+WHERE s."patientUuid" = p."uuid" AND s."deliveredAt" IS NULL AND p."hearingAidsInLabSince" IS NULL;
+
+-- Abre el envío que falte a los pacientes con el interruptor prendido.
+INSERT INTO "PatientLabShipment" ("uuid", "tenantUuid", "patientUuid", "sentAt", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text, p."tenantUuid", p."uuid", p."hearingAidsInLabSince", CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM "Patient" p
+WHERE p."hearingAidsInLabSince" IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM "PatientLabShipment" s WHERE s."patientUuid" = p."uuid" AND s."deliveredAt" IS NULL
+  );
+```
+
+#### `AudiometryType` (catálogo global de tipos de audiometría)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| code | String (unique) | `CLINICAL`, `SCREENING`; es lo que referencia `PatientAudiometryEntry.typeCode` |
+| name | String | texto que ve el usuario ("Clínica", "Rastreo") |
+| sortOrder | Int | orden del selector |
+| isActive | Boolean | default true; un tipo inactivo no acepta guardados nuevos |
+| createdAt | DateTime | |
+
+No es por negocio. Un tipo nuevo necesita fila acá y un schema Zod en el código.
+
+#### `PatientAudiometryEntry` (historial de audiometrías)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| uuid | String (unique) | |
+| tenantUuid / patientUuid | String | `patientUuid` es FK a `Patient.uuid` |
+| typeCode | String | default `'CLINICAL'`; FK a `AudiometryType.code` (RESTRICT al borrar) |
+| schemaVersion | Int | versión del contrato del payload (hoy 1) |
+| payload | Json | audiometría completa, validada con Zod al guardar; su forma depende de `typeCode` |
+| createdAt | DateTime | |
+| createdByUuid | String | autor, sale del token |
+| invalidatedAt | DateTime? | marca definitiva de "mal hecha"; nulo = vigente |
+| invalidatedByUuid | String? | quién la marcó (sale del token); el nombre se resuelve al leer |
+| invalidationReason | String? | motivo, 1 a 500 caracteres (se valida en la app) |
+
+Index: `@@index([tenantUuid, patientUuid, createdAt])`. Cada guardado es un registro inmutable
+(sin edición ni borrado); lo único que cambia es la marca de "mal hecha", que se pone una sola vez
+y nunca se quita, y los tres campos van juntos o todos nulos. La lista no trae el `payload`: lee solo `result` (rastreo),
+`summary.ptaType`, `summary.gradingScale` y el PTA de cada oído con `payload #>> '{...}'`, y une con `AudiometryType` para el nombre.
+
+`PatientNote.audiometryEntryUuid` (String?, FK a `PatientAudiometryEntry.uuid`, `ON DELETE SET NULL`, con índice): lo llena
+solo la nota de Pruebas que crea cada audiometría, en la misma transacción que el registro. Es nulo en las demás notas.
+
+#### `DocumentTemplate` (plantillas de documento)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | Int (PK, autoincrement) | |
+| uuid | String (unique) | |
+| tenantUuid | String | |
+| name | String | 1 a 120, recortado |
+| description | String? | "Cuándo se usa", hasta 300 |
+| content | Text | markdown con `{{clave}}`, hasta 20000 |
+| createdAt / updatedAt | DateTime | |
+| createdByUuid / updatedByUuid | String | autor y último editor, salen del token |
+
+Índice único `(tenantUuid, lower("name"))` creado solo en la migración con SQL crudo (Prisma no
+expresa `lower()` en el schema); da el 409 por nombre repetido sin distinguir mayúsculas. Sin borrado.
+
 ### Migrations (medical-records)
 | Migration | Description |
 |-----------|-------------|
@@ -181,6 +274,15 @@ Index: `@@index([tenantUuid])`
 | 20260630220000_add_product_units | ProductUnit table; deja columnas legacy de Product/PatientDevice sin usar a propósito |
 | 20260919090000_drop_legacy_inventory_columns | Elimina current_stock (Product) y brand/model/productUuid/purchaseDate/serialNumber/warrantyUntil (PatientDevice), sin uso desde add_product_units |
 | 20260919091500_add_local_user_cache | Tabla User (cache local de identity) |
+| 20261107120000_patient_priority_and_activity_index | Columna `Patient.prioritySince` (DateTime?, nulo = sin prioridad, sin backfill) e índice `PatientActivity(tenantUuid, patientUuid, createdAt)` para el último movimiento |
+| 20261102180000_patient_lab_shipments | Tabla PatientLabShipment; copia como envío abierto a los pacientes con `hearingAidsInLabSince` |
+| 20261103120000_patient_otoscopy_notes_in_evolution | Datos: una nota `EXTERNAL_TEST` en PatientNote por cada otoscopia ya guardada (fecha y autor de la otoscopia); idempotente |
+| 20261108120000_patient_audiometry_entries | Tabla PatientAudiometryEntry (historial de audiometrías, un registro inmutable por guardado) |
+| 20261108130000_document_templates | Tabla DocumentTemplate (plantillas de documento por negocio) con índice único (tenantUuid, lower(name)) |
+| 20261108140000_patient_audiometry_entry_invalidation | Columnas `PatientAudiometryEntry.invalidatedAt`, `invalidatedByUuid`, `invalidationReason` (todas nulas, sin backfill) |
+| 20261108150000_audiometry_types | Tabla AudiometryType con `CLINICAL` y `SCREENING`; columna `PatientAudiometryEntry.typeCode` NOT NULL default `'CLINICAL'` (backfill de las existentes) con FK |
+| 20261108150000_patient_audiometry_notes_in_evolution | Datos: una nota `EXTERNAL_TEST` en PatientNote por cada audiometría ya guardada, con texto sin tipo; idempotente (ya estaba en develop: no se edita) |
+| 20261108160000_patient_note_audiometry_link | Columna `PatientNote.audiometryEntryUuid` (nula, FK a `PatientAudiometryEntry.uuid`, SET NULL) con índice; datos: enlaza las notas de audiometría ya creadas, les pone el texto con el tipo y crea la de las audiometrías que no tenían; idempotente |
 
 ### Naming conventions
 - Prisma model names: PascalCase singular (`MedicalControl`)

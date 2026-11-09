@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Patient } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { UpdatePatientStatusDto } from '@medical-records/app/dtos/update-patient-status.dto';
 import { PatientStatus } from '@medical-records/domain/types/patient-status.types';
@@ -23,7 +23,7 @@ export class UpdatePatientStatusUseCase {
     tenantUuid: string,
     actorUuid: string,
     dto: UpdatePatientStatusDto,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);

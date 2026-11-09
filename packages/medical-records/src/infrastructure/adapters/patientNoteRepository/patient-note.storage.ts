@@ -14,6 +14,14 @@ export interface CreatePatientNoteData {
 export class PatientNoteStorage {
   constructor(private readonly prisma: PrismaService) {}
 
+  async patientExists(patientUuid: string, tenantUuid: string): Promise<boolean> {
+    const patient = await this.prisma.patient.findFirst({
+      where: { uuid: patientUuid, tenantUuid, deletedAt: null },
+      select: { id: true },
+    });
+    return patient !== null;
+  }
+
   async create(data: CreatePatientNoteData): Promise<PatientNote> {
     return await this.prisma.patientNote.create({ data });
   }

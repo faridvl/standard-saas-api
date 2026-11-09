@@ -7,13 +7,15 @@ import {
   DEFAULT_APPOINTMENT_HOUR_UTC,
 } from '@medical-records/domain/types/appointment.types';
 import { MedicalSpeciality } from '@medical-records/domain/types/medical-control-content.types';
+import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
+import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
+import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
 
 const APPOINTMENT_DURATION_MINUTES = 30;
-
 
 /**
  * Tipo de cita usado cuando la petición no manda `typeUUID`. Zynka sigue
@@ -27,6 +29,8 @@ export class ScheduleNextAppointmentUseCase {
   constructor(
     private readonly storage: AppointmentStorage,
     private readonly patientStorage: PatientStorage,
+    private readonly branchStorage: BranchStorage,
+    private readonly appointmentTypeStorage: AppointmentTypeStorage,
     private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
@@ -42,6 +46,20 @@ export class ScheduleNextAppointmentUseCase {
     }
     if ((patient.status as PatientStatus) === PatientStatus.DECEASED) {
       throw new BadRequestException('No se puede agendar una cita a un paciente fallecido');
+    }
+
+    if (dto.typeUUID && !(await this.appointmentTypeStorage.findByUuid(tenantUUID, dto.typeUUID))) {
+      throw new NotFoundException(`Tipo de cita con UUID ${dto.typeUUID} no encontrado`);
+    }
+
+    // Reagendar conserva la sede de la cita vigente aunque el paciente ya no la tenga.
+    if (dto.branchUUID) {
+      assertAppointmentBranch(
+        dto.branchUUID,
+        patient.branchUuids,
+        await this.branchStorage.findUuidsInTenant(tenantUUID, [dto.branchUUID]),
+        patient.nextAppointmentBranchUuid,
+      );
     }
 
     // La cita futura que hubiera se reemplaza por la nueva: queda CANCELLED y

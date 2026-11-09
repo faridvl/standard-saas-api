@@ -18,8 +18,17 @@ export class FindPatientNotesUseCase {
     return await Promise.all(
       notes.map(async (note) => ({
         ...note,
-        authorName: await this.getOrCreateUser.execute(note.authorUuid, tenantUuid),
+        authorName: await this.resolveAuthorName(note.authorUuid, tenantUuid),
       })),
     );
+  }
+
+  // El nombre es informativo: si un autor no se puede resolver, la lista no se cae.
+  private async resolveAuthorName(authorUuid: string, tenantUuid: string): Promise<string | null> {
+    try {
+      return await this.getOrCreateUser.execute(authorUuid, tenantUuid);
+    } catch {
+      return null;
+    }
   }
 }

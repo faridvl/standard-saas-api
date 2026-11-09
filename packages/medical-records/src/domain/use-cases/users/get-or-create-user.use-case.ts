@@ -11,7 +11,7 @@ import { IdentityRepository } from '@medical-records/infrastructure/adapters/ide
  * billing): la copia local puede quedar desactualizada si el usuario
  * cambia de nombre en identity, se acepta ese trade-off.
  *
- * Si identity no responde (o no está configurada la URL), devuelve null
+ * Si el uuid viene vacío, o identity no responde (o no está configurada la URL), devuelve null
  * en vez de fallar: el nombre del autor es informativo, no crítico.
  */
 @Injectable()
@@ -22,6 +22,11 @@ export class GetOrCreateUserUseCase {
   ) {}
 
   async execute(uuid: string, tenantUuid: string): Promise<string | null> {
+    // Sin autor conocido (p. ej. notas migradas): no hay nada que resolver ni que pedir a identity.
+    if (!uuid || !uuid.trim()) {
+      return null;
+    }
+
     const localUser = await this.userStorage.findByUuid(uuid);
     if (localUser) {
       return localUser.fullName;

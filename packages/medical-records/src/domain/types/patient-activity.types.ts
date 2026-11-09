@@ -20,6 +20,8 @@ export enum PatientActivityAction {
   /** La cita se dio por atendida (pasa a COMPLETED). */
   APPOINTMENT_COMPLETED = 'APPOINTMENT_COMPLETED',
   STATUS_CHANGED = 'STATUS_CHANGED',
+  /** Los audífonos volvieron del laboratorio y se entregaron; trae el día y si hubo nota (sin el texto). */
+  HEARING_AIDS_DELIVERED = 'HEARING_AIDS_DELIVERED',
   /** Se marcó o desmarcó que los audífonos están en el laboratorio. */
   HEARING_AIDS_LAB_CHANGED = 'HEARING_AIDS_LAB_CHANGED',
   /** Se activó o desactivó la garantía. */
@@ -30,12 +32,30 @@ export enum PatientActivityAction {
   WARRANTY_EXPIRED_CHANGED = 'WARRANTY_EXPIRED_CHANGED',
   /** Se marcó o desmarcó que hay que renovar la receta. */
   RENEW_PRESCRIPTION_CHANGED = 'RENEW_PRESCRIPTION_CHANGED',
+  /** Se marcó o desmarcó al paciente como prioridad. */
+  PRIORITY_CHANGED = 'PRIORITY_CHANGED',
   /** Un documento pasó a otra sección (DocumentCategory). */
   DOCUMENT_CATEGORY_CHANGED = 'DOCUMENT_CATEGORY_CHANGED',
   /** Se llenó la historia clínica (antecedentes) por primera vez. */
   CLINICAL_HISTORY_CREATED = 'CLINICAL_HISTORY_CREATED',
   /** Se modificó la historia clínica (antecedentes). */
   CLINICAL_HISTORY_UPDATED = 'CLINICAL_HISTORY_UPDATED',
+  /** Se modificó la exploración física (otoscopia). */
+  PHYSICAL_EXAM_UPDATED = 'PHYSICAL_EXAM_UPDATED',
+  /** Cambió el estado de un mantenimiento (sin marcar, asistido o perdido). */
+  MAINTENANCE_CHANGED = 'MAINTENANCE_CHANGED',
+  /** Histórico: contador de intentos de contacto. Ya no se escribe; se sigue leyendo. */
+  CONTACT_ATTEMPTS_CHANGED = 'CONTACT_ATTEMPTS_CHANGED',
+  /** Histórico: check de un mantenimiento. Ya no se escribe; se sigue leyendo. */
+  MAINTENANCE_CHECK_CHANGED = 'MAINTENANCE_CHECK_CHANGED',
+  /** Histórico: nota única de un mantenimiento. Ya no se escribe; se sigue leyendo. */
+  MAINTENANCE_NOTE_CHANGED = 'MAINTENANCE_NOTE_CHANGED',
+  /** Se agregó una nota al historial de un mantenimiento; el texto no se copia. */
+  MAINTENANCE_NOTE_ADDED = 'MAINTENANCE_NOTE_ADDED',
+  /** Se llenó una sección propia de la clínica dentro de Preguntas. */
+  QUESTIONNAIRE_FILLED = 'QUESTIONNAIRE_FILLED',
+  /** Se corrigió un registro de una sección propia de Preguntas. */
+  QUESTIONNAIRE_CORRECTED = 'QUESTIONNAIRE_CORRECTED',
 }
 
 /** Un campo del paciente que cambió, con su valor antes y después. */
@@ -58,7 +78,14 @@ export type PatientActivityDetail =
   | { month: string; typeUuid: string | null; typeName: string | null }
   | { appointmentUuid: string; date: string; typeUuid: string | null; typeName: string | null }
   | { before: string; after: string; reason: string | null; date: string | null }
-  | { isOn: boolean };
+  | { isOn: boolean; date?: string; previousDate?: string }
+  | { date: string; hasNote: boolean }
+  | { number: number; status: string | null; previousStatus: string | null }
+  | { count: number; previousCount: number }
+  | { number: number; done: boolean }
+  | { number: number; excerpt: string | null }
+  | { number: number }
+  | { templateUuid: string; templateName: string };
 
 export interface RecordPatientActivityInput {
   tenantUuid: string;

@@ -66,7 +66,7 @@ export class MaintenanceStorage {
   async findUpcoming(tenantUuid: string, month: string): Promise<MaintenanceEntity[]> {
     const start = new Date(`${month}-01T00:00:00.000Z`);
     const end = new Date(start);
-    end.setMonth(end.getMonth() + 1);
+    end.setUTCMonth(end.getUTCMonth() + 1);
 
     const records = await this.prisma.maintenance.findMany({
       where: {

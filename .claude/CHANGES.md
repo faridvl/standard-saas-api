@@ -25,6 +25,10 @@
 - Prisma: el log de cada query pasa a ser opcional (`PRISMA_LOG_QUERIES=true`); por defecto solo `error` y `warn`
 - Medical records service: historia clínica en `PatientBackground` — campos `dizziness`, `tinnitusTone`, `otoscopyRight`, `otoscopyLeft`, `createdAt`, `createdByUuid`, `updatedByUuid`; `GET/PUT /patients/:uuid/background` ahora comprueban que el paciente sea de la clínica (404 si no); acciones `CLINICAL_HISTORY_CREATED`/`CLINICAL_HISTORY_UPDATED`. Migración `20261021120000_add_clinical_history_fields`, sin aplicar
 
+- Medical records service: audiometría marcada como "mal hecha" — `POST /patients/:patientUuid/audiometry-entries/:entryUuid/invalidate` con `{ reason }` (obligatorio, máximo 500 caracteres), definitiva (409 si ya está marcada), el payload no cambia. Lista y detalle devuelven `invalidatedAt`, `invalidatedByUuid`, `invalidatedByName` e `invalidationReason`. Migración `20261108140000_patient_audiometry_entry_invalidation`, aplicada solo en la base local de pruebas
+- Identity service: nombre y logo de la clínica — `PATCH /tenants/current` acepta `name`; `POST` y `DELETE /tenants/current/logo` (PNG/JPG/WEBP/SVG, 2 MB, OWNER y ADMIN); `Tenant.logoKey` y `logoUrl` resuelto en `/auth/me` y `/tenants/current`. Migración `20261108150000_tenant_logo_key`
+- Identity service: datos de contacto de la clínica — `Tenant.phone/email/address`, `GET` y `PATCH /tenants/current` (escritura solo OWNER y ADMIN); variables de plantilla `otoscopia_od/oi`, `diagnostico`, `observaciones` y `clinica_*`. Migración `20261108130000_tenant_contact_fields`
+
 ## 🔄 EN PROGRESO
 
 _(nothing currently marked as in-progress in code)_

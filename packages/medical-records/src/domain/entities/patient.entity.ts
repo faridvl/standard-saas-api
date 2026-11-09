@@ -9,12 +9,13 @@ export type PatientEntity = {
   lastName: string;
   phone?: string;
   address?: string;
-  birthDate: Date;
+  birthDate?: Date;
   email?: string;
   gender?: string;
   bloodType?: string;
   documentId?: string;
   branchUuid?: string;
+  branchUuids?: string[];
   contacts?: PatientContactInput[];
   tenantId: number;
   tenantUuid: string;

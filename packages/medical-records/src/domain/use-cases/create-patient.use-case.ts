@@ -1,6 +1,11 @@
 import { Injectable, ConflictException } from '@nestjs/common';
-import { Patient } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import { PatientStorage } from '../../infrastructure/adapters/patientsRepository/patient.storage';
+import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
+import {
+  assertBranchesExist,
+  resolvePatientBranches,
+} from '@medical-records/domain/services/patient-branches';
 import { PatientContactStorage } from '@medical-records/infrastructure/adapters/patientContactRepository/patient-contact.storage';
 import { PatientEntity } from '../entities/patient.entity';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
@@ -11,13 +16,14 @@ export class CreatePatientUseCase {
   constructor(
     private readonly storage: PatientStorage,
     private readonly contactStorage: PatientContactStorage,
+    private readonly branchStorage: BranchStorage,
     private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
   async execute(
     data: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
     userContext: { tenantId: number; tenantUuid: string; sub: string },
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     if (data.documentId) {
       const existing = await this.storage.findByDocumentId(data.documentId, userContext.tenantUuid);
       if (existing) {
@@ -26,6 +32,15 @@ export class CreatePatientUseCase {
         );
       }
     }
+
+    const branches = resolvePatientBranches({
+      branchUuid: data.branchUuid,
+      branchUuids: data.branchUuids,
+    }) ?? { branchUuid: null, branchUuids: [] };
+    assertBranchesExist(
+      branches.branchUuids,
+      await this.branchStorage.findUuidsInTenant(userContext.tenantUuid, branches.branchUuids),
+    );
 
     const patientData = {
       firstName: data.firstName,
@@ -37,13 +52,12 @@ export class CreatePatientUseCase {
       gender: data.gender,
       bloodType: data.bloodType,
       documentId: data.documentId,
-      branchUuid: data.branchUuid,
       tenantId: userContext.tenantId,
       tenantUuid: userContext.tenantUuid,
       createdBy: userContext.sub,
     };
 
-    const patient = await this.storage.save(patientData);
+    const patient = await this.storage.saveWithBranches(patientData, branches);
 
     if (data.contacts && data.contacts.length > 0) {
       await this.contactStorage.createMany(

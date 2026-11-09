@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Patient } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
+import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
+import {
+  assertBranchesExist,
+  resolvePatientBranches,
+} from '@medical-records/domain/services/patient-branches';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
@@ -22,23 +27,30 @@ const TRACKED_FIELDS = [
   'lastName',
   'documentId',
   'phone',
+  'birthDate',
   'email',
   'address',
   'gender',
   'bloodType',
   'occupation',
-  'branchUuid',
 ] as const;
 
 function normalize(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
   return String(value);
+}
+
+/** Sedes como texto estable para compararlas: sin importar el orden de las secundarias. */
+function joinBranches(uuids: string[]): string | null {
+  return uuids.length > 0 ? [...uuids].sort().join(',') : null;
 }
 
 @Injectable()
 export class UpdatePatientUseCase {
   constructor(
     private readonly storage: PatientStorage,
+    private readonly branchStorage: BranchStorage,
     private readonly recordActivity: RecordPatientActivityUseCase,
   ) {}
 
@@ -47,7 +59,7 @@ export class UpdatePatientUseCase {
     tenantUuid: string,
     dto: UpdatePatientDto,
     actorUuid?: string,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);
@@ -73,7 +85,18 @@ export class UpdatePatientUseCase {
       }
     }
 
-    const updated = await this.storage.update(uuid, tenantUuid, dto);
+    const branches = resolvePatientBranches(dto, {
+      branchUuid: existing.branchUuid,
+      branchUuids: existing.branchUuids,
+    });
+    if (branches) {
+      assertBranchesExist(
+        branches.branchUuids,
+        await this.branchStorage.findUuidsInTenant(tenantUuid, branches.branchUuids),
+      );
+    }
+
+    const updated = await this.storage.update(uuid, tenantUuid, dto, branches);
 
     // El formulario manda todos los campos aunque no se toquen: solo se
     // anotan los que de verdad cambiaron, y si ninguno cambió no se anota nada.
@@ -84,6 +107,22 @@ export class UpdatePatientUseCase {
         after: normalize(updated[field]),
       }))
       .filter((change) => change.before !== change.after);
+
+    if (branches) {
+      const branchChanges: PatientFieldChange[] = [
+        {
+          field: 'branchUuid',
+          before: normalize(existing.branchUuid),
+          after: normalize(updated.branchUuid),
+        },
+        {
+          field: 'branchUuids',
+          before: joinBranches(existing.branchUuids),
+          after: joinBranches(updated.branchUuids),
+        },
+      ];
+      changes.push(...branchChanges.filter((change) => change.before !== change.after));
+    }
 
     if (actorUuid && changes.length > 0) {
       await this.recordActivity.execute({

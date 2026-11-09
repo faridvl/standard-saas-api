@@ -36,10 +36,14 @@
 // }
 
 import { Injectable } from '@nestjs/common';
-import { Prisma, Patient } from '@prisma/client';
+import { Prisma, MaintenanceStatus } from '@prisma/client';
+import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
+import { MaintenanceNumber } from '@medical-records/app/dtos/update-patient-maintenance.dto';
+import { PatientBranchSelection } from '@medical-records/domain/services/patient-branches';
+import { clinicDayRange, toClinicMonthKey } from '@medical-records/domain/utils/clinic-day.util';
 
 /**
  * Paciente tal como lo consumen las pantallas: además de sus datos, de qué y
@@ -60,8 +64,28 @@ export interface PatientListFilters {
   isVideoCandidate?: boolean;
   warrantyExpired?: boolean;
   renewPrescription?: boolean;
+  isPriority?: boolean;
+  /**
+   * Con `hearingAidsInLab`: solo los que tienen un envío abierto que salió ese día
+   * ("YYYY-MM-DD", hora de Costa Rica).
+   */
+  hearingAidsInLabSentDay?: string;
   /** Si la próxima cita es confirmada (con día) o tentativa (solo mes); ambas o ninguna = todas. */
   nextAppointmentKinds?: NextAppointmentKind[];
+}
+
+/** Paciente sin movimiento reciente: lo mínimo para mostrarlo en el aviso. */
+export interface StalePatient {
+  uuid: string;
+  fullName: string;
+  lastMovementAt: Date;
+}
+
+interface StalePatientRow {
+  uuid: string;
+  firstName: string;
+  lastName: string;
+  lastMovementAt: Date;
 }
 
 export enum NextAppointmentKind {
@@ -76,13 +100,39 @@ export interface PatientFlagsUpdate {
   videoCandidateSince?: Date | null;
   warrantyExpiredSince?: Date | null;
   renewPrescriptionSince?: Date | null;
+  prioritySince?: Date | null;
+}
+
+export function maintenanceStatusColumn(
+  number: MaintenanceNumber,
+): `maintenance${MaintenanceNumber}Status` {
+  return `maintenance${number}Status`;
 }
 
 /** Valor del filtro de mes que pide los pacientes sin próxima cita. */
 export const NO_APPOINTMENT_FILTER = 'none';
 
-export type PatientWithNextAppointment = Patient & {
+/** Paciente con todas sus sedes; `branchUuid` es la principal y va primera en `branchUuids`. */
+export type PatientWithBranches = PatientRecord & { branchUuids: string[] };
+
+const BRANCHES_INCLUDE = {
+  branches: { select: { branchUuid: true }, orderBy: { id: 'asc' } },
+} satisfies Prisma.PatientInclude;
+
+type PatientRow = Prisma.PatientGetPayload<{ include: typeof BRANCHES_INCLUDE }>;
+
+function withBranchUuids(row: PatientRow): PatientWithBranches {
+  const { branches, ...patient } = row;
+  const others = branches
+    .map((branch) => branch.branchUuid)
+    .filter((uuid) => uuid !== row.branchUuid);
+  return { ...patient, branchUuids: row.branchUuid ? [row.branchUuid, ...others] : others };
+}
+
+export type PatientWithNextAppointment = PatientWithBranches & {
   nextAppointmentAt: Date | null;
+  /** Sede de esa próxima cita; null si no hay cita o se agendó sin sede. */
+  nextAppointmentBranchUuid: string | null;
   nextAppointmentType: string | null;
   tentativeAppointmentTypeName: string | null;
 };
@@ -94,10 +144,48 @@ export class PatientStorage {
   async save(
     data: Prisma.PatientUncheckedCreateInput,
     tx?: Prisma.TransactionClient,
-  ): Promise<Patient> {
+  ): Promise<PatientRecord> {
     const client: Prisma.TransactionClient | PrismaService = tx || this.prisma;
 
     return client.patient.create({ data });
+  }
+
+  /** Crea el paciente y sus sedes en una sola transacción. */
+  async saveWithBranches(
+    data: Prisma.PatientUncheckedCreateInput,
+    branches: PatientBranchSelection,
+  ): Promise<PatientWithBranches> {
+    return this.prisma.$transaction(async (tx) => {
+      const patient = await tx.patient.create({
+        data: { ...data, branchUuid: branches.branchUuid },
+      });
+      await this.replaceBranches(tx, patient.uuid, data.tenantUuid, branches.branchUuids);
+      return { ...patient, branchUuids: branches.branchUuids };
+    });
+  }
+
+  /** Sedes del paciente, o null si no existe en la clínica. */
+  async findBranchUuids(uuid: string, tenantUuid: string): Promise<string[] | null> {
+    const row = await this.prisma.patient.findFirst({
+      where: { uuid, tenantUuid },
+      include: BRANCHES_INCLUDE,
+    });
+    return row ? withBranchUuids(row).branchUuids : null;
+  }
+
+  private async replaceBranches(
+    tx: Prisma.TransactionClient,
+    patientUuid: string,
+    tenantUuid: string,
+    branchUuids: string[],
+  ): Promise<void> {
+    await tx.patientBranch.deleteMany({
+      where: { patientUuid, branchUuid: { notIn: branchUuids } },
+    });
+    await tx.patientBranch.createMany({
+      data: branchUuids.map((branchUuid) => ({ patientUuid, branchUuid, tenantUuid })),
+      skipDuplicates: true,
+    });
   }
 
   /**
@@ -110,17 +198,23 @@ export class PatientStorage {
     uuid: string,
     tenantUuid: string,
   ): Promise<
-    | (Patient & { nextAppointmentAt: Date | null; tentativeAppointmentTypeName: string | null })
+    | (PatientWithBranches & {
+        nextAppointmentAt: Date | null;
+        nextAppointmentBranchUuid: string | null;
+        tentativeAppointmentTypeName: string | null;
+      })
     | null
   > {
-    const patient = await this.prisma.patient.findFirst({
+    const row = await this.prisma.patient.findFirst({
       where: {
         uuid: uuid,
         tenantUuid: tenantUuid,
       },
+      include: BRANCHES_INCLUDE,
     });
 
-    if (!patient) return null;
+    if (!row) return null;
+    const patient = withBranchUuids(row);
 
     const [nextAppointments, typeNames] = await Promise.all([
       this.findNextAppointmentsByPatient(tenantUuid, [patient.uuid]),
@@ -133,37 +227,63 @@ export class PatientStorage {
     return {
       ...patient,
       nextAppointmentAt: nextAppointments.get(patient.uuid)?.startTime ?? null,
+      nextAppointmentBranchUuid: nextAppointments.get(patient.uuid)?.branchUuid ?? null,
       tentativeAppointmentTypeName: patient.tentativeAppointmentTypeUuid
         ? (typeNames.get(patient.tentativeAppointmentTypeUuid) ?? null)
         : null,
     };
   }
 
-  async update(uuid: string, tenantUuid: string, dto: UpdatePatientDto): Promise<Patient> {
-    return await this.prisma.patient.update({
-      where: { uuid },
-      data: {
-        ...(dto.firstName !== undefined && { firstName: dto.firstName }),
-        ...(dto.lastName !== undefined && { lastName: dto.lastName }),
-        ...(dto.phone !== undefined && { phone: dto.phone }),
-        ...(dto.address !== undefined && { address: dto.address }),
-        ...(dto.email !== undefined && { email: dto.email }),
-        ...(dto.gender !== undefined && { gender: dto.gender }),
-        ...(dto.bloodType !== undefined && { bloodType: dto.bloodType }),
-        ...(dto.linkedProductUuid !== undefined && { linkedProductUuid: dto.linkedProductUuid }),
-        ...(dto.documentId !== undefined && { documentId: dto.documentId }),
-        ...(dto.occupation !== undefined && { occupation: dto.occupation }),
-        ...(dto.branchUuid !== undefined && { branchUuid: dto.branchUuid }),
-        ...(dto.tentativeAppointmentMonth !== undefined && {
-          tentativeAppointmentMonth: dto.tentativeAppointmentMonth,
-        }),
-        ...(dto.tentativeAppointmentTypeUuid !== undefined && {
-          tentativeAppointmentTypeUuid: dto.tentativeAppointmentTypeUuid,
-        }),
-        ...(dto.warrantyDocumentUuid !== undefined && {
-          warrantyDocumentUuid: dto.warrantyDocumentUuid,
-        }),
-      },
+  /**
+   * Con `branches` (ya resueltas) reemplaza las sedes junto con la principal,
+   * en la misma transacción; sin ellas no toca las sedes.
+   */
+  async update(
+    uuid: string,
+    tenantUuid: string,
+    dto: UpdatePatientDto,
+    branches?: PatientBranchSelection,
+  ): Promise<PatientWithBranches> {
+    const data: Prisma.PatientUncheckedUpdateInput = {
+      ...(dto.firstName !== undefined && { firstName: dto.firstName }),
+      ...(dto.lastName !== undefined && { lastName: dto.lastName }),
+      ...(dto.phone !== undefined && { phone: dto.phone }),
+      ...(dto.birthDate !== undefined && { birthDate: dto.birthDate }),
+      ...(dto.address !== undefined && { address: dto.address }),
+      ...(dto.email !== undefined && { email: dto.email }),
+      ...(dto.gender !== undefined && { gender: dto.gender }),
+      ...(dto.bloodType !== undefined && { bloodType: dto.bloodType }),
+      ...(dto.linkedProductUuid !== undefined && { linkedProductUuid: dto.linkedProductUuid }),
+      ...(dto.documentId !== undefined && { documentId: dto.documentId }),
+      ...(dto.occupation !== undefined && { occupation: dto.occupation }),
+      ...(dto.tentativeAppointmentMonth !== undefined && {
+        tentativeAppointmentMonth: dto.tentativeAppointmentMonth,
+      }),
+      ...(dto.tentativeAppointmentTypeUuid !== undefined && {
+        tentativeAppointmentTypeUuid: dto.tentativeAppointmentTypeUuid,
+      }),
+      ...(dto.warrantyDocumentUuid !== undefined && {
+        warrantyDocumentUuid: dto.warrantyDocumentUuid,
+      }),
+    };
+
+    if (!branches) {
+      const row = await this.prisma.patient.update({
+        where: { uuid },
+        data,
+        include: BRANCHES_INCLUDE,
+      });
+      return withBranchUuids(row);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.replaceBranches(tx, uuid, tenantUuid, branches.branchUuids);
+      const row = await tx.patient.update({
+        where: { uuid },
+        data: { ...data, branchUuid: branches.branchUuid },
+        include: BRANCHES_INCLUDE,
+      });
+      return withBranchUuids(row);
     });
   }
 
@@ -172,8 +292,31 @@ export class PatientStorage {
    * transacción se cancelan sus citas confirmadas futuras y se limpia el mes
    * tentativo: no debe seguir apareciendo en los filtros de próxima cita.
    */
-  async updateFlags(uuid: string, tenantUuid: string, data: PatientFlagsUpdate): Promise<Patient> {
-    return this.prisma.patient.update({ where: { uuid, tenantUuid }, data });
+  async updateFlags(
+    uuid: string,
+    tenantUuid: string,
+    data: PatientFlagsUpdate,
+  ): Promise<PatientWithBranches> {
+    const row = await this.prisma.patient.update({
+      where: { uuid, tenantUuid },
+      data,
+      include: BRANCHES_INCLUDE,
+    });
+    return withBranchUuids(row);
+  }
+
+  async updateMaintenance(
+    uuid: string,
+    tenantUuid: string,
+    number: MaintenanceNumber,
+    status: MaintenanceStatus,
+  ): Promise<PatientWithBranches> {
+    const row = await this.prisma.patient.update({
+      where: { uuid, tenantUuid },
+      data: { [maintenanceStatusColumn(number)]: status },
+      include: BRANCHES_INCLUDE,
+    });
+    return withBranchUuids(row);
   }
 
   async updateStatus(
@@ -181,7 +324,7 @@ export class PatientStorage {
     tenantUuid: string,
     data: { status: string; statusReason: string | null; statusDate: Date | null },
     clearUpcomingAppointments: boolean,
-  ): Promise<Patient> {
+  ): Promise<PatientWithBranches> {
     const [patient] = await this.prisma.$transaction([
       this.prisma.patient.update({
         where: { uuid, tenantUuid },
@@ -193,6 +336,7 @@ export class PatientStorage {
             tentativeAppointmentTypeUuid: null,
           }),
         },
+        include: BRANCHES_INCLUDE,
       }),
       ...(clearUpcomingAppointments
         ? [
@@ -208,7 +352,7 @@ export class PatientStorage {
           ]
         : []),
     ]);
-    return patient;
+    return withBranchUuids(patient);
   }
 
   async documentBelongsToPatient(
@@ -227,7 +371,7 @@ export class PatientStorage {
     documentId: string,
     tenantUuid: string,
     excludeUuid?: string,
-  ): Promise<Patient | null> {
+  ): Promise<PatientRecord | null> {
     return await this.prisma.patient.findFirst({
       where: {
         documentId,
@@ -238,7 +382,7 @@ export class PatientStorage {
     });
   }
 
-  async softDelete(uuid: string, tenantUuid: string): Promise<Patient> {
+  async softDelete(uuid: string, tenantUuid: string): Promise<PatientRecord> {
     return await this.prisma.patient.update({
       where: { uuid, tenantUuid },
       data: { isActive: false, deletedAt: new Date() },
@@ -269,7 +413,7 @@ export class PatientStorage {
   private async findNextAppointmentsByPatient(
     tenantUUID: string,
     patientUUIDs: string[],
-  ): Promise<Map<string, { startTime: Date; typeName: string | null }>> {
+  ): Promise<Map<string, { startTime: Date; branchUuid: string | null; typeName: string | null }>> {
     if (patientUUIDs.length === 0) return new Map();
 
     const rows = await this.prisma.appointment.findMany({
@@ -284,6 +428,7 @@ export class PatientStorage {
       select: {
         patientUUID: true,
         startTime: true,
+        branchUUID: true,
         appointmentType: { select: { name: true } },
       },
     });
@@ -291,7 +436,11 @@ export class PatientStorage {
     return new Map(
       rows.map((row) => [
         row.patientUUID,
-        { startTime: row.startTime, typeName: row.appointmentType?.name ?? null },
+        {
+          startTime: row.startTime,
+          branchUuid: row.branchUUID,
+          typeName: row.appointmentType?.name ?? null,
+        },
       ]),
     );
   }
@@ -321,7 +470,6 @@ export class PatientStorage {
   private async findNextConfirmedAppointments(
     tenantUUID: string,
   ): Promise<{ patientUUID: string; startTime: Date }[]> {
-
     const rows = await this.prisma.appointment.findMany({
       where: {
         tenantUUID,
@@ -353,6 +501,84 @@ export class PatientStorage {
       .map((row) => row.patientUUID);
   }
 
+  /**
+   * Pacientes vigentes (activos, no eliminados, estado ACTIVE) cuyo último movimiento es
+   * anterior a `cutoff`. Movimiento = la fecha más reciente entre el propio paciente y todo lo
+   * que le cuelga (bitácora, citas, consultas, estudios, notas, equipos, envíos, etc.); una
+   * cita agendada a futuro cuenta. Cada fuente filtra por el negocio. Una sola consulta.
+   */
+  async findStaleByTenant(tenantUuid: string, cutoff: Date): Promise<StalePatient[]> {
+    const rows = await this.prisma.$queryRaw<StalePatientRow[]>(Prisma.sql`
+      WITH movements ("patientUuid", "at") AS (
+        SELECT "patientUuid", "createdAt" FROM "PatientActivity" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUUID", GREATEST("createdAt", "updatedAt", "startTime")
+          FROM "Appointment" WHERE "tenantUUID" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUUID", GREATEST("createdAt", "updatedAt")
+          FROM "MedicalControl" WHERE "tenantUUID" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("startedAt", "closedAt")
+          FROM "Encounter" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "Study" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientNote" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt")
+          FROM "PatientOtoscopyEntry" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt")
+          FROM "PatientDevice" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt", "performedAt")
+          FROM "Maintenance" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt"
+          FROM "PatientMaintenanceNote" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", GREATEST("createdAt", "updatedAt", "sentAt", "deliveredAt")
+          FROM "PatientLabShipment" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "uploadedAt" FROM "PatientDocument" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientContact" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT "patientUuid", "createdAt" FROM "PatientBranch" WHERE "tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT q."patientUuid", GREATEST(q."createdAt", q."updatedAt")
+          FROM "PatientQuestionnaireEntry" q
+          JOIN "Patient" qp ON qp."uuid" = q."patientUuid" AND qp."tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT b."patientUuid", GREATEST(b."createdAt", b."updatedAt")
+          FROM "PatientBackground" b
+          JOIN "Patient" bp ON bp."uuid" = b."patientUuid" AND bp."tenantUuid" = ${tenantUuid}
+        UNION ALL
+        SELECT e."patientUuid", GREATEST(e."createdAt", e."updatedAt")
+          FROM "PatientPhysicalExam" e
+          JOIN "Patient" ep ON ep."uuid" = e."patientUuid" AND ep."tenantUuid" = ${tenantUuid}
+      ),
+      last_movement ("patientUuid", "at") AS (
+        SELECT "patientUuid", MAX("at") FROM movements GROUP BY "patientUuid"
+      )
+      SELECT p."uuid", p."firstName", p."lastName",
+             GREATEST(p."createdAt", p."updatedAt", m."at") AS "lastMovementAt"
+      FROM "Patient" p
+      LEFT JOIN last_movement m ON m."patientUuid" = p."uuid"
+      WHERE p."tenantUuid" = ${tenantUuid}
+        AND p."isActive" = true
+        AND p."deletedAt" IS NULL
+        AND p."status" = 'ACTIVE'
+        AND GREATEST(p."createdAt", p."updatedAt", m."at") < ${cutoff}
+      ORDER BY "lastMovementAt" ASC, p."uuid" ASC
+    `);
+    return rows.map((row) => ({
+      uuid: row.uuid,
+      fullName: `${row.firstName} ${row.lastName}`.trim(),
+      lastMovementAt: row.lastMovementAt,
+    }));
+  }
+
   async findAllByTenant(
     tenantUUID: string,
     page: number = 1,
@@ -381,7 +607,8 @@ export class PatientStorage {
     // pisar el OR de la búsqueda por texto (ver el comentario del mes).
     const and: Prisma.PatientWhereInput[] = [];
     if (filters.statuses?.length) and.push({ status: { in: filters.statuses } });
-    if (filters.branchUuids?.length) and.push({ branchUuid: { in: filters.branchUuids } });
+    if (filters.branchUuids?.length)
+      and.push({ branches: { some: { branchUuid: { in: filters.branchUuids } } } });
     if (filters.appointmentTypeUuids?.length) {
       const withConfirmedOfType = await this.findPatientUuidsWithNextAppointmentOfTypes(
         tenantUUID,
@@ -395,10 +622,15 @@ export class PatientStorage {
       });
     }
     if (filters.hearingAidsInLab) and.push({ hearingAidsInLabSince: { not: null } });
+    if (filters.hearingAidsInLab && filters.hearingAidsInLabSentDay) {
+      const { start, end } = clinicDayRange(filters.hearingAidsInLabSentDay);
+      and.push({ labShipments: { some: { deliveredAt: null, sentAt: { gte: start, lt: end } } } });
+    }
     if (filters.hasActiveWarranty) and.push({ warrantyActiveSince: { not: null } });
     if (filters.isVideoCandidate) and.push({ videoCandidateSince: { not: null } });
     if (filters.warrantyExpired) and.push({ warrantyExpiredSince: { not: null } });
     if (filters.renewPrescription) and.push({ renewPrescriptionSince: { not: null } });
+    if (filters.isPriority) and.push({ prioritySince: { not: null } });
     // Confirmada y tentativa son excluyentes, así que pedir una sola basta para separarlas.
     const kinds = filters.nextAppointmentKinds ?? [];
     if (kinds.length === 1 && kinds[0] === NextAppointmentKind.CONFIRMED) {
@@ -415,7 +647,7 @@ export class PatientStorage {
       const wantsNoAppointment = nextAppointmentMonths.includes(NO_APPOINTMENT_FILTER);
       const nextConfirmed = await this.findNextConfirmedAppointments(tenantUUID);
       const matchingUuids = nextConfirmed
-        .filter((row) => months.includes(row.startTime.toISOString().slice(0, 7)))
+        .filter((row) => months.includes(toClinicMonthKey(row.startTime)))
         .map((row) => row.patientUUID);
 
       const monthConditions: Prisma.PatientWhereInput[] = [];
@@ -445,15 +677,13 @@ export class PatientStorage {
       const records = await this.prisma.patient.findMany({
         where: {
           ...where,
-          AND: [
-            ...and,
-            { OR: monthConditions },
-          ],
+          AND: [...and, { OR: monthConditions }],
         },
+        include: BRANCHES_INCLUDE,
         orderBy: { createdAt: 'desc' },
       });
 
-      const data = (await this.withNextAppointment(tenantUUID, records))
+      const data = (await this.withNextAppointment(tenantUUID, records.map(withBranchUuids)))
         // Con el filtro de mes activo se ordena por próxima cita (la más
         // cercana primero); sin filtro se mantiene el orden por createdAt.
         // Los que solo tienen mes tentativo no tienen fecha con la que
@@ -476,12 +706,13 @@ export class PatientStorage {
         where,
         skip,
         take: limit,
+        include: BRANCHES_INCLUDE,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.patient.count({ where }),
     ]);
 
-    const data = await this.withNextAppointment(tenantUUID, records);
+    const data = await this.withNextAppointment(tenantUUID, records.map(withBranchUuids));
 
     return {
       data,
@@ -501,7 +732,7 @@ export class PatientStorage {
    */
   private async withNextAppointment(
     tenantUUID: string,
-    records: Patient[],
+    records: PatientWithBranches[],
   ): Promise<PatientWithNextAppointment[]> {
     const [nextAppointments, typeNames] = await Promise.all([
       this.findNextAppointmentsByPatient(
@@ -519,6 +750,7 @@ export class PatientStorage {
     return records.map((record) => ({
       ...record,
       nextAppointmentAt: nextAppointments.get(record.uuid)?.startTime ?? null,
+      nextAppointmentBranchUuid: nextAppointments.get(record.uuid)?.branchUuid ?? null,
       nextAppointmentType: nextAppointments.get(record.uuid)?.typeName ?? null,
       tentativeAppointmentTypeName: record.tentativeAppointmentTypeUuid
         ? (typeNames.get(record.tentativeAppointmentTypeUuid) ?? null)

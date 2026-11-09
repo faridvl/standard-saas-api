@@ -7,6 +7,13 @@ generator client {
   previewFeatures = ["driverAdapters"]
 }
 
+// Estado de un mantenimiento del paciente: lo marca el personal a mano.
+enum MaintenanceStatus {
+  UNMARKED
+  ATTENDED
+  MISSED
+}
+
 enum DocumentCategory {
   EVOLUTION_CONTROL
   WARRANTY
@@ -58,8 +65,25 @@ model Branch {
   createdAt  DateTime @default(now())
 
   patients     Patient[]
+  patientBranches PatientBranch[]
   appointments Appointment[]
 
+  @@index([tenantUuid])
+}
+
+// Sedes de un paciente. Patient.branchUuid es la principal y siempre está aquí.
+model PatientBranch {
+  id          Int      @id @default(autoincrement())
+  patientUuid String
+  branchUuid  String
+  tenantUuid  String
+  createdAt   DateTime @default(now())
+
+  patient Patient @relation(fields: [patientUuid], references: [uuid])
+  branch  Branch  @relation(fields: [branchUuid], references: [uuid])
+
+  @@unique([patientUuid, branchUuid])
+  @@index([branchUuid])
   @@index([tenantUuid])
 }
 
@@ -76,10 +100,28 @@ model Patient {
   videoCandidateSince   DateTime?
   warrantyExpiredSince  DateTime?
   renewPrescriptionSince DateTime?
+  // Marca de prioridad: solo marca y filtro, no cambia el orden de la lista.
+  prioritySince          DateTime?
+  // Mantenimientos 1 a 4: estado marcado a mano por el personal. Sus notas viven en
+  // PatientMaintenanceNote.
+  maintenance1Status MaintenanceStatus @default(UNMARKED)
+  maintenance2Status MaintenanceStatus @default(UNMARKED)
+  maintenance3Status MaintenanceStatus @default(UNMARKED)
+  maintenance4Status MaintenanceStatus @default(UNMARKED)
+  // Sin uso desde D40 (reemplazadas por el estado y las notas); pendientes de borrar.
+  maintenance1Done   Boolean   @default(false)
+  maintenance1Note   String?
+  maintenance2Done   Boolean   @default(false)
+  maintenance2Note   String?
+  maintenance3Done   Boolean   @default(false)
+  maintenance3Note   String?
+  maintenance4Done   Boolean   @default(false)
+  maintenance4Note   String?
   // Documento del expediente (PatientDocument) elegido como garantía. Sin FK:
   // al borrar el documento el caso de uso lo deja en null.
   warrantyDocumentUuid  String?
-  birthDate    DateTime
+  // Opcional: el pre-registro rápido de la agenda no lo pide; se completa en el expediente.
+  birthDate    DateTime?
   email        String?
   gender              String?
   bloodType           String?
@@ -123,6 +165,7 @@ model Patient {
   appointments    Appointment[]
   medicalControls MedicalControl[]
   background      PatientBackground?
+  physicalExam    PatientPhysicalExam?
   maintenances    Maintenance[]
   devices         PatientDevice[]
   documents       PatientDocument[]
@@ -130,7 +173,13 @@ model Patient {
   studies         Study[]
   contacts        PatientContact[]
   notes           PatientNote[]
+  maintenanceNotes PatientMaintenanceNote[]
+  questionnaireEntries PatientQuestionnaireEntry[]
+  otoscopyEntries PatientOtoscopyEntry[]
+  audiometryEntries PatientAudiometryEntry[]
+  labShipments    PatientLabShipment[]
   branch          Branch?  @relation(fields: [branchUuid], references: [uuid])
+  branches        PatientBranch[]
 
   @@index([tenantId])
   @@index([isActive])
@@ -172,6 +221,162 @@ model PatientBackground {
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
 }
 
+/// Exploración física (otoscopia): una por paciente, aparte de la historia clínica.
+model PatientPhysicalExam {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  patientUuid   String   @unique
+  otoscopyRight String?
+  otoscopyLeft  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdByUuid String?
+  updatedByUuid String?
+
+  patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+}
+
+/// Una vez que se llenó una sección propia de la clínica (ClinicalTemplate QUESTIONNAIRE).
+/// Append-only: cada vez deja un registro; `templateSnapshot` guarda el nombre y las
+/// preguntas tal como estaban, para que editar la sección no cambie lo ya llenado.
+model PatientQuestionnaireEntry {
+  id               Int      @id @default(autoincrement())
+  uuid             String   @unique @default(uuid())
+  patientUuid      String
+  templateUuid     String
+  templateSnapshot Json
+  answers          Json
+  createdAt        DateTime @default(now())
+  createdByUuid    String
+  // Solo se llenan al corregir el registro (el mismo día en que se creó).
+  updatedAt        DateTime?
+  updatedByUuid    String?
+
+  patient          Patient  @relation(fields: [patientUuid], references: [uuid])
+  revisions        PatientQuestionnaireEntryRevision[]
+
+  @@index([patientUuid, createdAt])
+  @@index([templateUuid])
+}
+
+// Las respuestas que tenía un registro justo antes de cada corrección: nada se borra.
+model PatientQuestionnaireEntryRevision {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  entryUuid     String
+  tenantUuid    String
+  answers       Json
+  revisedAt     DateTime
+  // Quien hizo la corrección que reemplazó estas respuestas.
+  revisedByUuid String
+
+  entry         PatientQuestionnaireEntry @relation(fields: [entryUuid], references: [uuid])
+
+  @@index([entryUuid, revisedAt])
+  @@index([tenantUuid])
+}
+
+/// Historial de envíos de audífonos al laboratorio: cada envío tiene su día de salida y, al
+/// entregarse, su día de regreso. Máximo uno abierto (deliveredAt nulo) por paciente: el índice
+/// parcial único "PatientLabShipment_one_open_per_patient" lo garantiza y vive solo en la migración.
+/// Si una migración generada lo borra, editarla para conservarlo (20261102180000_patient_lab_shipments).
+model PatientLabShipment {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  tenantUuid      String
+  patientUuid     String
+  // Días guardados a mediodía UTC, igual que Patient.hearingAidsInLabSince.
+  sentAt          DateTime
+  deliveredAt     DateTime?
+  note            String?
+  // Nulo en los envíos abiertos por la migración desde datos viejos.
+  createdByUuid   String?
+  deliveredByUuid String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  patient         Patient   @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([tenantUuid, patientUuid, sentAt])
+}
+
+/// Historial de otoscopia (exploración física): cada vez que se evalúa queda un registro.
+/// Reemplaza a PatientPhysicalExam, que se conserva mientras el front viejo la lea.
+model PatientOtoscopyEntry {
+  id            Int       @id @default(autoincrement())
+  uuid          String    @unique @default(uuid())
+  tenantUuid    String
+  patientUuid   String
+  otoscopyRight String?
+  otoscopyLeft  String?
+  createdAt     DateTime  @default(now())
+  // Nulo en los registros copiados de la otoscopia única cuando no se sabía quién la guardó.
+  createdByUuid String?
+  // Solo se llenan al corregir el registro (el mismo día en que se creó).
+  updatedAt     DateTime?
+  updatedByUuid String?
+
+  patient       Patient   @relation(fields: [patientUuid], references: [uuid])
+  revisions     PatientOtoscopyEntryRevision[]
+
+  @@index([tenantUuid, patientUuid, createdAt])
+}
+
+/// Historial de audiometrías de un paciente: un registro inmutable por cada guardado.
+model PatientAudiometryEntry {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  tenantUuid    String
+  patientUuid   String
+  // Version del contrato del payload; permite leer registros viejos si el contrato cambia.
+  schemaVersion Int
+  // Tipo de audiometría (AudiometryType.code); decide qué contrato tiene el payload.
+  typeCode      String   @default("CLINICAL")
+  payload       Json
+  createdAt     DateTime @default(now())
+  createdByUuid String
+  // Marca definitiva de "mal hecha": el payload no cambia. Los tres campos van juntos o todos nulos.
+  invalidatedAt      DateTime?
+  invalidatedByUuid  String?
+  invalidationReason String?
+
+  patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+  type          AudiometryType @relation(fields: [typeCode], references: [code])
+  notes         PatientNote[]
+
+  @@index([tenantUuid, patientUuid, createdAt])
+}
+
+/// Catálogo global (no por clínica) de tipos de audiometría. Sumar un tipo = una fila acá + su schema de payload en el código.
+model AudiometryType {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  sortOrder Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  entries   PatientAudiometryEntry[]
+}
+
+/// El texto que tenía un registro de otoscopia justo antes de cada corrección: nada se borra.
+model PatientOtoscopyEntryRevision {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  entryUuid     String
+  tenantUuid    String
+  otoscopyRight String?
+  otoscopyLeft  String?
+  revisedAt     DateTime
+  // Quien hizo la corrección que reemplazó este texto.
+  revisedByUuid String
+
+  entry         PatientOtoscopyEntry @relation(fields: [entryUuid], references: [uuid])
+
+  @@index([entryUuid, revisedAt])
+  @@index([tenantUuid])
+}
+
 model PatientContact {
   id          Int      @id @default(autoincrement())
   uuid        String   @unique @default(uuid())
@@ -200,10 +405,32 @@ model PatientNote {
   category    DocumentCategory @default(EVOLUTION_CONTROL)
   text        String           @db.VarChar(2500)
   createdAt   DateTime         @default(now())
+  // Solo en las notas que deja una audiometría: permite abrirla desde Evolución.
+  audiometryEntryUuid String?
 
   patient     Patient          @relation(fields: [patientUuid], references: [uuid])
+  audiometryEntry PatientAudiometryEntry? @relation(fields: [audiometryEntryUuid], references: [uuid])
 
   @@index([patientUuid])
+  @@index([tenantUuid])
+  @@index([audiometryEntryUuid])
+}
+
+// Historial de notas de los mantenimientos 1 a 4 de un paciente. Append-only: las notas
+// no se editan ni se borran. `createdByUuid` es null en las migradas sin autor conocido.
+model PatientMaintenanceNote {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  tenantUuid    String
+  patientUuid   String
+  number        Int
+  text          String   @db.VarChar(500)
+  createdAt     DateTime @default(now())
+  createdByUuid String?
+
+  patient       Patient  @relation(fields: [patientUuid], references: [uuid])
+
+  @@index([patientUuid, number, createdAt])
   @@index([tenantUuid])
 }
 
@@ -227,6 +454,7 @@ model PatientActivity {
   @@index([tenantUuid, createdAt])
   @@index([patientUuid])
   @@index([actorUuid])
+  @@index([tenantUuid, patientUuid, createdAt])
 }
 
 model PatientDevice {
@@ -425,6 +653,20 @@ model ClinicalTemplate {
   fields      Json
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// Texto markdown con variables {{clave}}. El índice único (tenantUuid, lower(name)) vive solo en la migración.
+model DocumentTemplate {
+  id            Int      @id @default(autoincrement())
+  uuid          String   @unique @default(uuid())
+  tenantUuid    String
+  name          String
+  description   String?
+  content       String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdByUuid String
+  updatedByUuid String
 }
 
 model Product {

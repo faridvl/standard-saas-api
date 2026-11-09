@@ -4,8 +4,8 @@ import { ClinicalFieldDefinition } from '@medical-records/domain/entities/clinic
 import { PrismaService } from '../prisma/prisma.service';
 import {
   PatientBackgroundAnswer,
-  PatientBackgroundData,
   PatientBackgroundEntity,
+  PatientBackgroundWriteData,
 } from '@medical-records/domain/entities/patient-background.entity';
 
 @Injectable()
@@ -64,13 +64,16 @@ export class PatientBackgroundStorage {
   async upsert(
     patientUuid: string,
     actorUuid: string,
-    data: PatientBackgroundData,
+    data: PatientBackgroundWriteData,
   ): Promise<PatientBackgroundEntity> {
     // Prisma no acepta null en columnas Json: se guarda como NULL de la base.
+    // undefined se deja pasar: al actualizar no toca la columna y al crear toma su default.
+    const toJson = (value: unknown) =>
+      value === undefined ? undefined : ((value as Prisma.InputJsonValue | null) ?? Prisma.DbNull);
     const values = {
       ...data,
-      answers: data.answers ?? Prisma.DbNull,
-      templateSnapshot: (data.templateSnapshot as unknown as Prisma.InputJsonValue) ?? Prisma.DbNull,
+      answers: toJson(data.answers),
+      templateSnapshot: toJson(data.templateSnapshot),
     };
     const record = await this.prisma.patientBackground.upsert({
       where: { patientUuid },

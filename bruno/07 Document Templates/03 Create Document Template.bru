@@ -1,0 +1,27 @@
+meta {
+  name: Create Document Template
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{recordsUrl}}/document-templates
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Consentimiento audiometría",
+    "description": "Antes de realizar la audiometría",
+    "content": "Yo {{nombre_completo}}, documento {{documento}}, autorizo el examen el {{fecha_hoy}}. Atendido por {{profesional}}."
+  }
+}
