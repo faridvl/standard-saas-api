@@ -1,5 +1,18 @@
 # Decisiones
 
+## 2026-11-08 - Nombre y logo de la clínica
+
+- `PATCH /tenants/current` acepta también `name` (se guarda en `Tenant.businessName`): opcional, sin espacios en los extremos, de 1 a 100 caracteres. El nombre no es identificador: `businessName` no es único, no va en el JWT, no se usa en Dynamo ni en ningún slug o clave. Se puede cambiar sin migrar nada.
+- Logo: el tenant guarda la key del storage en `Tenant.logoKey`, nunca la imagen ni la URL completa. La URL se arma al leer con `StorageService.getPublicUrl(key)` y es pública y sin expiración, usable en `<img>` e impresión. `/auth/me` (`tenant.logoUrl`) y `/tenants/current` la devuelven resuelta, o `null`.
+- `logoUrl` heredado: si el tenant solo tiene la columna vieja `logoUrl`, se devuelve esa hasta que se suba un logo nuevo. Subir o quitar deja `logoUrl` en `null` y manda `logoKey`.
+- Endpoints: `POST` y `DELETE /tenants/current/logo`, mismos permisos que Configuración (`OWNER` y `ADMIN`, comprobados en el caso de uso). Al reemplazar o quitar se borra el objeto anterior; si el borrado falla, no falla la operación (queda un archivo huérfano, no un logo roto).
+- Formatos PNG, JPG, WEBP y SVG, máximo 2 MB. El formato se detecta por el contenido (firma del archivo), no por la extensión ni el `Content-Type` del cliente, así que no hay `fileFilter` en multer. Multer corta en 10 MB solo para no cargar archivos enormes en memoria; el límite real de 2 MB lo valida el caso de uso con un mensaje en español.
+- Riesgo XSS del SVG: un SVG abierto directo desde el bucket puede ejecutar JavaScript en ese origen. Mitigación: se rechaza el SVG con `<script>`, `<foreignObject>`, `<iframe>/<embed>/<object>/<audio>/<video>`, atributos `on*=`, `javascript:`, `data:text/html` o `<!ENTITY`. Es un filtro por patrones, no un sanitizador completo: el logo solo lo sube OWNER o ADMIN, y el front lo muestra siempre dentro de `<img>` (donde el SVG no ejecuta scripts). Si algún día se muestra incrustado (`<object>`, `<iframe>` o inline), hay que sanitizar con una librería.
+- La key es `identity/{tenantUuid}/logos/logo-{timestamp}.{ext}`: cambia en cada subida, así el caché de un año (`immutable`) no sirve un logo viejo.
+- `StorageService` gana `putObject`, `deleteObject` y `getPublicUrl`; `upload()` conserva su comportamiento.
+- El endpoint heredado `/upload/tenants/:uuid/logo` y `PATCH /tenants/:uuid` no cambian.
+- Migración `20261108150000_tenant_logo_key`: `Tenant.logoKey` (TEXT nulo, sin backfill).
+
 ## 2026-11-08 - Datos de contacto de la clínica y variables nuevas de plantilla
 
 - `Tenant` gana `phone`, `email` y `address` (nulos). Endpoints nuevos `GET` y `PATCH /tenants/current` en identity; la

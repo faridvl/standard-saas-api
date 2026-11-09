@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+export const CLINIC_NAME_MAX_LENGTH = 100;
 export const CLINIC_ADDRESS_MAX_LENGTH = 300;
 export const CLINIC_EMAIL_MAX_LENGTH = 254;
 export const CLINIC_PHONE_MAX_LENGTH = 20;
@@ -22,6 +23,12 @@ const phoneSchema = z
     return digits >= CLINIC_PHONE_MIN_DIGITS && digits <= CLINIC_PHONE_MAX_DIGITS;
   }, `El teléfono debe tener entre ${CLINIC_PHONE_MIN_DIGITS} y ${CLINIC_PHONE_MAX_DIGITS} dígitos`);
 
+const nameSchema = z
+  .string()
+  .trim()
+  .min(1, 'El nombre de la clínica es obligatorio')
+  .max(CLINIC_NAME_MAX_LENGTH, `El nombre admite hasta ${CLINIC_NAME_MAX_LENGTH} caracteres`);
+
 const emailSchema = z.string().trim().max(CLINIC_EMAIL_MAX_LENGTH).email('El correo no es válido');
 
 const addressSchema = z
@@ -32,9 +39,10 @@ const addressSchema = z
     `La dirección admite hasta ${CLINIC_ADDRESS_MAX_LENGTH} caracteres`,
   );
 
-// Cadena vacía = null. Los campos que no son estos tres (`businessName`, `logoUrl`...) se
-// descartan al parsear: este endpoint nunca los guarda.
+// Cadena vacía = null, salvo el nombre, que no puede quedar vacío. Lo que no esté aquí
+// (`businessName`, `logoUrl`...) se descarta al parsear: este endpoint nunca lo guarda.
 export const UpdateClinicContactSchema = z.object({
+  name: nameSchema.optional(),
   phone: z.preprocess(emptyToNull, phoneSchema.nullable().optional()),
   email: z.preprocess(emptyToNull, emailSchema.nullable().optional()),
   address: z.preprocess(emptyToNull, addressSchema.nullable().optional()),

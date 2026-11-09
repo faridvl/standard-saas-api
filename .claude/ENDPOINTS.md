@@ -181,6 +181,7 @@
 **Body (todos opcionales; un campo omitido no se toca):**
 ```json
 {
+  "name": "AudioColors",
   "phone": "+506 2222-3333",
   "email": "info@clinica.cr",
   "address": "San José, Costa Rica"
@@ -189,11 +190,29 @@
 - `phone`: caracteres `+ dígitos espacios - ( )`, de 8 a 15 dígitos, máximo 20 caracteres (mismos formatos que los teléfonos de pacientes).
 - `email`: correo válido, máximo 254 caracteres.
 - `address`: máximo 300 caracteres.
-- Cadena vacía o solo espacios se guarda como `null`. Cualquier otro campo del body (`businessName`, `logoUrl`...) se descarta: el nombre no se edita aquí.
+- Cadena vacía o solo espacios se guarda como `null`. Cualquier otro campo del body (`businessName`, `logoUrl`...) se descarta.
+- `name`: nombre de la clínica, sin espacios en los extremos, de 1 a 100 caracteres. No se puede dejar vacío.
 
 **Response 200:** misma forma que `GET /tenants/current`.
 **Errors:** 400 (`Validation failed` con `details[{field,message}]`), 403 (rol sin permiso), 404 (clínica inexistente).
-**Status:** Implemented. `PATCH /tenants/:uuid` (nombre del negocio) sigue aparte y no cambió.
+**Status:** Implemented. `PATCH /tenants/:uuid` sigue aparte y no cambió.
+
+---
+
+### POST /tenants/current/logo
+**Auth:** Required. Solo `OWNER` y `ADMIN`; otro rol recibe 403.
+**Body:** `multipart/form-data` con el campo `file`. PNG, JPG, WEBP o SVG, máximo 2 MB. El formato se valida por el contenido del archivo.
+**Response 200:** misma forma que `GET /tenants/current`, con `logoUrl` pública (sin expiración). Reemplaza el logo anterior.
+**Errors:** 400 (`Falta el archivo del logo.`, `El logo no puede pesar más de 2 MB.`, `Formato no permitido. El logo debe ser PNG, JPG, WEBP o SVG.`, `El SVG no puede contener scripts ni contenido activo.`), 403, 404.
+**Status:** Implemented.
+
+---
+
+### DELETE /tenants/current/logo
+**Auth:** Required. Solo `OWNER` y `ADMIN`; otro rol recibe 403.
+**Response 200:** misma forma que `GET /tenants/current`, con `logoUrl: null`. Sin logo previo también responde 200.
+**Errors:** 403, 404.
+**Status:** Implemented.
 
 ---
 

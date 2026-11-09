@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { extname } from 'path';
 
 @Injectable()
@@ -57,6 +57,29 @@ export class StorageService {
       }),
     );
 
+    return this.getPublicUrl(key);
+  }
+
+  /** Sube un objeto con una key ya decidida y devuelve la key (la URL se arma al leer). */
+  async putObject(key: string, body: Buffer, contentType: string): Promise<string> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: 'public, max-age=31536000, immutable',
+      }),
+    );
+    return key;
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+  }
+
+  /** URL pública de lectura de una key guardada. */
+  getPublicUrl(key: string): string {
     return `${this.publicUrl}/${key}`;
   }
 }

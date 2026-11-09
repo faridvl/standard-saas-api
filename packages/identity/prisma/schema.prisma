@@ -19,6 +19,7 @@ model Tenant {
   businessType String?
   plan         String?  @default("FREE")
   logoUrl      String?
+  logoKey      String?
   phone        String?
   email        String?
   address      String?
