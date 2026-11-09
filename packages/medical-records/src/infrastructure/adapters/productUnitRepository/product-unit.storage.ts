@@ -74,9 +74,9 @@ export class ProductUnitStorage {
     });
   }
 
-  async findOne(uuid: string): Promise<ProductUnit | null> {
-    const row = await this.prisma.productUnit.findUnique({
-      where: { uuid },
+  async findOne(uuid: string, tenantUuid: string): Promise<ProductUnit | null> {
+    const row = await this.prisma.productUnit.findFirst({
+      where: { uuid, product: { tenantUuid } },
       include: {
         patientDevices: {
           where: { isActive: true },
@@ -97,10 +97,11 @@ export class ProductUnitStorage {
 
   async update(
     uuid: string,
+    tenantUuid: string,
     data: Partial<Pick<ProductUnit, 'status' | 'warrantyUntil' | 'photoUrl' | 'notes'>>,
   ): Promise<ProductUnit> {
     const row = await this.prisma.productUnit.update({
-      where: { uuid },
+      where: { uuid, product: { tenantUuid } },
       data: {
         ...(data.status && { status: data.status }),
         ...(data.warrantyUntil !== undefined && { warrantyUntil: data.warrantyUntil }),
@@ -111,9 +112,9 @@ export class ProductUnitStorage {
     return this.mapToDomain(row);
   }
 
-  async assign(uuid: string, patientUuid: string): Promise<void> {
+  async assign(uuid: string, tenantUuid: string, patientUuid: string): Promise<void> {
     await this.prisma.productUnit.update({
-      where: { uuid },
+      where: { uuid, product: { tenantUuid } },
       data: {
         status: 'ASSIGNED',
         assignedToPatientUuid: patientUuid,
@@ -122,9 +123,9 @@ export class ProductUnitStorage {
     });
   }
 
-  async release(uuid: string): Promise<void> {
+  async release(uuid: string, tenantUuid: string): Promise<void> {
     await this.prisma.productUnit.update({
-      where: { uuid },
+      where: { uuid, product: { tenantUuid } },
       data: {
         status: 'AVAILABLE',
         assignedToPatientUuid: null,
@@ -137,8 +138,11 @@ export class ProductUnitStorage {
     return this.prisma.productUnit.count({ where: { productId, status: 'AVAILABLE' } });
   }
 
-  async findRawId(uuid: string): Promise<number | null> {
-    const row = await this.prisma.productUnit.findUnique({ where: { uuid }, select: { id: true } });
+  async findRawId(uuid: string, tenantUuid: string): Promise<number | null> {
+    const row = await this.prisma.productUnit.findFirst({
+      where: { uuid, product: { tenantUuid } },
+      select: { id: true },
+    });
     return row?.id ?? null;
   }
 }

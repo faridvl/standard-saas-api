@@ -269,7 +269,7 @@ export class PatientStorage {
 
     if (!branches) {
       const row = await this.prisma.patient.update({
-        where: { uuid },
+        where: { uuid, tenantUuid },
         data,
         include: BRANCHES_INCLUDE,
       });
@@ -279,7 +279,7 @@ export class PatientStorage {
     return this.prisma.$transaction(async (tx) => {
       await this.replaceBranches(tx, uuid, tenantUuid, branches.branchUuids);
       const row = await tx.patient.update({
-        where: { uuid },
+        where: { uuid, tenantUuid },
         data: { ...data, branchUuid: branches.branchUuid },
         include: BRANCHES_INCLUDE,
       });

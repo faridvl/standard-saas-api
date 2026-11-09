@@ -70,8 +70,11 @@ export class ProductUnitController {
   }
 
   @Get('product-units/:uuid')
-  async findOne(@Param('uuid') uuid: string): Promise<ProductUnit> {
-    return this.findOneUseCase.execute(uuid);
+  async findOne(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<ProductUnit> {
+    return this.findOneUseCase.execute(uuid, user.tenantUuid);
   }
 
   @Patch('product-units/:uuid')
@@ -79,7 +82,8 @@ export class ProductUnitController {
   async update(
     @Param('uuid') uuid: string,
     @Body() dto: UpdateProductUnitDto,
+    @CurrentUser() user: JwtPayload,
   ): Promise<ProductUnit> {
-    return this.updateUseCase.execute(uuid, dto);
+    return this.updateUseCase.execute(uuid, user.tenantUuid, dto);
   }
 }

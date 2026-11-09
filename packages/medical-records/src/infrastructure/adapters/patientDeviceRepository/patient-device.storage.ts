@@ -37,6 +37,11 @@ export class PatientDeviceStorage {
     });
   }
 
+  async patientExists(patientUuid: string, tenantUuid: string): Promise<boolean> {
+    const count = await this.prisma.patient.count({ where: { uuid: patientUuid, tenantUuid } });
+    return count > 0;
+  }
+
   async findAllByPatient(
     patientUuid: string,
     tenantUuid: string,
@@ -48,9 +53,9 @@ export class PatientDeviceStorage {
     });
   }
 
-  async findOne(uuid: string): Promise<PatientDeviceWithProductUnit | null> {
-    return this.prisma.patientDevice.findUnique({
-      where: { uuid },
+  async findOne(uuid: string, tenantUuid: string): Promise<PatientDeviceWithProductUnit | null> {
+    return this.prisma.patientDevice.findFirst({
+      where: { uuid, tenantUuid },
       include: this.includeProductUnit(),
     });
   }

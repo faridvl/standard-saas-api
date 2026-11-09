@@ -18,7 +18,7 @@ export class FindProductUnitsUseCase {
     const product = await this.productStorage.findOne(productUuid, tenantUuid);
     if (!product) throw new NotFoundException('Producto no encontrado');
 
-    const productId = await this.productStorage.findRawId(productUuid);
+    const productId = await this.productStorage.findRawId(productUuid, tenantUuid);
     return this.unitStorage.findAllByProduct(productId!, status);
   }
 }

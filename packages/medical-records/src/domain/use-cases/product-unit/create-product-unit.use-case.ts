@@ -25,7 +25,7 @@ export class CreateProductUnitUseCase {
         `El número de serie "${dto.serialNumber}" ya existe en el sistema`,
       );
 
-    const productId = await this.productStorage.findRawId(productUuid);
+    const productId = await this.productStorage.findRawId(productUuid, tenantUuid);
     return this.unitStorage.create(productId!, dto);
   }
 }

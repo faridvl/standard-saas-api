@@ -7,8 +7,8 @@ import { ProductUnit } from '@medical-records/domain/types/product.types';
 export class UpdateProductUnitUseCase {
   constructor(private readonly unitStorage: ProductUnitStorage) {}
 
-  async execute(uuid: string, dto: UpdateProductUnitDto): Promise<ProductUnit> {
-    const unit = await this.unitStorage.findOne(uuid);
+  async execute(uuid: string, tenantUuid: string, dto: UpdateProductUnitDto): Promise<ProductUnit> {
+    const unit = await this.unitStorage.findOne(uuid, tenantUuid);
     if (!unit) throw new NotFoundException('Unidad no encontrada');
 
     if (dto.status === 'AVAILABLE' && unit.status === 'ASSIGNED') {
@@ -17,6 +17,6 @@ export class UpdateProductUnitUseCase {
       );
     }
 
-    return this.unitStorage.update(uuid, dto);
+    return this.unitStorage.update(uuid, tenantUuid, dto);
   }
 }

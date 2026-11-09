@@ -98,7 +98,7 @@ export class ClinicalTemplateStorage {
     }
 
     const row = await this.prisma.clinicalTemplate.update({
-      where: { uuid },
+      where: { uuid, tenantUuid },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.speciality !== undefined && { speciality: dto.speciality }),
@@ -113,6 +113,6 @@ export class ClinicalTemplateStorage {
     if (!existing) {
       throw new NotFoundException(`Plantilla clínica con UUID ${uuid} no encontrada`);
     }
-    await this.prisma.clinicalTemplate.delete({ where: { uuid } });
+    await this.prisma.clinicalTemplate.delete({ where: { uuid, tenantUuid } });
   }
 }
