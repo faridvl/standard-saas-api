@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PatientTenantInterceptor } from '@medical-records/infrastructure/adapters/tenant/patient-tenant.interceptor';
 import { PrismaModule } from '@medical-records/infrastructure/adapters/prisma/prisma.module';
 import { PatientsModule } from './modules/patients.module';
 import { PatientContactsModule } from './modules/patient-contacts.module';
@@ -73,5 +75,6 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     PatientActivityModule,
     CalendarFeedModule,
   ],
+  providers: [{ provide: APP_INTERCEPTOR, useClass: PatientTenantInterceptor }],
 })
 export class MedicalRecordsModule {}
