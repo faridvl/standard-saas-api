@@ -1199,7 +1199,7 @@ Se quitó el texto libre `specialty` (también en `POST /auth/register`: ahora `
 
 ## Acceso por ruta (medical-records)
 
-Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (RECEPTION, ADMIN, OWNER) y atender pacientes de `attendsPatients`. Los roles viejos dan 403. Excepciones públicas: `POST /appointment-types/initialize` (llamada interna) y `GET /calendar-feed/:file`.
+Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (RECEPTION, ADMIN, OWNER) y atender pacientes de `attendsPatients`. Un token sin el claim `attendsPatients` o con rol viejo da 401 (el cliente se vuelve a autenticar). Excepciones públicas: `POST /appointment-types/initialize` (llamada interna) y `GET /calendar-feed/:file`.
 
 | Grupo | Exige | Rutas |
 |---|---|---|

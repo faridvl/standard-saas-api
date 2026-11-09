@@ -1,7 +1,17 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtPayload } from '@project/core';
-import { AccessRequirement, canAccess } from '@medical-records/domain/policies/access.policy';
+import {
+  AccessRequirement,
+  canAccess,
+  isLegacyToken,
+} from '@medical-records/domain/policies/access.policy';
 import { ACCESS_METADATA_KEY } from '@medical-records/app/decorators/access.decorators';
 
 /**
@@ -18,6 +28,13 @@ export class AccessGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
     const { user } = context.switchToHttp().getRequest<{ user?: JwtPayload }>();
+
+    // 401 y no 403: el cliente debe volver a autenticarse para recibir un token con el modelo nuevo.
+    if (user && isLegacyToken(user)) {
+      throw new UnauthorizedException(
+        'Tu sesión es de una versión anterior. Inicia sesión de nuevo',
+      );
+    }
 
     if (!requirement || !user || !canAccess(user, requirement)) {
       throw new ForbiddenException('No tienes permisos para esta acción');

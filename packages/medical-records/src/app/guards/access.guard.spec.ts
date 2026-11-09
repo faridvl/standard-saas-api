@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from '@jest/globals';
-import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AccessGuard } from '@medical-records/app/guards/access.guard';
 import { AppointmentController } from '@medical-records/app/controllers/appointments.controllers';
@@ -30,7 +30,7 @@ function allows(controller: Controller, method: string, user?: Token): boolean {
   try {
     return guard.canActivate(context);
   } catch (error) {
-    if (error instanceof ForbiddenException) return false;
+    if (error instanceof ForbiddenException || error instanceof UnauthorizedException) return false;
     throw error;
   }
 }
@@ -255,5 +255,38 @@ describe('AccessGuard: matriz nivel x atiende pacientes', () => {
       handler(): void {}
     }
     expect(allows(SinClasificar, 'handler', { role: 'OWNER', attendsPatients: true })).toBe(false);
+  });
+
+  describe('token de una versión anterior: 401 para que el cliente se autentique de nuevo', () => {
+    const statusOf = (user: Token): number => {
+      const handler = (PatientNoteController.prototype as Record<string, unknown>).findAll;
+      const context = {
+        getHandler: () => handler,
+        getClass: () => PatientNoteController,
+        switchToHttp: () => ({ getRequest: () => ({ user }) }),
+      } as unknown as ExecutionContext;
+      try {
+        guard.canActivate(context);
+        return 200;
+      } catch (error) {
+        if (error instanceof UnauthorizedException) return 401;
+        if (error instanceof ForbiddenException) return 403;
+        throw error;
+      }
+    };
+
+    it('sin el claim attendsPatients -> 401', () => {
+      expect(statusOf({ role: 'OWNER' })).toBe(401);
+    });
+
+    it('con un rol legado -> 401', () => {
+      for (const role of ['DOCTOR', 'STAFF', 'USER', 'MEDICO']) {
+        expect(statusOf({ role, attendsPatients: true })).toBe(401);
+      }
+    });
+
+    it('token vigente sin permiso suficiente sigue siendo 403', () => {
+      expect(statusOf({ role: 'RECEPTION', attendsPatients: false })).toBe(403);
+    });
   });
 });

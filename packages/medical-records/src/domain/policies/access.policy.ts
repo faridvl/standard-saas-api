@@ -41,6 +41,14 @@ const levelRank = (role: string | null | undefined): number | null =>
     ? LEVEL_RANK[role as AccessLevel]
     : null;
 
+/**
+ * Token emitido antes del modelo de niveles: rol viejo (DOCTOR, STAFF...) o sin el claim
+ * `attendsPatients`. No es un permiso insuficiente sino una sesión vieja que hay que renovar.
+ */
+export function isLegacyToken(subject: AccessSubject): boolean {
+  return levelRank(subject.role) === null || typeof subject.attendsPatients !== 'boolean';
+}
+
 /** Un token sin nivel válido (roles viejos como DOCTOR o STAFF) no entra a ninguna ruta. */
 export function canAccess(subject: AccessSubject, requirement: AccessRequirement): boolean {
   const rank = levelRank(subject.role);
