@@ -23,11 +23,12 @@ export class SetUserStatusUseCase {
 
     assertCanManageTarget(admin, existing);
 
-    if (status === UserStatus.INACTIVE && existing.role === UserRole.OWNER) {
+    const deactivatesOwner = status === UserStatus.INACTIVE && existing.role === UserRole.OWNER;
+    if (deactivatesOwner) {
       await assertTenantKeepsOwner(this.userStorage, actor.tenantUuid, existing.uuid);
     }
 
-    await this.userStorage.updateStatus(uuid, status);
+    await this.userStorage.updateStatus(uuid, status, deactivatesOwner);
     return { ...existing, status };
   }
 }

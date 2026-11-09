@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma, Status, User as PrismaUser, UserAudit as PrismaUserAudit } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 import { User } from '../../domain/entities/user.entity';
@@ -8,6 +8,7 @@ import {
   UserAuditChange,
   UserAuditEntry,
   UserAuditField,
+  LAST_OWNER_MESSAGE,
   UserDomain,
   UserRole,
   UserStatus,
@@ -93,8 +94,10 @@ export class UserStorage {
     uuid: string,
     data: UpdateUserParams,
     audit: UserAuditChange[] = [],
+    requireOtherOwner = false,
   ): Promise<UserDomain> {
     return this.prisma.$transaction(async (tx) => {
+      if (requireOtherOwner) await this.assertOtherOwnerLocked(tx, uuid);
       const record = await tx.user.update({
         where: { uuid },
         data: {
@@ -138,11 +141,27 @@ export class UserStorage {
     });
   }
 
-  async updateStatus(uuid: string, status: UserStatus): Promise<void> {
-    await this.prisma.user.update({
-      where: { uuid },
-      data: { status },
+  async updateStatus(uuid: string, status: UserStatus, requireOtherOwner = false): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      if (requireOtherOwner) await this.assertOtherOwnerLocked(tx, uuid);
+      await tx.user.update({ where: { uuid }, data: { status } });
     });
+  }
+
+  /**
+   * Bloquea (FOR UPDATE) a los propietarios activos de la clínica del usuario y falla si, sin él,
+   * no queda ninguno: dos propietarios que se quitan el acceso a la vez se serializan aquí.
+   */
+  private async assertOtherOwnerLocked(tx: Prisma.TransactionClient, uuid: string): Promise<void> {
+    const target = await tx.user.findUnique({ where: { uuid }, select: { tenantUUID: true } });
+    if (!target?.tenantUUID) return;
+    const owners = await tx.$queryRaw<{ uuid: string }[]>`
+      SELECT "uuid" FROM "User"
+      WHERE "tenantUUID" = ${target.tenantUUID} AND "role" = ${UserRole.OWNER} AND "status" = 'ACTIVE'::"Status"
+      FOR UPDATE`;
+    if (!owners.some((owner) => owner.uuid !== uuid)) {
+      throw new BadRequestException(LAST_OWNER_MESSAGE);
+    }
   }
 
   async updatePassword(uuid: string, hashedPassword: string): Promise<void> {

@@ -5,13 +5,19 @@ ALTER TABLE "User"
   ADD COLUMN "professionalTitle" TEXT,
   ADD COLUMN "licenseNumber" TEXT;
 
+-- Respaldo del rol y la especialidad previos: el mapeo pierde el original y la columna se elimina.
+CREATE TABLE "_UserRoleBackup20261109" AS
+  SELECT "id", "role", "specialty" FROM "User";
+
+-- OWNER y DOCTOR atienden; ADMIN conserva su nivel; todo lo demás (STAFF, USER, MEDICO, nulo,
+-- valores desconocidos) queda en RECEPTION sin atender.
 UPDATE "User" SET
-  "attendsPatients" = COALESCE("role" IN ('OWNER', 'DOCTOR'), false),
+  "attendsPatients" = COALESCE(UPPER(TRIM("role")) IN ('OWNER', 'DOCTOR'), false),
   "specialties" = CASE
-    WHEN COALESCE("role" IN ('OWNER', 'DOCTOR'), false) THEN ARRAY['AUDIOLOGY']::TEXT[]
+    WHEN COALESCE(UPPER(TRIM("role")) IN ('OWNER', 'DOCTOR'), false) THEN ARRAY['AUDIOLOGY']::TEXT[]
     ELSE ARRAY[]::TEXT[]
   END,
-  "role" = CASE "role"
+  "role" = CASE UPPER(TRIM("role"))
     WHEN 'OWNER' THEN 'OWNER'
     WHEN 'ADMIN' THEN 'ADMIN'
     ELSE 'RECEPTION'

@@ -175,3 +175,10 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - Dudas resueltas por mínimo necesario: `physical-exam` PUT y preguntas son clínicos sin AUDIOLOGY (no son pruebas); `/maintenance` y `patients/:uuid/maintenances` (GET y notas) son clínicos; el marcado de estado de un mantenimiento sigue en cualquier nivel; `audiometry-type` GET es clínico; notas de envíos a laboratorio y de flags solo si atiende.
 - Riesgo residual: `GET /patients/:uuid` y `DELETE /patients/:uuid` siguen en cualquier nivel; el registro general puede traer bloodType, gender y statusReason.
 - La variable de plantilla "profesional" se resuelve en el front, no en el API.
+
+## 2026-11-09 - Correcciones de la revisión de niveles
+
+- Último OWNER atómico: degradar o desactivar a un OWNER corre en una `$transaction` que bloquea con `SELECT ... FOR UPDATE` a los OWNER activos de la clínica y falla (400) si sin el objetivo no queda ninguno (`UserStorage.update` y `updateStatus`, parámetro `requireOtherOwner`). El chequeo previo del use case queda como respuesta rápida. Prueba con peticiones paralelas: `last-owner-race.db.spec.ts` (`IDENTITY_DB_TESTS=1` + `IDENTITY_DB_URL`).
+- Migración `20261109120000` (aún sin producción, editada): usa `UPPER(TRIM(role))`, respalda `id, role, specialty` en `"_UserRoleBackup20261109"` antes de transformar y borrar `specialty`. Mapeo: OWNER -> OWNER atiende AUDIOLOGY; ADMIN -> ADMIN no atiende; DOCTOR -> RECEPTION atiende AUDIOLOGY; todo lo demás (STAFF, USER, MEDICO, nulo, desconocido) -> RECEPTION no atiende.
+- Antes de mergear a main, correr en producción (solo lectura) `SELECT role, count(*) FROM "User" GROUP BY role` y confirmar que ningún valor inesperado cae en RECEPTION por error. La tabla de respaldo se borra cuando se confirme el resultado.
+

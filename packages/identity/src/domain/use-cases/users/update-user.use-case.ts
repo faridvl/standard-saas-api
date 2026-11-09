@@ -82,13 +82,19 @@ export class UpdateUserUseCase {
       throw new BadRequestException(ATTENDS_PATIENTS_NEEDS_SPECIALTY_MESSAGE);
     }
 
-    if (roleChanged && existing.role === UserRole.OWNER) {
+    const demotesOwner = roleChanged && existing.role === UserRole.OWNER;
+    if (demotesOwner) {
       await assertTenantKeepsOwner(this.userStorage, actor.tenantUuid, existing.uuid);
     }
 
     const role = data.role ?? existing.role;
     const audit = diffAccess(current, existing, { role, attendsPatients, specialties });
 
-    return await this.userStorage.update(uuid, { ...data, attendsPatients, specialties }, audit);
+    return await this.userStorage.update(
+      uuid,
+      { ...data, attendsPatients, specialties },
+      audit,
+      demotesOwner,
+    );
   }
 }

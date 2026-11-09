@@ -88,3 +88,5 @@ export type UserAuditChange = {
   before: string | null;
   after: string | null;
 };
+
+export const LAST_OWNER_MESSAGE = 'La clínica no puede quedar sin un propietario activo';

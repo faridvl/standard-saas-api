@@ -1,16 +1,23 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UserStorage } from '../../infrastructure/adapters/user.storage';
-import { UserActor, UserDomain, UserRole, UserStatus } from '../types/user.types';
+import {
+  LAST_OWNER_MESSAGE,
+  UserActor,
+  UserDomain,
+  UserRole,
+  UserStatus,
+} from '../types/user.types';
 
 export const ACTOR_INACTIVE_MESSAGE = 'Tu usuario ya no está activo en esta clínica';
-export const NOT_USER_ADMIN_MESSAGE = 'Solo Administración o el propietario pueden administrar usuarios';
+export const NOT_USER_ADMIN_MESSAGE =
+  'Solo Administración o el propietario pueden administrar usuarios';
 export const OWNER_ONLY_MESSAGE =
   'Solo el propietario puede cambiar el acceso clínico, las especialidades o el nivel de propietario';
 export const OWNER_UNTOUCHABLE_MESSAGE = 'Solo un propietario puede administrar a otro propietario';
 export const OWN_MEDIA_ONLY_MESSAGE = 'La firma y la foto solo las cambia su dueño';
 export const OWN_PROFESSIONAL_ONLY_MESSAGE =
   'El título y el número de colegiado solo los edita cada profesional en su perfil';
-export const LAST_OWNER_MESSAGE = 'La clínica no puede quedar sin un propietario activo';
+export { LAST_OWNER_MESSAGE };
 
 /** Niveles que listan, crean, activan, desactivan y ponen contraseña a los usuarios de la clínica. */
 const USER_ADMIN_LEVELS: readonly string[] = [UserRole.ADMIN, UserRole.OWNER];
@@ -62,6 +69,7 @@ export function assertCanManageTarget(admin: UserDomain, target: UserDomain): vo
   }
 }
 
+/** Chequeo rápido previo; la garantía atómica la da `UserStorage` con `requireOtherOwner`. */
 /** Falla si, sin `excludingUuid`, no queda ningún propietario activo en la clínica. */
 export async function assertTenantKeepsOwner(
   storage: UserStorage,
