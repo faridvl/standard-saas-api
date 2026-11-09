@@ -1033,7 +1033,7 @@ Un token que no existe (revocado o inventado) responde **200 con un calendario v
 | `POST` | `/patients/:patientUuid/audiometry-entries` | Guarda una audiometría nueva (201) |
 | `POST` | `/patients/:patientUuid/audiometry-entries/:entryUuid/invalidate` | Marca la audiometría como "mal hecha" (200), definitivo |
 
-Tipos (`GET /audiometry-types`, mismos roles clínicos): `CLINICAL` "Clínica" y `SCREENING` "De rastreo". Es un catálogo global (tabla `AudiometryType`), no por negocio. Body de `POST`: `{ "typeCode"?: "CLINICAL" | "SCREENING", "schemaVersion": 1, "payload": { ... } }`. `typeCode` es opcional y, sin él, vale `CLINICAL` (el body clínico de siempre no cambia). Un `typeCode` desconocido, o de un tipo desactivado en la tabla, responde 400.
+Tipos (`GET /audiometry-types`, mismos roles clínicos): `CLINICAL` "Clínica" y `SCREENING` "Rastreo". Es un catálogo global (tabla `AudiometryType`), no por negocio. Body de `POST`: `{ "typeCode"?: "CLINICAL" | "SCREENING", "schemaVersion": 1, "payload": { ... } }`. `typeCode` es opcional y, sin él, vale `CLINICAL` (el body clínico de siempre no cambia). Un `typeCode` desconocido, o de un tipo desactivado en la tabla, responde 400.
 
 **Rastreo (`typeCode: "SCREENING"`, `schemaVersion` 1):** `payload` = `{ "marks": { "AIR": { "RIGHT": {...}, "LEFT": {...} } }, "result": "PASS" | "REFER", "notes": { "observations": "..." } }`. Solo vía aérea, con las mismas frecuencias y marcas tonales que la clínica pero `isMasked` siempre `false` (`true` es 400); `result` es obligatorio; `notes.observations` es texto recortado de máximo 1000 caracteres. Cualquier otra clave (`BONE`, `weber`, `summary`, etc.) es 400.
 

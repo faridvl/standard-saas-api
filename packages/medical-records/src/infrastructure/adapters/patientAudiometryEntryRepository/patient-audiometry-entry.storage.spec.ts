@@ -81,7 +81,7 @@ describe('PatientAudiometryEntryStorage', () => {
       {
         uuid: 'entry-3',
         typeCode: 'SCREENING',
-        typeName: 'De rastreo',
+        typeName: 'Rastreo',
         screeningResult: 'REFER',
         createdAt: new Date('2026-11-01T10:00:00.000Z'),
         createdByUuid: 'author-1',
@@ -97,7 +97,7 @@ describe('PatientAudiometryEntryStorage', () => {
     const [row] = await storage.findAllByPatient(PATIENT, TENANT);
     expect(row).toMatchObject({
       typeCode: 'SCREENING',
-      typeName: 'De rastreo',
+      typeName: 'Rastreo',
       screeningResult: 'REFER',
       ptaType: null,
       gradingScale: null,
@@ -112,7 +112,7 @@ describe('PatientAudiometryEntryStorage', () => {
       patientUuid: PATIENT,
       schemaVersion: 1,
       typeCode: 'SCREENING',
-      type: { name: 'De rastreo' },
+      type: { name: 'Rastreo' },
       payload: { result: 'PASS' },
       createdAt: new Date('2026-11-01T10:00:00.000Z'),
       createdByUuid: 'author-1',
@@ -122,7 +122,7 @@ describe('PatientAudiometryEntryStorage', () => {
     });
     await expect(storage.findByUuid('entry-3', PATIENT, TENANT)).resolves.toMatchObject({
       typeCode: 'SCREENING',
-      typeName: 'De rastreo',
+      typeName: 'Rastreo',
       payload: { result: 'PASS' },
     });
   });

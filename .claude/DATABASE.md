@@ -217,7 +217,7 @@ WHERE p."hearingAidsInLabSince" IS NOT NULL
 |--------|------|-------|
 | id | Int (PK, autoincrement) | |
 | code | String (unique) | `CLINICAL`, `SCREENING`; es lo que referencia `PatientAudiometryEntry.typeCode` |
-| name | String | texto que ve el usuario ("Clínica", "De rastreo") |
+| name | String | texto que ve el usuario ("Clínica", "Rastreo") |
 | sortOrder | Int | orden del selector |
 | isActive | Boolean | default true; un tipo inactivo no acepta guardados nuevos |
 | createdAt | DateTime | |

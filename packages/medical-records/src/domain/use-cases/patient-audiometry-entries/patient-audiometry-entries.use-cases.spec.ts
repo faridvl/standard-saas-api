@@ -355,7 +355,7 @@ describe('guardado de audiometrías', () => {
         Promise.resolve(
           [
             { code: 'CLINICAL', name: 'Clínica' },
-            { code: 'SCREENING', name: 'De rastreo' },
+            { code: 'SCREENING', name: 'Rastreo' },
           ].filter((t) => activeTypes.includes(t.code)),
         ),
     };
@@ -488,7 +488,7 @@ describe('guardado de audiometrías', () => {
       const result = await new FindAudiometryTypesUseCase(typeStorage as never).execute();
       expect(result).toEqual([
         { code: 'CLINICAL', name: 'Clínica' },
-        { code: 'SCREENING', name: 'De rastreo' },
+        { code: 'SCREENING', name: 'Rastreo' },
       ]);
     });
 
