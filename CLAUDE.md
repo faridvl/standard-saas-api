@@ -84,6 +84,10 @@ CORS in `medical-records` already whitelists `https://next-audiology-files.verce
 
 **When you implement a new endpoint, update `.claude/ENDPOINTS.md`** with the exact request body, query params, and response shape before finishing.
 
+## Aislamiento entre clínicas
+
+Todo endpoint que reciba un id (leer, editar, borrar o crear algo colgado de otro registro) filtra por `{ uuid, tenantUuid }` en la misma consulta o verifica antes que el padre sea del tenant de la sesión. Otra clínica responde 404, nunca 403. Cada endpoint nuevo lleva su prueba de aislamiento. La prueba generada desde la lista de rutas (`packages/medical-records/src/test/tenant-isolation`) falla si aparece una ruta con parámetro sin sonda ni exención con motivo en `routes.manifest.ts`.
+
 ## Regla de features cross-repo
 
 Cuando implementes un endpoint nuevo o lo modifiques:

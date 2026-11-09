@@ -1,5 +1,24 @@
 # Decisiones
 
+## 2026-11-09 - Aislamiento entre clínicas: todo acceso por id lleva tenant
+
+- Regla: Todo endpoint que reciba un id (leer, editar, borrar o crear algo colgado de otro registro) filtra por `{ uuid, tenantUuid }` en la misma consulta o verifica antes que el padre sea del tenant de la sesión. Otra clínica responde 404, nunca 403. Cada endpoint nuevo lleva su prueba de aislamiento.
+- No hay RLS: cada consulta filtra a mano. RLS de Postgres queda como segunda barrera a mediano plazo; no se implementa ahora.
+- Corregidos: `ProductUnitStorage` (findOne, update, assign, release, findRawId por `product.tenantUuid`), `PatientDeviceStorage` (findOne y verificación del paciente al crear), `MedicalControlStorage.addCorrectionNote`; reforzados con tenant en el where: plantillas clínicas, cierre de encuentros, otoscopias, pacientes e inventario.
+- `PatientTenantInterceptor` (global, records): toda ruta que cuelga de un paciente (`:patientUuid` o `:uuid` bajo `/patients`, `/encounters/patient`, `/studies/patient`, `/maintenance/patient`) verifica que el paciente sea de la clínica de la sesión antes de ejecutar; si no, 404. Cubre también las rutas futuras. Identity: `PATCH /tenants/:uuid` con un tenant ajeno ahora da 404 (antes 403); el tipo de cita ajeno da 404 (antes 409 con el conteo de citas).
+- Aceptado: `ProductUnit.serialNumber` y `Product.sku` son únicos globales (por esquema).
+- Prueba: `src/test/tenant-isolation` (manifiesto de rutas sin base + sondas HTTP con base local).
+
+
+## 2026-11-09 - Niveles de acceso y "Atiende pacientes"
+
+El modelo completo está en D71 del front (`audiocolors-backoffice/.claude/DECISIONS.md`). En el API:
+nivel de acceso (Recepción, Administración, Propietario) + `atiende pacientes` con especialidades de
+un catálogo fijo. El acceso a lo clínico y a archivos depende solo de `atiende pacientes`, nunca del
+nivel. Administración administra usuarios salvo el acceso clínico, las especialidades y el nivel
+Propietario, que son solo del Propietario. Cada acción relee al actor en la base. Reemplaza
+`CLINICAL_ACCESS_ROLES` y el permiso de usuarios solo para OWNER (D70).
+
 ## 2026-11-08 - Administración de usuarios por el OWNER (D70)
 
 - Solo el OWNER administra usuarios, con la lista nombrada `USER_ADMIN_ROLES = [OWNER]` verificada en el servidor (`assertCanAdministerUsers`); sin permiso, 403. El actor se relee de la base en cada acción (ACTIVE y rol OWNER); el rol del token no se usa para autorizar y un rol nulo o heredado no administra. Roles asignables: ADMIN, DOCTOR y STAFF; OWNER no se asigna por la API (400), nace solo al registrar la clínica.
