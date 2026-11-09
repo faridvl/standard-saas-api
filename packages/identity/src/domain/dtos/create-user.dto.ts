@@ -3,7 +3,7 @@ import { ASSIGNABLE_USER_ROLES, UserRole } from '../types/user.types';
 import { passwordSchema } from '../validations/password.schema';
 
 export const CreateUserSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().trim().toLowerCase().email('Email inválido'),
   fullName: z.string().min(1, 'El nombre es obligatorio'),
   password: passwordSchema,
   role: z.enum(ASSIGNABLE_USER_ROLES).default(UserRole.ADMIN),

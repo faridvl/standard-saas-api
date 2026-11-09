@@ -32,7 +32,7 @@ export class UserStorage {
 
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email: email.trim().toLowerCase() },
       include: {
         tenant: true,
       },
@@ -118,18 +118,6 @@ export class UserStorage {
     await this.prisma.user.update({
       where: { uuid },
       data: { password: hashedPassword },
-    });
-  }
-
-  /** Cuenta los OWNER activos de la clínica, sin contar al usuario `excludeUuid`. */
-  async countActiveOwners(tenantUUID: string, excludeUuid: string): Promise<number> {
-    return await this.prisma.user.count({
-      where: {
-        tenantUUID,
-        role: UserRole.OWNER,
-        status: Status.ACTIVE,
-        uuid: { not: excludeUuid },
-      },
     });
   }
 

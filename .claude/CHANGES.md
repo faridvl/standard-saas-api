@@ -29,6 +29,7 @@
 - Identity service: nombre y logo de la clínica — `PATCH /tenants/current` acepta `name`; `POST` y `DELETE /tenants/current/logo` (PNG/JPG/WEBP/SVG, 2 MB, OWNER y ADMIN); `Tenant.logoKey` y `logoUrl` resuelto en `/auth/me` y `/tenants/current`. Migración `20261108150000_tenant_logo_key`
 - Identity service: datos de contacto de la clínica — `Tenant.phone/email/address`, `GET` y `PATCH /tenants/current` (escritura solo OWNER y ADMIN); variables de plantilla `otoscopia_od/oi`, `diagnostico`, `observaciones` y `clinica_*`. Migración `20261108130000_tenant_contact_fields`
 - Identity service: administración de usuarios por el OWNER — `POST /users`, `PATCH /users/:uuid` (con `role`), `PATCH /users/:uuid/status`, `PUT /users/:uuid/password`, `DELETE /users/:uuid` (desactiva) y `GET /users?status=`. Un INACTIVE no inicia sesión. Medical-records refresca la copia local del usuario cada 5 minutos. Sin migración (el enum `Status` ya existía)
+- Identity service: corrección de la administración de usuarios — OWNER ya no es asignable, el actor se relee de la base, un OWNER no administra a otro, firma y foto solo del dueño con URL del bucket propio, correos en minúsculas, `limit` máximo 100 y default de `User.role` a STAFF. Migración `20261108160000_user_role_default_staff`
 
 ## 🔄 EN PROGRESO
 

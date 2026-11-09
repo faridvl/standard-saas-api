@@ -31,7 +31,7 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | email | String (unique) | |
 | name | String | mapped to `fullName` in domain layer |
 | password | String | bcrypt hash |
-| role | String? | default "OWNER"; values: OWNER, ADMIN, DOCTOR, STAFF, USER, MEDICO |
+| role | String? | default "STAFF"; values: OWNER, ADMIN, DOCTOR, STAFF, USER, MEDICO |
 | status | Enum(ACTIVE, INACTIVE) | default ACTIVE |
 | specialty | String? | |
 | avatarUrl | String? | |

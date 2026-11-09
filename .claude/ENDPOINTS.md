@@ -99,11 +99,11 @@
 ---
 
 ### POST /users
-**Auth:** Required. Solo OWNER (lista `USER_ADMIN_ROLES`); otro rol recibe 403.
+**Auth:** Required. Solo OWNER (lista `USER_ADMIN_ROLES`). El actor se relee de la base: debe estar ACTIVE y seguir siendo OWNER, aunque su token siga vigente; si no, 403 "Tu usuario ya no está activo en esta clínica" (o "Solo el propietario de la clínica puede administrar usuarios" si ya no es OWNER). Lo mismo aplica a todos los endpoints de administración de abajo.
 **Body:**
 ```json
 {
-  "email": "string (email)",
+  "email": "string (email; se guarda en minúsculas)",
   "fullName": "string",
   "password": "string (contraseña temporal; min 8, mayúscula y número)",
   "role": "ADMIN | DOCTOR | STAFF (default: ADMIN)",
@@ -112,14 +112,14 @@
 }
 ```
 **Response 201:** Created user domain object.
-**Errors:** 403 si no es OWNER; 409 si el email ya existe.
-**Status:** Implemented. Crea el usuario en la clínica del JWT (el cliente nunca manda tenant). Nace ACTIVE. No se puede crear otro OWNER por aquí.
+**Errors:** 403 si no es OWNER activo; 400 si `role` es OWNER (el OWNER nace solo al registrar la clínica); 409 si el email ya existe (sin distinguir mayúsculas).
+**Status:** Implemented. Crea el usuario en la clínica del JWT (el cliente nunca manda tenant). Nace ACTIVE.
 
 ---
 
 ### GET /users
 **Auth:** Required (cualquier usuario de la clínica).
-**Query params:** `page` (default 1), `limit` (default 10), `status` = `ACTIVE | INACTIVE | ALL` (default `ALL`, el comportamiento anterior: incluye inactivos). Un valor inválido da 400.
+**Query params:** `page` (default 1), `limit` (default 10, máximo 100: un valor mayor se reduce a 100), `status` = `ACTIVE | INACTIVE | ALL` (default `ALL`, el comportamiento anterior: incluye inactivos). Un valor inválido da 400.
 **Response 200:**
 ```json
 {
@@ -139,21 +139,21 @@
 ---
 
 ### PATCH /users/:uuid
-**Auth:** Required. El propio usuario (sin `role`) u OWNER sobre cualquier usuario de su clínica. Otro usuario sobre un tercero recibe 403.
+**Auth:** Required. El propio usuario ACTIVE (sin `role`) u OWNER activo sobre otro usuario de su clínica que no sea OWNER. La firma y la foto solo las cambia su dueño.
 **Body (all optional):**
 ```json
 {
   "fullName": "string",
   "phoneNumber": "string",
   "specialty": "string",
-  "signatureUrl": "string",
-  "avatarUrl": "string",
+  "signatureUrl": "string | null (https del bucket propio; solo el dueño)",
+  "avatarUrl": "string | null (https del bucket propio; solo el dueño)",
   "role": "ADMIN | DOCTOR | STAFF (solo OWNER, nunca sobre sí mismo)"
 }
 ```
 **Response 200:** Updated user domain object.
-**Errors:** 403 si manda `role` sin ser OWNER; 400 si el OWNER se cambia su propio rol; 409 si quitaría el último OWNER activo; 404 si el usuario es de otra clínica.
-**Status:** Implemented. El email no es editable. Las subidas `POST /upload/users/:uuid/signature` y `/avatar` aplican la misma regla (propio usuario u OWNER).
+**Errors:** 403 si el actor no está ACTIVE; 403 si manda `role` o edita a otro sin ser OWNER; 403 "Un propietario no puede administrar a otro propietario" si el objetivo es otro OWNER (también para sus datos de perfil); 403 "La firma y la foto solo las cambia su dueño" si manda `signatureUrl` o `avatarUrl` de otro; 400 si `role` es OWNER o el OWNER se cambia su propio rol; 400 si una URL no es https del bucket propio (`R2_PUBLIC_URL`); 404 si el usuario es de otra clínica.
+**Status:** Implemented. El email no es editable. El OWNER edita su propio perfil. Las subidas `POST /upload/users/:uuid/signature` y `/avatar` solo las hace el propio usuario ACTIVE: se verifica antes de subir al bucket, así un rechazo no deja archivos huérfanos.
 
 ---
 
@@ -161,7 +161,7 @@
 **Auth:** Required. Solo OWNER.
 **Body:** `{ "status": "ACTIVE | INACTIVE" }`
 **Response 200:** El usuario actualizado.
-**Errors:** 403 si no es OWNER; 400 si el OWNER se desactiva a sí mismo; 409 si desactiva al último OWNER activo; 404 si es de otra clínica.
+**Errors:** 403 si no es OWNER activo; 400 "No puedes cambiar tu propio estado" (en ambos sentidos); 403 "Un propietario no puede administrar a otro propietario"; 404 si es de otra clínica.
 **Status:** Implemented. Un INACTIVE no inicia sesión (401 "Credenciales inválidas") y `GET /auth/me` lo rechaza con 401. Reactivarlo le devuelve el acceso.
 
 ---
@@ -170,8 +170,8 @@
 **Auth:** Required. Solo OWNER.
 **Body:** `{ "password": "string (min 8, mayúscula y número)" }`
 **Response 204:** No content.
-**Errors:** 403 si no es OWNER; 404 si es de otra clínica.
-**Status:** Implemented. El OWNER pone la contraseña nueva a cualquier usuario de su clínica.
+**Errors:** 403 si no es OWNER activo; 403 "Un propietario no puede administrar a otro propietario" (la propia contraseña sí se puede poner); 404 si es de otra clínica.
+**Status:** Implemented. El OWNER pone la contraseña nueva a cualquier usuario de su clínica que no sea otro OWNER.
 
 ---
 

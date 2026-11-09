@@ -19,13 +19,8 @@ export enum UserRole {
   MEDICO = 'MEDICO',
 }
 
-/** Roles que se pueden asignar hoy; USER y MEDICO quedan solo por compatibilidad con datos viejos. */
-export const ASSIGNABLE_USER_ROLES = [
-  UserRole.OWNER,
-  UserRole.ADMIN,
-  UserRole.DOCTOR,
-  UserRole.STAFF,
-] as const;
+/** Roles que se pueden asignar; OWNER nace solo al registrar la clínica y USER y MEDICO quedan por compatibilidad con datos viejos. */
+export const ASSIGNABLE_USER_ROLES = [UserRole.ADMIN, UserRole.DOCTOR, UserRole.STAFF] as const;
 
 export enum UserStatus {
   ACTIVE = 'ACTIVE',

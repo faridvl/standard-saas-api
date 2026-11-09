@@ -3,7 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { ConflictException, Injectable } from '@nestjs/common';
 import { CreateUserParams, UserStorage } from '../../infrastructure/adapters/user.storage';
 import { CreateUserDto } from '../dtos/create-user.dto';
-import { assertCanAdministerUsers } from '../policies/user-admin.policy';
+import { resolveUserAdmin } from '../policies/user-admin.policy';
 import { UserActor, UserDomain, UserStatus } from '../types/user.types';
 
 @Injectable()
@@ -11,9 +11,10 @@ export class CreateUserUseCase {
   constructor(private readonly userStorage: UserStorage) {}
 
   async execute(dto: CreateUserDto, actor: UserActor): Promise<UserDomain> {
-    assertCanAdministerUsers(actor.role);
+    await resolveUserAdmin(this.userStorage, actor);
 
-    const existingUser = await this.userStorage.findByEmail(dto.email);
+    const email = dto.email.trim().toLowerCase();
+    const existingUser = await this.userStorage.findByEmail(email);
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -22,7 +23,7 @@ export class CreateUserUseCase {
     const hashedPassword = await bcrypt.hash(dto.password, salt);
 
     const saveParams: CreateUserParams = {
-      email: dto.email,
+      email,
       fullName: dto.fullName,
       password: hashedPassword,
       role: dto.role,

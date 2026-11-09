@@ -32,5 +32,5 @@ body:json {
 }
 
 docs {
-  Perfil propio: sin "role". Con "role" solo el OWNER y nunca sobre sí mismo.
+  Perfil propio: sin "role". Con "role" solo el OWNER activo, nunca sobre sí mismo y nunca OWNER (400). Otro OWNER: 403. signatureUrl/avatarUrl: solo el dueño (403) y URL https del bucket propio o null.
 }

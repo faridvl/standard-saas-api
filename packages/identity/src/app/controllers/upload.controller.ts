@@ -24,7 +24,6 @@ import {
   detectClinicLogoFormat,
 } from '../../domain/utils/clinic-logo.util';
 import { assertCanManageClinic } from '../../domain/utils/clinic-permissions.util';
-import { assertCanEditUser } from '../../domain/policies/user-admin.policy';
 import { toUserActor } from '../utils/user-actor.util';
 
 const UPLOAD_OPTIONS = {
@@ -74,7 +73,7 @@ export class UploadController {
     @CurrentUser() currentUser: JwtPayload,
   ): Promise<{ url: string }> {
     const actor = toUserActor(currentUser);
-    assertCanEditUser(actor, uuid);
+    await this.updateUserUseCase.assertCanChangeOwnMedia(uuid, actor);
     const url = await this.storageService.upload(
       'identity',
       currentUser.tenantUuid,
@@ -94,7 +93,7 @@ export class UploadController {
     @CurrentUser() currentUser: JwtPayload,
   ): Promise<{ url: string }> {
     const actor = toUserActor(currentUser);
-    assertCanEditUser(actor, uuid);
+    await this.updateUserUseCase.assertCanChangeOwnMedia(uuid, actor);
     const url = await this.storageService.upload(
       'identity',
       currentUser.tenantUuid,

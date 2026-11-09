@@ -36,7 +36,7 @@ model User {
   email       String   @unique
   name        String   
   password    String
-  role        String?     @default("OWNER")
+  role String? @default("STAFF")
   status      Status   @default(ACTIVE)
   
   specialty     String?

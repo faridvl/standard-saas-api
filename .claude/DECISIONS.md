@@ -2,14 +2,15 @@
 
 ## 2026-11-08 - Administración de usuarios por el OWNER (D70)
 
-- Solo el OWNER administra usuarios, con la lista nombrada `USER_ADMIN_ROLES = [OWNER]` verificada en el servidor (`assertCanAdministerUsers`); sin permiso, 403. Roles asignables: ADMIN, DOCTOR y STAFF; no se crea otro OWNER por la API.
+- Solo el OWNER administra usuarios, con la lista nombrada `USER_ADMIN_ROLES = [OWNER]` verificada en el servidor (`assertCanAdministerUsers`); sin permiso, 403. El actor se relee de la base en cada acción (ACTIVE y rol OWNER); el rol del token no se usa para autorizar y un rol nulo o heredado no administra. Roles asignables: ADMIN, DOCTOR y STAFF; OWNER no se asigna por la API (400), nace solo al registrar la clínica.
 - Alta con contraseña temporal escrita por el OWNER (`POST /users`), que también puede ponérsela nueva a cualquier usuario de su clínica (`PUT /users/:uuid/password`, 204). No hay correo ni enlace de recuperación.
 - No se borra: se desactiva y se reactiva (`Status` ACTIVE/INACTIVE). `DELETE /users/:uuid` es alias de desactivar. Un INACTIVE da 401 con el mismo mensaje genérico que una clave mala (no revela que la cuenta existe) y `GET /auth/me` lo rechaza.
-- Nadie se desactiva ni se cambia el rol a sí mismo (400). La clínica nunca queda sin un OWNER activo: desactivar o bajar de rol al último da 409; con dos activos sí se puede.
+- Nadie cambia su propio estado (400, en ambos sentidos) ni su propio rol. Un OWNER no administra a otro OWNER (rol, estado, contraseña, DELETE y datos de perfil dan 403); sí edita su propio perfil. Como OWNER no se asigna ni se toca, la clínica no puede quedar sin OWNER por esta vía.
 - Todo se filtra por el tenant del JWT; un usuario de otra clínica da 404. El cliente nunca manda tenant.
-- Cualquier usuario edita su propio perfil (nombre, teléfono, especialidad, firma, avatar) sin `role`; con `role` recibe 403. Las subidas de firma y avatar aplican la misma regla (antes cualquiera podía subir la de otro).
+- Cualquier usuario edita su propio perfil (nombre, teléfono, especialidad, firma, avatar) sin `role`; con `role` recibe 403. La firma y el avatar solo los cambia su dueño, también el OWNER (subidas y `PATCH`); la subida verifica antes de escribir en el bucket. `signatureUrl` y `avatarUrl` solo aceptan https con el prefijo público del bucket propio (`R2_PUBLIC_URL`) o null.
+- Los correos se guardan y buscan en minúsculas. `GET /users` limita `limit` a `USERS_LIST_MAX_LIMIT` (100). El default de `User.role` pasa de OWNER a STAFF (migración `20261108160000_user_role_default_staff`, sin tocar datos existentes).
 - `GET /users` sin `status` devuelve todos (ALL), el comportamiento anterior. `PATCH /users/:uuid/status` responde 200 con el usuario actualizado.
-- Token ya emitido: el JWT dura 1 hora (`expiresIn: '1h'` en `identity.module.ts`) y `AuthGuard` no consulta la base, así que un usuario desactivado con un token vigente sigue entrando a identity y medical-records hasta que venza. No se cambió: cerrarlo exige consultar el estado en cada petición o una lista de tokens revocados.
+- Token ya emitido: el JWT dura 1 hora y `AuthGuard` no consulta la base, así que un usuario desactivado con token vigente sigue leyendo en identity y medical-records hasta que venza. Las acciones de administración sí se bloquean al instante porque releen al actor en la base.
 - Caché de usuarios de medical-records: la copia local sirve 5 minutos (`USER_CACHE_TTL_MS`) y luego se vuelve a pedir a identity, así un usuario nuevo o renombrado se ve con su nombre en notas e historial. Si identity no responde se usa el nombre local. `GET /users/:uuid` sigue devolviendo INACTIVE para no perder el nombre del autor de notas viejas.
 
 ## 2026-11-08 - La nota de audiometría lleva el tipo y el uuid de la audiometría
