@@ -10,6 +10,8 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel } from '@medical-records/app/decorators/access.decorators';
 import {
   CreateProductUnitDto,
   CreateProductUnitSchema,
@@ -26,7 +28,8 @@ import { UpdateProductUnitUseCase } from '@medical-records/domain/use-cases/prod
 import { ProductUnit, ProductUnitStatus } from '@medical-records/domain/types/product.types';
 
 @Controller()
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class ProductUnitController {
   constructor(
     private readonly createUseCase: CreateProductUnitUseCase,

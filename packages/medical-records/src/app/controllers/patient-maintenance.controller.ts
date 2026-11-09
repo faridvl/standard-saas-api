@@ -9,6 +9,8 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import {
   CreatePatientMaintenanceNoteDto,
   CreatePatientMaintenanceNoteSchema,
@@ -25,7 +27,8 @@ import {
 
 /** Estado e historial de notas de los mantenimientos; el estado se cambia con PUT /patients/:uuid/maintenances/:number. */
 @Controller('patients/:uuid/maintenances')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class PatientMaintenanceController {
   constructor(
     private readonly findUseCase: FindPatientMaintenancesUseCase,

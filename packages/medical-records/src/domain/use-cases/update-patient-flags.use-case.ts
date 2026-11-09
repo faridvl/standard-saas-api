@@ -17,7 +17,6 @@ import {
   PatientLabShipmentRecord,
   PatientLabShipmentStorage,
 } from '@medical-records/infrastructure/adapters/patientLabShipmentRepository/patient-lab-shipment.storage';
-import { CLINICAL_ACCESS_ROLES } from '@medical-records/domain/policies/clinical-access.policy';
 import { UpdatePatientFlagsDto } from '@medical-records/app/dtos/update-patient-flags.dto';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import {
@@ -114,11 +113,11 @@ export class UpdatePatientFlagsUseCase {
     tenantUuid: string,
     actorUuid: string,
     dto: UpdatePatientFlagsDto,
-    actorRole: string | null | undefined,
+    actorAttendsPatients: boolean | undefined,
   ): Promise<PatientRecord> {
-    // La nota queda en Control de evolución, que STAFF no puede ver ni escribir.
-    if (dto.note && !CLINICAL_ACCESS_ROLES.includes(actorRole ?? '')) {
-      throw new ForbiddenException('Solo el personal clínico puede agregar notas.');
+    // La nota queda en Control de evolución, que solo ve quien atiende pacientes.
+    if (dto.note && actorAttendsPatients !== true) {
+      throw new ForbiddenException('Solo quien atiende pacientes puede agregar notas.');
     }
 
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
@@ -242,7 +241,10 @@ export class UpdatePatientFlagsUseCase {
   /** El envío nuevo (o con la fecha corregida) no puede quedar antes de la última entrega. */
   private async assertNotBeforeLastDelivery(tx: LabShipmentTransaction, sentAt: Date) {
     const lastClosed = await tx.findLastClosedShipment();
-    if (lastClosed?.deliveredAt && toClinicDayKey(sentAt) < toClinicDayKey(lastClosed.deliveredAt)) {
+    if (
+      lastClosed?.deliveredAt &&
+      toClinicDayKey(sentAt) < toClinicDayKey(lastClosed.deliveredAt)
+    ) {
       throw new BadRequestException(
         `La fecha de envío no puede ser anterior a la última entrega (${formatDay(lastClosed.deliveredAt)})`,
       );

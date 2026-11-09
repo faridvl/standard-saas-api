@@ -1,15 +1,7 @@
-import {
-  Body,
-  Controller,
-  ForbiddenException,
-  Get,
-  Param,
-  Patch,
-  Post,
-  UseGuards,
-  UsePipes,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import { CreateEncounterUseCase } from '@medical-records/domain/use-cases/encounters/create-encounter.use-case';
 import { FindByPatientEncounterUseCase } from '@medical-records/domain/use-cases/encounters/find-by-patient-encounter.use-case';
 import { FindOneEncounterUseCase } from '@medical-records/domain/use-cases/encounters/find-one-encounter.use-case';
@@ -22,10 +14,10 @@ import {
 
 // STAFF (recepción) no tiene acceso a notas clínicas: Ley 8968 clasifica los
 // datos de salud como sensibles. Mismo criterio que MedicalControlController.
-const STAFF_ROLE = 'STAFF';
 
 @Controller('encounters')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class EncounterController {
   constructor(
     private readonly createUseCase: CreateEncounterUseCase,
@@ -40,10 +32,6 @@ export class EncounterController {
     @Body() dto: CreateEncounterDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<EncounterEntity> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
-    }
-
     return this.createUseCase.execute(dto, {
       tenantUuid: user.tenantUuid,
       userUuid: user.sub,
@@ -55,10 +43,6 @@ export class EncounterController {
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<EncounterEntity[]> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
-    }
-
     // La especialidad determina qué se puede crear, nunca qué se puede ver
     // (NOM-004 5.14): un solo expediente con todos los encuentros del paciente.
     return this.findByPatientUseCase.execute(uuid, user.tenantUuid);
@@ -69,10 +53,6 @@ export class EncounterController {
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<EncounterDetail> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
-    }
-
     return this.findOneUseCase.execute(uuid, user.tenantUuid);
   }
 
@@ -81,10 +61,6 @@ export class EncounterController {
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<EncounterEntity> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
-    }
-
     return this.closeUseCase.execute(uuid, user.tenantUuid);
   }
 }

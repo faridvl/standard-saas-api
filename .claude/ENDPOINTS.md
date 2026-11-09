@@ -1196,3 +1196,17 @@ Nivel: `RECEPTION` | `ADMIN` | `OWNER` (campo `role`). `attendsPatients` (bool) 
 Errores: 400 atiende pacientes sin especialidad, especialidad o título fuera de catálogo, cambio de nivel o estado propio, último OWNER; 403 sin nivel suficiente; 404 usuario de otra clínica.
 `GET /auth/me` devuelve `{ user, tenant }`; `user` trae `role`, `attendsPatients`, `specialties`, `professionalTitle`, `licenseNumber`. Login devuelve esos campos en `user`. JWT: `role`, `attendsPatients`, `specialties`.
 Se quitó el texto libre `specialty` (también en `POST /auth/register`: ahora `specialties[]`).
+
+## Acceso por ruta (medical-records)
+
+Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (RECEPTION, ADMIN, OWNER) y atender pacientes de `attendsPatients`. Los roles viejos dan 403. Excepciones públicas: `POST /appointment-types/initialize` (llamada interna) y `GET /calendar-feed/:file`.
+
+| Grupo | Exige | Rutas |
+|---|---|---|
+| Cualquier nivel | token con nivel válido | pacientes (datos generales, prioridad, estado), contactos, citas, agenda, `next-appointment`, dispositivos, productos y unidades, sedes, envíos a laboratorio, `calendar-feed` (autenticadas), lectura de `appointment-types`, `clinical-templates` y `document-templates` |
+| Clínico | `attendsPatients` | `patients/:id/background`, `physical-exam`, notas, preguntas, audiometrías y otoscopías (leer), documentos, encuentros, controles médicos, estudios, `maintenance`, mantenimientos del paciente (GET y notas), `audiometry-types`, `upload/*` |
+| Prueba | `attendsPatients` + AUDIOLOGY | crear o anular audiometrías; crear o editar otoscopías |
+| Configuración | ADMIN u OWNER | crear, editar y borrar `appointment-types`, `clinical-templates` y `document-templates` |
+| Bitácora | ADMIN u OWNER | `patient-activity` (listado, `actors`, `months`, `summary`) |
+
+El resumen de bitácora y las notas de envíos a laboratorio solo muestran lo clínico a quien atiende.

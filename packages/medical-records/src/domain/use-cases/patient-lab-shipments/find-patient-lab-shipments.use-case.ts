@@ -3,7 +3,6 @@ import { PatientLabShipmentStorage } from '@medical-records/infrastructure/adapt
 import { PatientLabShipmentEntity } from '@medical-records/domain/entities/patient-lab-shipment.entity';
 import { toClinicDayKey } from '@medical-records/domain/utils/lab-shipment-date.util';
 import { UserStorage } from '@medical-records/infrastructure/adapters/userRepository/user.storage';
-import { CLINICAL_ACCESS_ROLES } from '@medical-records/domain/policies/clinical-access.policy';
 
 const isString = (value: string | null): value is string => value !== null;
 
@@ -17,7 +16,7 @@ export class FindPatientLabShipmentsUseCase {
   async execute(
     patientUuid: string,
     tenantUuid: string,
-    role: string | null | undefined,
+    attendsPatients: boolean | undefined,
   ): Promise<PatientLabShipmentEntity[]> {
     if (!(await this.storage.patientExists(patientUuid, tenantUuid, { includeDeleted: false }))) {
       throw new NotFoundException('Paciente no encontrado');
@@ -35,11 +34,12 @@ export class FindPatientLabShipmentsUseCase {
     const names = new Map(
       await Promise.all(
         authorUuids.map(
-          async (uuid) => [uuid, (await this.userStorage.findByUuid(uuid))?.fullName ?? null] as const,
+          async (uuid) =>
+            [uuid, (await this.userStorage.findByUuid(uuid))?.fullName ?? null] as const,
         ),
       ),
     );
-    const canSeeNotes = CLINICAL_ACCESS_ROLES.includes(role ?? '');
+    const canSeeNotes = attendsPatients === true;
     const nameOf = (uuid: string | null) => (uuid ? (names.get(uuid) ?? null) : null);
 
     return records.map((record) => ({

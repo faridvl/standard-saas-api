@@ -6,15 +6,16 @@ import {
   HttpStatus,
   Param,
   Post,
-  SetMetadata,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
 import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+  ClinicalAccess,
+  RequiresSpecialty,
+} from '@medical-records/app/decorators/access.decorators';
+import { Specialty } from '@medical-records/domain/policies/access.policy';
 import {
   CreatePatientAudiometryEntryDto,
   CreatePatientAudiometryEntrySchema,
@@ -34,8 +35,8 @@ import {
 
 /** Audiometrías guardadas por paciente: dato clínico, fuera del alcance de STAFF. Inmutables; solo se pueden marcar como mal hechas. */
 @Controller('patients/:patientUuid/audiometry-entries')
-@UseGuards(AuthGuard, RolesGuard)
-@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class PatientAudiometryEntryController {
   constructor(
     private readonly createUseCase: CreatePatientAudiometryEntryUseCase,
@@ -62,6 +63,7 @@ export class PatientAudiometryEntryController {
   }
 
   @Post()
+  @RequiresSpecialty(Specialty.AUDIOLOGY)
   @UsePipes(new ZodValidationPipe(CreatePatientAudiometryEntrySchema))
   async create(
     @Param('patientUuid') patientUuid: string,
@@ -73,6 +75,7 @@ export class PatientAudiometryEntryController {
 
   /** Marca definitiva con motivo: no hay ruta para quitarla. Una ya marcada responde 409. */
   @Post(':entryUuid/invalidate')
+  @RequiresSpecialty(Specialty.AUDIOLOGY)
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ZodValidationPipe(InvalidatePatientAudiometryEntrySchema))
   async invalidate(

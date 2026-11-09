@@ -7,15 +7,12 @@ import {
   Patch,
   Post,
   Query,
-  SetMetadata,
   UseGuards,
   UsePipes,
 } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
-import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import {
   CreatePatientQuestionnaireEntryDto,
   CreatePatientQuestionnaireEntrySchema,
@@ -32,8 +29,8 @@ import {
 
 /** Secciones propias de la clínica llenadas por paciente: datos clínicos, fuera del alcance de STAFF. */
 @Controller('patients/:patientUuid/questionnaire-entries')
-@UseGuards(AuthGuard, RolesGuard)
-@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class PatientQuestionnaireEntryController {
   constructor(
     private readonly createUseCase: CreatePatientQuestionnaireEntryUseCase,

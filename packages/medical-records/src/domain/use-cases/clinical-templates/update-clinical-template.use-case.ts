@@ -3,7 +3,6 @@ import { ClinicalTemplateStorage } from '@medical-records/infrastructure/adapter
 import { UpdateClinicalTemplateDto } from '@medical-records/app/dtos/clinical-template.dto';
 import { ClinicalTemplateEntity } from '@medical-records/domain/entities/clinical-template.entity';
 import {
-  assertCanEditTemplate,
   CLINICAL_HISTORY_SPECIALITY,
   QUESTIONNAIRE_SPECIALITY,
 } from '@medical-records/domain/policies/clinical-history-template.policy';
@@ -19,11 +18,8 @@ export class UpdateClinicalTemplateUseCase {
     uuid: string,
     tenantUuid: string,
     dto: UpdateClinicalTemplateDto,
-    role?: string | null,
   ): Promise<ClinicalTemplateEntity> {
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
-    assertCanEditTemplate(existing?.speciality, role);
-    assertCanEditTemplate(dto.speciality, role);
 
     // Pasar una sección a otra speciality la sacaría de las comprobaciones de borrado
     // y de acceso; convertir otra plantilla en estas pisaría la historia clínica.

@@ -168,5 +168,10 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - Bitácora en tabla `UserAudit`, escrita en la misma transacción que el cambio; incluye el nivel inicial al crear.
 - El actor se relee de la base en cada acción (activo y nivel vigente); el JWT no decide permisos de administración.
 - Los cambios de acceso aplican en el JWT al renovarlo (1 h) o antes con `POST /auth/refresh`.
-- medical-records sigue usando los roles viejos (`CLINICAL_ACCESS_ROLES`, `@Roles`): queda para el siguiente encargo.
+- medical-records usa el modelo de niveles: un solo `AccessGuard` (después de `AuthGuard`) lee `@AnyLevel()`, `@ClinicalAccess()`, `@MinLevel(ADMIN)` o `@RequiresSpecialty(AUDIOLOGY)`. Ruta sin clasificar, sin token o con rol viejo (DOCTOR, STAFF, USER, MEDICO) da 403. La prueba `route-access-coverage.spec.ts` falla si una ruta no tiene guards y clasificación (solo `initialize` y `GET /calendar-feed/:file` son públicas).
+- Clínico (exige `attendsPatients`, cualquier nivel): historia, evolución, encuentros, mantenimientos clínicos, otoscopías, audiometrías, preguntas, notas, controles, estudios, documentos del paciente y `upload/*`. Crear o editar pruebas (audiometría, otoscopía) exige además AUDIOLOGY; ver no.
+- Cualquier nivel: datos generales del paciente, contactos, citas, agenda, dispositivos, inventario, prioridad, sedes, envíos a laboratorio y la lectura de plantillas (clínicas y de documento: no tienen datos de pacientes y quien atiende las necesita aunque sea RECEPTION).
+- ADMIN u OWNER, atienda o no: editar sedes, tipos de cita, plantillas clínicas y de documento, y la bitácora (incluye `actors`, antes sin restricción).
+- Dudas resueltas por mínimo necesario: `physical-exam` PUT y preguntas son clínicos sin AUDIOLOGY (no son pruebas); `/maintenance` y `patients/:uuid/maintenances` (GET y notas) son clínicos; el marcado de estado de un mantenimiento sigue en cualquier nivel; `audiometry-type` GET es clínico; notas de envíos a laboratorio y de flags solo si atiende.
+- Riesgo residual: `GET /patients/:uuid` y `DELETE /patients/:uuid` siguen en cualquier nivel; el registro general puede traer bloodType, gender y statusReason.
 - La variable de plantilla "profesional" se resuelve en el front, no en el API.

@@ -37,7 +37,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       tenantUuid: string,
       actorUuid: string,
       dto: never,
-      role?: string,
+      attendsPatients?: boolean,
     ) => ReturnType<UpdatePatientFlagsUseCase['execute']>;
   };
 
@@ -146,8 +146,8 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       recordActivity as never,
     );
     useCase = {
-      execute: (uuid, tenantUuid, actorUuid, dto, role = 'DOCTOR') =>
-        real.execute(uuid, tenantUuid, actorUuid, dto, role),
+      execute: (uuid, tenantUuid, actorUuid, dto, attendsPatients = true) =>
+        real.execute(uuid, tenantUuid, actorUuid, dto, attendsPatients),
     };
   });
 
@@ -289,7 +289,9 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
         deliveredAt: '2026-10-19',
       } as never),
     ).rejects.toThrow(
-      new BadRequestException('La fecha de entrega no puede ser anterior a la de envío (20/10/2026)'),
+      new BadRequestException(
+        'La fecha de entrega no puede ser anterior a la de envío (20/10/2026)',
+      ),
     );
     expect(shipments).toEqual([]);
     expect(flags.hearingAidsInLabSince).toEqual(noon('2026-10-20'));
@@ -438,14 +440,14 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     });
   });
 
-  describe('nota de la entrega según el rol', () => {
+  describe('nota de la entrega según si atiende pacientes', () => {
     const sendToLab = () =>
       useCase.execute(PATIENT, TENANT, ACTOR, {
         hearingAidsInLab: true,
         hearingAidsInLabDate: '2026-10-30',
       } as never);
 
-    it('STAFF con nota responde 403 y no cambia nada', async () => {
+    it('Quien no atiende pacientes, con nota, responde 403 y no cambia nada', async () => {
       await sendToLab();
 
       await expect(
@@ -454,14 +456,16 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
           TENANT,
           ACTOR,
           { hearingAidsInLab: false, note: 'Texto clínico' } as never,
-          'STAFF',
+          false,
         ),
-      ).rejects.toThrow(new ForbiddenException('Solo el personal clínico puede agregar notas.'));
+      ).rejects.toThrow(
+        new ForbiddenException('Solo quien atiende pacientes puede agregar notas.'),
+      );
       expect(open()).toBeDefined();
       expect(notes).toEqual([]);
     });
 
-    it('STAFF sin nota puede entregar', async () => {
+    it('Quien no atiende pacientes, sin nota, puede entregar', async () => {
       await sendToLab();
 
       await useCase.execute(
@@ -469,14 +473,14 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
         TENANT,
         ACTOR,
         { hearingAidsInLab: false, deliveredAt: '2026-11-01' } as never,
-        'STAFF',
+        false,
       );
 
       expect(shipments[0].deliveredAt).toEqual(noon('2026-11-01'));
       expect(flags.hearingAidsInLabSince).toBeNull();
     });
 
-    it.each(['OWNER', 'ADMIN', 'DOCTOR'])('%s puede dejar la nota', async (role) => {
+    it('quien atiende pacientes puede dejar la nota', async () => {
       await sendToLab();
 
       await useCase.execute(
@@ -484,7 +488,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
         TENANT,
         ACTOR,
         { hearingAidsInLab: false, note: 'Nota' } as never,
-        role,
+        true,
       );
 
       expect(notes).toEqual([{ authorUuid: ACTOR, text: 'Nota' }]);

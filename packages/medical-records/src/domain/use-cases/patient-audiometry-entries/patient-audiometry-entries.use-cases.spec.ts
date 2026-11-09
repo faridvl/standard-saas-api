@@ -1,18 +1,9 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import {
-  BadRequestException,
-  ConflictException,
-  ExecutionContext,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { RolesGuard } from '@project/core';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import {
   CreatePatientAudiometryEntrySchema,
   InvalidatePatientAudiometryEntrySchema,
 } from '@medical-records/app/dtos/patient-audiometry-entry.dto';
-import { PatientAudiometryEntryController } from '@medical-records/app/controllers/patient-audiometry-entry.controller';
 import { CreatePatientAudiometryEntryUseCase } from './create-patient-audiometry-entry.use-case';
 import { FindAudiometryTypesUseCase } from './find-audiometry-types.use-case';
 import { FindPatientAudiometryEntriesUseCase } from './find-patient-audiometry-entries.use-case';
@@ -669,23 +660,5 @@ describe('guardado de audiometrías', () => {
         NotFoundException,
       );
     });
-  });
-});
-
-describe('permisos del controlador de audiometrías', () => {
-  const guard = new RolesGuard(new Reflector());
-  const contextFor = (role: string): ExecutionContext =>
-    ({
-      getHandler: () => () => undefined,
-      getClass: () => PatientAudiometryEntryController,
-      switchToHttp: () => ({ getRequest: () => ({ user: { role } }) }),
-    }) as unknown as ExecutionContext;
-
-  it.each(['OWNER', 'ADMIN', 'DOCTOR'])('%s puede entrar', (role) => {
-    expect(guard.canActivate(contextFor(role))).toBe(true);
-  });
-
-  it('STAFF recibe 403', () => {
-    expect(() => guard.canActivate(contextFor('STAFF'))).toThrow(ForbiddenException);
   });
 });

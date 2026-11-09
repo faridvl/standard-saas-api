@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards, UsePipes } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import { CreateMaintenanceUseCase } from '@medical-records/domain/use-cases/maintenance/create-maintenance.use-case';
 import { FindByPatientMaintenanceUseCase } from '@medical-records/domain/use-cases/maintenance/find-by-patient-maintenance.use-case';
 import { FindUpcomingMaintenanceUseCase } from '@medical-records/domain/use-cases/maintenance/find-upcoming-maintenance.use-case';
@@ -7,7 +9,8 @@ import { CreateMaintenanceDto, CreateMaintenanceSchema } from '../dtos/maintenan
 import { MaintenanceEntity } from '@medical-records/domain/entities/maintenance.entity';
 
 @Controller('maintenance')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class MaintenanceController {
   constructor(
     private readonly createUseCase: CreateMaintenanceUseCase,

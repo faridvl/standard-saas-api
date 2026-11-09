@@ -12,13 +12,11 @@ import {
   Patch,
   HttpCode,
   HttpStatus,
-  SetMetadata,
 } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
-import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel, MinLevel } from '@medical-records/app/decorators/access.decorators';
+import { AccessLevel } from '@medical-records/domain/policies/access.policy';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
 import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/initialize-appointment-types.use-case';
@@ -50,15 +48,16 @@ export class AppointmentTypeController {
   ) {}
 
   @Get()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AccessGuard)
+  @AnyLevel()
   async findAll(@CurrentUser() user: JwtPayload): Promise<AppointmentTypeEntity[]> {
     return await this.findAllUseCase.execute(user.tenantUuid);
   }
 
   // Ver los tipos lo necesita todo el que agenda; cambiarlos es configuración: STAFF no.
   @Post()
-  @UseGuards(AuthGuard, RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @UseGuards(AuthGuard, AccessGuard)
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(CreateAppointmentTypeSchema))
   async create(
     @Body() dto: CreateAppointmentTypeDto,
@@ -68,8 +67,8 @@ export class AppointmentTypeController {
   }
 
   @Patch(':uuid')
-  @UseGuards(AuthGuard, RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @UseGuards(AuthGuard, AccessGuard)
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(UpdateAppointmentTypeSchema))
   async update(
     @Param('uuid') uuid: string,
@@ -80,8 +79,8 @@ export class AppointmentTypeController {
   }
 
   @Delete(':uuid')
-  @UseGuards(AuthGuard, RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @UseGuards(AuthGuard, AccessGuard)
+  @MinLevel(AccessLevel.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.deleteUseCase.execute(user.tenantUuid, uuid);

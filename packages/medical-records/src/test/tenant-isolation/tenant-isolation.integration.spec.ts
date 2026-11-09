@@ -42,6 +42,8 @@ describeIfEnabled('aislamiento por clínica: sondas HTTP con el token de otra cl
         sub: randomUUID(),
         email: `aislamiento-${tenantId}@audiocolors.test`,
         role: 'OWNER',
+        attendsPatients: true,
+        specialties: ['AUDIOLOGY'],
         tenantId,
         tenantUuid,
       },

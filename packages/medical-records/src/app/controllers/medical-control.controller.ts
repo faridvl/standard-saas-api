@@ -9,9 +9,10 @@ import {
   Param,
   UseGuards,
   UsePipes,
-  ForbiddenException,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import {
   CreateMedicalControlDto,
   CreateMedicalControlSchema,
@@ -29,10 +30,10 @@ type CorrectionNoteDto = z.infer<typeof CorrectionNoteSchema>;
 // STAFF (recepción) no tiene acceso a notas clínicas: Ley 8968 clasifica los
 // datos de salud como sensibles. El control de acceso debe vivir en la API,
 // no solo ocultarse en el cliente sobre datos ya descargados.
-const STAFF_ROLE = 'STAFF';
 
 @Controller('medical-controls')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class MedicalControlController {
   constructor(
     private readonly createUseCase: CreateMedicalControlUseCase,
@@ -60,10 +61,6 @@ export class MedicalControlController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
   ): Promise<PaginatedResponse<MedicalControlEntity>> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
-    }
-
     // La especialidad determina qué se puede crear, nunca qué se puede ver
     // (NOM-004 5.14): un solo expediente con todos los registros del paciente.
     return await this.findAllUseCase.execute(
@@ -78,10 +75,6 @@ export class MedicalControlController {
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<MedicalControlEntity> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException('El personal administrativo no tiene acceso a notas clínicas');
-    }
-
     return await this.findOneUseCase.execute(uuid, {
       tenantUuid: user.tenantUuid,
       userUuid: user.sub,

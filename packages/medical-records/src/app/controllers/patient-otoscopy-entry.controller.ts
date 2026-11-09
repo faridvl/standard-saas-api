@@ -1,19 +1,11 @@
+import { Body, Controller, Get, Param, Patch, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
 import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Patch,
-  Post,
-  SetMetadata,
-  UseGuards,
-  UsePipes,
-} from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
-import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+  ClinicalAccess,
+  RequiresSpecialty,
+} from '@medical-records/app/decorators/access.decorators';
+import { Specialty } from '@medical-records/domain/policies/access.policy';
 import {
   CreatePatientOtoscopyEntryDto,
   CreatePatientOtoscopyEntrySchema,
@@ -29,8 +21,8 @@ import {
 
 /** Historial de otoscopia por paciente: dato clínico, fuera del alcance de STAFF. */
 @Controller('patients/:patientUuid/otoscopy-entries')
-@UseGuards(AuthGuard, RolesGuard)
-@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class PatientOtoscopyEntryController {
   constructor(
     private readonly createUseCase: CreatePatientOtoscopyEntryUseCase,
@@ -47,6 +39,7 @@ export class PatientOtoscopyEntryController {
   }
 
   @Post()
+  @RequiresSpecialty(Specialty.AUDIOLOGY)
   @UsePipes(new ZodValidationPipe(CreatePatientOtoscopyEntrySchema))
   async create(
     @Param('patientUuid') patientUuid: string,
@@ -57,6 +50,7 @@ export class PatientOtoscopyEntryController {
   }
 
   @Patch(':entryUuid')
+  @RequiresSpecialty(Specialty.AUDIOLOGY)
   @UsePipes(new ZodValidationPipe(UpdatePatientOtoscopyEntrySchema))
   async update(
     @Param('patientUuid') patientUuid: string,

@@ -12,6 +12,8 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel } from '@medical-records/app/decorators/access.decorators';
 import {
   CreatePatientContactDto,
   CreatePatientContactSchema,
@@ -25,7 +27,8 @@ import { SyncPatientContactsUseCase } from '@medical-records/domain/use-cases/pa
 import { PatientContact } from '@prisma/client';
 
 @Controller('patients/:patientUuid/contacts')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class PatientContactController {
   constructor(
     private readonly createUseCase: CreatePatientContactUseCase,
