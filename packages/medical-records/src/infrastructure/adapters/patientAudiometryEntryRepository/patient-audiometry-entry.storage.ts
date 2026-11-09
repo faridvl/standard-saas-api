@@ -7,6 +7,7 @@ import {
   PatientAudiometryEntryEntity,
   PatientAudiometryEntrySummary,
 } from '@medical-records/domain/entities/patient-audiometry-entry.entity';
+import { buildAudiometryNoteData } from '@medical-records/domain/utils/audiometry-note-text.util';
 
 export type PatientAudiometryEntryRecord = Omit<
   PatientAudiometryEntryEntity,
@@ -59,9 +60,15 @@ export class PatientAudiometryEntryStorage {
   }
 
   async create(data: CreatePatientAudiometryEntryData): Promise<PatientAudiometryEntryRecord> {
-    const record = await this.prisma.patientAudiometryEntry.create({
-      data: { ...data, payload: data.payload as unknown as Prisma.InputJsonObject },
-    });
+    // La nota de Control de evolución se crea con el registro en un solo lote y con la misma fecha,
+    // para que la migración de respaldo la reconozca. Marcarla como mal hecha no la toca.
+    const createdAt = new Date();
+    const [record] = await this.prisma.$transaction([
+      this.prisma.patientAudiometryEntry.create({
+        data: { ...data, createdAt, payload: data.payload as unknown as Prisma.InputJsonObject },
+      }),
+      this.prisma.patientNote.create({ data: buildAudiometryNoteData(data, createdAt) }),
+    ]);
     return this.mapToRecord(record);
   }
 
