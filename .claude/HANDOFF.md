@@ -20,13 +20,17 @@ Rama `feature/roles-especialidades` integrada en `develop` (2026-11-09).
 
 - Terminado, probado y en `develop` (2026-11-09); migraciones aplicadas en la base de desarrollo (Neon). Jest: identity 145, medical-records 505; `test:isolation` 66; `last-owner-race` 3; regresión HTTP por rol (172 comprobaciones) y QA en navegador con los 6 usuarios QA contra la base local 5433, sin fallas.
 - Migración `20261109120000_access_level_attends_patients` aplicada en la base local.
+- 2026-11-10, en `develop`: cambio de la propia contraseña (`PUT /users/me/password`, tope 72 bytes, bitácora sin valores) y firma del profesional (`GET /users/:uuid/signature`, legible por toda la clínica, otra clínica o sesión sin clínica 404). Sin migraciones. Probado por API y en el navegador con el front.
+- Quedaron datos de prueba `qa-pass-…` y `qa-firma-…` (usuarios y una clínica "QA Otra Clinica") en la base de desarrollo.
 
 ## Qué sigue
 
 1. Salida a producción: PR de `develop` a `main` (corre las migraciones en producción al mergear).
 2. Antes de mergear: en producción, solo lectura, `SELECT UPPER(TRIM(role)), count(*) FROM "User" GROUP BY 1` para confirmar que todo rol existente tiene mapeo. La migración deja respaldo en `"_UserRoleBackup20261109"`.
 3. Deploy del API antes que el front (el front nuevo depende de `attendsPatients` en el token).
-4. Pendientes menores sin arreglar: el PATCH de paciente aún acepta `bloodType` de quien no atiende; borrar un documento no borra el archivo en R2; Zynka con especialidad DENTAL o GENERAL falla.
+4. Límite de intentos en `PUT /users/me/password` (5 por 15 min) y que el refresh invalide tokens tras un cambio de contraseña.
+5. `ENDPOINTS.md` dice que `POST /users` acepta ADMIN, DOCTOR o STAFF; el código acepta RECEPTION o ADMIN.
+6. Pendientes menores sin arreglar: el PATCH de paciente aún acepta `bloodType` de quien no atiende; borrar un documento no borra el archivo en R2; Zynka con especialidad DENTAL o GENERAL falla.
 
 ## Preguntas abiertas
 
