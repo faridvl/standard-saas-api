@@ -88,7 +88,12 @@ export class UserStorage {
     return record ? this.toDomain(record) : null;
   }
 
-  async findByUuidAndTenant(uuid: string, tenantUUID: string): Promise<UserDomain | null> {
+  async findByUuidAndTenant(
+    uuid: string,
+    tenantUUID: string | undefined,
+  ): Promise<UserDomain | null> {
+    // Con tenantUUID undefined Prisma omite el filtro y leería usuarios de cualquier clínica.
+    if (!tenantUUID) return null;
     const record = await this.prisma.user.findFirst({
       where: { uuid, tenantUUID },
     });

@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
 import {
   ProfessionalTitle,
@@ -8,6 +8,7 @@ import {
   UserStatus,
 } from '../../types/user.types';
 import { UserStorage } from '../../../infrastructure/adapters/user.storage';
+import { PrismaService } from '../../../infrastructure/adapters/prisma/prisma.service';
 import { GetUserSignatureUseCase } from './get-user-signature.use-case';
 
 const TENANT = 'tenant-a';
@@ -90,5 +91,19 @@ describe('GetUserSignatureUseCase', () => {
     await expect(build(all).execute('nadie', actorOf(reception))).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('token sin clínica: 404 aunque la base tenga al usuario', async () => {
+    // Storage real con Prisma falso: si el guard no frena, el usuario se devolvería de cualquier clínica.
+    const prisma = {
+      user: { findFirst: () => Promise.resolve(null) },
+    } as unknown as PrismaService;
+    const findFirst = jest.fn(() => Promise.resolve({ uuid: 'author' }));
+    (prisma.user as unknown as { findFirst: unknown }).findFirst = findFirst;
+    const useCase = new GetUserSignatureUseCase(new UserStorage(prisma));
+    const actor = { ...actorOf(reception), tenantUuid: undefined } as unknown as UserActor;
+
+    await expect(useCase.execute('author', actor)).rejects.toBeInstanceOf(NotFoundException);
+    expect(findFirst).not.toHaveBeenCalled();
   });
 });

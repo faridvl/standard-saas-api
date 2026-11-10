@@ -235,3 +235,7 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - El informe de audiometría se firma con nombre, título y colegiado del autor. `GET /users` es solo para administración y `GET /users/:uuid` solo da nombre a quien no administra, así que la firma variaba según quién imprimía. No existía otro endpoint con título y colegiado, por eso se agregó este.
 - Lo puede llamar cualquier usuario autenticado de la clínica y responde únicamente `{ uuid, fullName, professionalTitle, licenseNumber }`; sin email, rol ni estado. Busca por `{ uuid, tenant }`: otra clínica o inexistente responde 404.
 - Devuelve también usuarios inactivos: un informe viejo de alguien que ya no trabaja ahí debe seguir firmado igual.
+- Cualquier usuario de la clínica puede leer el título y el colegiado de otro: es un dato público del Colegio.
+- El nombre de la firma es el `createdByName` del registro (el de quien lo creó); el título y el colegiado son los actuales del usuario.
+- Orden de despliegue: el API va antes que el front, que ya llama a este endpoint.
+- `findByUuidAndTenant` devuelve `null` si la clínica viene vacía o undefined: con undefined Prisma deja de filtrar y un JWT válido sin claim de clínica leería usuarios de cualquiera. Es el único método `...AndTenant` del storage.
