@@ -15,7 +15,10 @@ function build() {
   const useCase = new CreatePatientUseCase(
     storage as never,
     { createMany: () => Promise.resolve() } as never,
-    { findUuidsInTenant: () => Promise.resolve([]) } as never,
+    {
+      findUuidsInTenant: () => Promise.resolve([]),
+      findInactiveUuids: () => Promise.resolve([]),
+    } as never,
     { execute: () => Promise.resolve() } as never,
   );
   return { useCase, saved };

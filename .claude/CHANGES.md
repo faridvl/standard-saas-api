@@ -77,3 +77,8 @@ _(nothing currently marked as in-progress in code)_
 - **`packages/core/src/index.ts`**: Exports `ZodValidationPipe` and `GlobalExceptionFilter` twice (duplicate export lines) — cosmetic issue.
 - **DELETE /appointments/:uuid**: Route exists in controller file but is commented out — endpoint not available.
 - **followUp block in `CreateMedicalControlUseCase`**: 8-line commented block for saving follow-up data. FollowUp table doesn't exist in schema yet.
+
+## 2026-11-09: administración de sedes
+
+- `GET/POST/PATCH /branches` para crear, editar, desactivar y reactivar sedes desde Configuración.
+- Una sede desactivada no se ofrece para pacientes ni citas nuevos.

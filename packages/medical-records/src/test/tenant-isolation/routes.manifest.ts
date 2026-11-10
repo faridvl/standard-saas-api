@@ -11,6 +11,7 @@ export type SeedKey =
   | 'unit'
   | 'control'
   | 'appointmentType'
+  | 'branch'
   | 'appointment';
 
 export interface RouteProbe {
@@ -40,6 +41,7 @@ const withBody = (probe: RouteProbe, body: Record<string, unknown>): RouteProbe 
 const CONTACT_BODY = { name: 'Intruso', phone: '8888-0000' };
 
 export const ROUTES_MANIFEST: Record<string, ManifestEntry> = {
+  'PATCH /branches/:uuid': withBody({ params: { uuid: 'branch' } }, { name: 'Hackeado' }),
   'PATCH /appointment-types/:uuid': withBody(
     { params: { uuid: 'appointmentType' } },
     { name: 'Hackeado' },

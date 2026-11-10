@@ -318,3 +318,7 @@ SELECT uuid, email, name, role, status FROM "User" WHERE "tenantUUID" = '<uuid>'
 `User.role` ahora guarda el nivel (`RECEPTION` por defecto, `ADMIN`, `OWNER`). Columnas nuevas: `attendsPatients` (bool, false), `specialties` (TEXT[]), `professionalTitle`, `licenseNumber`. Se eliminó `specialty`. Migración `20261109120000_access_level_attends_patients`: OWNER y DOCTOR pasan a `attendsPatients=true` con `AUDIOLOGY`; OWNER y ADMIN conservan nivel; el resto queda RECEPTION.
 
 Tabla `UserAudit` (`uuid`, `tenantUUID`, `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field`, `before`, `after`, `createdAt`), escrita en la misma transacción del cambio.
+
+## Branch: datos de configuración
+
+Migración `20261109180000_branch_settings`: enum `BranchColor` (RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE) y columnas `phone` (nullable), `address` (nullable) y `color` (default BLUE) en `Branch`. El color de las sedes existentes se rellena según su nombre.

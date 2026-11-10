@@ -188,6 +188,18 @@ const GROUPS: Group[] = [
   { name: 'citas: listar', controller: AppointmentController, method: 'findAll', needs: {} },
   { name: 'sedes: listar', controller: BranchController, method: 'findAll', needs: {} },
   {
+    name: 'configuración: crear sede',
+    controller: BranchController,
+    method: 'create',
+    needs: { adminOrOwner: true },
+  },
+  {
+    name: 'configuración: editar o desactivar sede',
+    controller: BranchController,
+    method: 'update',
+    needs: { adminOrOwner: true },
+  },
+  {
     name: 'plantillas clínicas: leer',
     controller: ClinicalTemplateController,
     method: 'findAll',

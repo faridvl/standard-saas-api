@@ -196,3 +196,16 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - Migración `20261109120000` (aún sin producción, editada): usa `UPPER(TRIM(role))`, respalda `id, role, specialty` en `"_UserRoleBackup20261109"` antes de transformar y borrar `specialty`. Mapeo: OWNER -> OWNER atiende AUDIOLOGY; ADMIN -> ADMIN no atiende; DOCTOR -> RECEPTION atiende AUDIOLOGY; todo lo demás (STAFF, USER, MEDICO, nulo, desconocido) -> RECEPTION no atiende.
 - Antes de mergear a main, correr en producción (solo lectura) `SELECT role, count(*) FROM "User" GROUP BY role` y confirmar que ningún valor inesperado cae en RECEPTION por error. La tabla de respaldo se borra cuando se confirme el resultado.
 
+
+## D-sedes: administración de sedes
+
+- Una sede nunca se borra, solo se desactiva y reactiva.
+- El nombre es único por clínica sin distinguir mayúsculas ni tildes; se compara en código (NFD) sobre las sedes de la clínica. Una carrera entre dos altas simultáneas con el mismo nombre es posible y se acepta.
+- Sede desactivada en registros nuevos: 400. Conservar la sede que el paciente o la cita ya tenían sigue permitido.
+- El 409 por nombre repetido lleva el código `BRANCH_NAME_ALREADY_EXISTS` en la excepción, pero `GlobalExceptionFilter` no lo expone en el JSON; el front distingue por status 409.
+- No hay bitácora de configuración, así que no se registra el cambio.
+
+## 2026-11-09 - Sedes: última sede activa y citas con sede desactivada
+
+- No se puede desactivar la única sede activa de la clínica: 409 con `error.code = BRANCH_LAST_ACTIVE` y mensaje "No puedes desactivar la única sede activa". Las sedes de otra clínica no cuentan. Reactivar siempre se permite. `GlobalExceptionFilter` sí expone el `code` en `error.code` (corrige la nota anterior de D-sedes); aun así el front puede distinguir por 409 en la acción de desactivar.
+- Una cita existente cuya sede se desactiva conserva su sede al reagendarla (`alreadyHeld`). El API no exige `branchUUID` al agendar para no romper a Zynka; el front evita enviar sin sede.

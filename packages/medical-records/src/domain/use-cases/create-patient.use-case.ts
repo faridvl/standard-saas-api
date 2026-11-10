@@ -3,6 +3,7 @@ import { PatientRecord } from '@medical-records/domain/types/patient-record.type
 import { PatientStorage } from '../../infrastructure/adapters/patientsRepository/patient.storage';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import {
+  assertBranchesActive,
   assertBranchesExist,
   resolvePatientBranches,
 } from '@medical-records/domain/services/patient-branches';
@@ -42,6 +43,10 @@ export class CreatePatientUseCase {
     assertBranchesExist(
       branches.branchUuids,
       await this.branchStorage.findUuidsInTenant(userContext.tenantUuid, branches.branchUuids),
+    );
+    assertBranchesActive(
+      branches.branchUuids,
+      await this.branchStorage.findInactiveUuids(userContext.tenantUuid, branches.branchUuids),
     );
 
     const patientData = {

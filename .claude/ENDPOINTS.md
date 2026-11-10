@@ -1211,3 +1211,13 @@ Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (REC
 | Bitácora | ADMIN u OWNER | `patient-activity` (listado, `months`, `summary`); `actors` es de cualquier nivel |
 
 El resumen de bitácora y las notas de envíos a laboratorio solo muestran lo clínico a quien atiende. En `GET /patients`, `GET /patients/:uuid` y las respuestas de escritura de pacientes, `bloodType` solo aparece si el usuario atiende pacientes. En `POST /patients` y `PATCH /patients/:uuid`, `bloodType` y `warrantyDocumentUuid` solo los escribe quien atiende pacientes: de otro usuario se ignoran sin error y el paciente conserva su valor (en el alta queda `null`). `GET /calendar-feed/:file` responde 404 si el dueño del enlace no existe o no está ACTIVE. `POST /appointment-types/initialize` exige el JWT de servicio de identity (1 minuto, atado a la clínica); otro token da 401.
+
+## Sedes (Configuración)
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| GET | /branches | cualquier nivel | Todas las sedes de la clínica, activas primero y luego por nombre (es-CR, sin distinguir mayúsculas ni tildes). |
+| POST | /branches | ADMIN+ | Crea una sede `{ name, phone?, address?, color }`. 201 con la sede. 409 si el nombre ya existe en la clínica (sin distinguir mayúsculas ni tildes). |
+| PATCH | /branches/:uuid | ADMIN+ | Edita parcial `{ name?, phone?, address?, color?, isActive? }`. `phone` y `address` aceptan null o "" para vaciar. 404 si la sede es de otra clínica. |
+
+No hay DELETE: una sede se desactiva con `isActive: false`. Una sede desactivada se rechaza (400) al crear paciente, crear cita, agendar la siguiente cita o cambiar la sede de una cita; los registros que ya la tienen siguen funcionando. `color`: RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE.
