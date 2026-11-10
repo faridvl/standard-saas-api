@@ -72,6 +72,7 @@ describe('PatientAudiometryEntryStorage', () => {
         gradingScale: 'BIAP',
         ptaRight: 25,
         ptaLeft: null,
+        equipment: null,
       },
     ]);
   });

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UsersModule } from './users.module';
+import { EquipmentModule } from './equipment.module';
 import { AudiometryTypeController } from '../controllers/audiometry-type.controller';
 import { PatientAudiometryEntryController } from '../controllers/patient-audiometry-entry.controller';
 import { AudiometryTypeStorage } from '@medical-records/infrastructure/adapters/audiometryTypeRepository/audiometry-type.storage';
@@ -23,7 +24,7 @@ const USE_CASES = [
 const STORAGES = [PatientAudiometryEntryStorage, AudiometryTypeStorage];
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, EquipmentModule],
   controllers: [...CONTROLLERS],
   providers: [...USE_CASES, ...STORAGES],
   exports: [...STORAGES],

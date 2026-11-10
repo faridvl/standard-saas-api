@@ -26,6 +26,7 @@ import { MaintenanceModule } from './modules/maintenance.module';
 import { EncountersModule } from './modules/encounters.module';
 import { StudiesModule } from './modules/studies.module';
 import { BranchesModule } from './modules/branches.module';
+import { EquipmentModule } from './modules/equipment.module';
 import { InventoryModule } from './modules/inventory.module';
 import { ProductUnitModule } from './modules/product-unit.module';
 import { UsersModule } from './modules/users.module';
@@ -68,6 +69,7 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     EncountersModule,
     StudiesModule,
     BranchesModule,
+    EquipmentModule,
     InventoryModule,
     ProductUnitModule,
     UsersModule,

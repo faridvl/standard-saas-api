@@ -319,6 +319,10 @@ SELECT uuid, email, name, role, status FROM "User" WHERE "tenantUUID" = '<uuid>'
 
 Tabla `UserAudit` (`uuid`, `tenantUUID`, `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field`, `before`, `after`, `createdAt`), escrita en la misma transacción del cambio.
 
+## Equipos y motivo de prioridad
+
+Migración `20261109200000_priority_reason_and_equipment`: `Patient.priorityReason` y `priorityByUuid` (nullable); tabla `ClinicEquipment` (`uuid`, `tenantUuid`, `brand`, `model`, `isActive`, fechas) con índice único `lower(btrim(brand)), lower(btrim(model))` por `tenantUuid`; `PatientAudiometryEntry.equipmentUuid` (FK, `ON DELETE SET NULL`), `equipmentBrand` y `equipmentModel` (copia).
+
 ## Branch: datos de configuración
 
 Migración `20261109180000_branch_settings`: enum `BranchColor` (RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE) y columnas `phone` (nullable), `address` (nullable) y `color` (default BLUE) en `Branch`. El color de las sedes existentes se rellena según su nombre.

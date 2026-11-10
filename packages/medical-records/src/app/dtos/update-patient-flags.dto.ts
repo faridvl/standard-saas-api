@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidDayKey } from '@medical-records/domain/utils/lab-shipment-date.util';
+import { PRIORITY_REASON_MAX_LENGTH } from '@medical-records/domain/utils/patient-priority.util';
 
 const LAB_NOTE_MAX_LENGTH = 1000;
 
@@ -35,6 +36,12 @@ export const UpdatePatientFlagsSchema = z
     warrantyExpired: z.boolean().optional(),
     renewPrescription: z.boolean().optional(),
     isPriority: z.boolean().optional(),
+    /** Motivo de la prioridad: obligatorio al marcarla (lo valida el caso de uso, pues depende de si ya estaba marcada). */
+    priorityReason: z
+      .string()
+      .trim()
+      .max(PRIORITY_REASON_MAX_LENGTH, `Máximo ${PRIORITY_REASON_MAX_LENGTH} caracteres`)
+      .optional(),
   })
   .refine((dto) => Object.values(dto).some((value) => value !== undefined), {
     message: 'Indica al menos un indicador',
@@ -54,6 +61,10 @@ export const UpdatePatientFlagsSchema = z
       message: 'La fecha y la nota de entrega solo van al desmarcar los audífonos en laboratorio',
       path: ['deliveredAt'],
     },
-  );
+  )
+  .refine((dto) => dto.priorityReason === undefined || dto.isPriority === true, {
+    message: 'El motivo solo va al marcar la prioridad',
+    path: ['priorityReason'],
+  });
 
 export type UpdatePatientFlagsDto = z.infer<typeof UpdatePatientFlagsSchema>;

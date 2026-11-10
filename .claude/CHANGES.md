@@ -78,6 +78,14 @@ _(nothing currently marked as in-progress in code)_
 - **DELETE /appointments/:uuid**: Route exists in controller file but is commented out — endpoint not available.
 - **followUp block in `CreateMedicalControlUseCase`**: 8-line commented block for saving follow-up data. FollowUp table doesn't exist in schema yet.
 
+## 2026-11-09: pedidos de la clínica (prioridad, laboratorio, Weber, equipos)
+
+- `PUT /patients/:uuid/flags`: marcar prioridad exige `priorityReason` (400 si falta) y deja nota de Control de evolución; el paciente devuelve `priorityReason`, `prioritySince` y `priorityByName`.
+- Envíos al laboratorio: enviar y recibir dejan nota de evolución con fecha de Costa Rica; corregir la fecha de un envío abierto no.
+- Audiometría: Weber acepta `NO_RESPONSE`.
+- Equipos de la clínica: `GET/POST /equipment`, `PATCH /equipment/:uuid`; `equipmentUuid` en la audiometría nueva y `equipment` en detalle e historial.
+- Migración `20261109200000_priority_reason_and_equipment`.
+
 ## 2026-11-09: administración de sedes
 
 - `GET/POST/PATCH /branches` para crear, editar, desactivar y reactivar sedes desde Configuración.

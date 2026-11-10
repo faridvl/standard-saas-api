@@ -205,6 +205,14 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - El 409 por nombre repetido lleva el código `BRANCH_NAME_ALREADY_EXISTS` en la excepción, pero `GlobalExceptionFilter` no lo expone en el JSON; el front distingue por status 409.
 - No hay bitácora de configuración, así que no se registra el cambio.
 
+## 2026-11-09 - Pedidos de la clínica: equipos y prioridad
+
+- Equipos por clínica en `ClinicEquipment`, sin borrado: desactivar es `isActive` en el PATCH (como sedes). `GET /equipment` es de cualquier nivel porque quien atiende elige el equipo al guardar la audiometría; crear y editar piden ADMIN+.
+- Duplicados: se validan en el caso de uso (409 `EQUIPMENT_ALREADY_EXISTS`) y un índice único sobre `lower(btrim(brand))`, `lower(btrim(model))` por clínica cubre las carreras. Prisma no modela ese índice: `migrate diff` lo puede mostrar como diferencia.
+- La audiometría guarda copia de marca y modelo además de la llave (`ON DELETE SET NULL`), para que el historial no cambie si el equipo se edita.
+- La prioridad pasa por la transacción del envío (`runLocked`) para que la nota de evolución y la bitácora queden o no junto con el cambio. Los permisos de `flags` no cambian (D80).
+- Los tests de flags que suponían envío o prioridad sin nota ni motivo se ajustaron al nuevo requisito.
+
 ## 2026-11-09 - Sedes: última sede activa y citas con sede desactivada
 
 - No se puede desactivar la única sede activa de la clínica: 409 con `error.code = BRANCH_LAST_ACTIVE` y mensaje "No puedes desactivar la única sede activa". Las sedes de otra clínica no cuentan. Reactivar siempre se permite. `GlobalExceptionFilter` sí expone el `code` en `error.code` (corrige la nota anterior de D-sedes); aun así el front puede distinguir por 409 en la acción de desactivar.

@@ -3,6 +3,7 @@ import {
   ScreeningPayloadV1,
   ScreeningResult,
 } from '@medical-records/app/dtos/patient-audiometry-entry.dto';
+import { AudiometryEquipment } from '@medical-records/domain/entities/clinic-equipment.entity';
 
 interface PatientAudiometryEntryBase {
   uuid: string;
@@ -13,6 +14,8 @@ interface PatientAudiometryEntryBase {
   createdByUuid: string;
   /** Null si identity no pudo resolver el nombre. */
   createdByName: string | null;
+  /** Equipo con que se hizo, con la marca y el modelo de ese momento; null en las anteriores a los equipos. */
+  equipment: AudiometryEquipment | null;
   /** Marca definitiva de "mal hecha"; todos null si la audiometría sigue vigente. */
   invalidatedAt: string | null;
   invalidatedByUuid: string | null;
@@ -43,6 +46,7 @@ export interface PatientAudiometryEntrySummary {
   createdAt: string;
   createdByUuid: string;
   createdByName: string | null;
+  equipment: AudiometryEquipment | null;
   invalidatedAt: string | null;
   invalidatedByUuid: string | null;
   invalidatedByName: string | null;
@@ -61,6 +65,9 @@ interface CreatePatientAudiometryEntryBase {
   patientUuid: string;
   createdByUuid: string;
   schemaVersion: number;
+  equipmentUuid: string | null;
+  equipmentBrand: string | null;
+  equipmentModel: string | null;
 }
 
 export type CreatePatientAudiometryEntryData = CreatePatientAudiometryEntryBase &

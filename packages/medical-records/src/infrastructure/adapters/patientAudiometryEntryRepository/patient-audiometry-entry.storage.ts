@@ -12,6 +12,7 @@ import {
   PatientAudiometryEntryEntity,
   PatientAudiometryEntrySummary,
 } from '@medical-records/domain/entities/patient-audiometry-entry.entity';
+import { AudiometryEquipment } from '@medical-records/domain/entities/clinic-equipment.entity';
 import { buildAudiometryNoteData } from '@medical-records/domain/utils/audiometry-note-text.util';
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
@@ -25,6 +26,15 @@ export type PatientAudiometryEntrySummaryRecord = Omit<
   'createdByName' | 'invalidatedByName'
 >;
 
+/** Marca y modelo son la copia guardada al crear; sin equipo (audiometrías anteriores) es null. */
+function toEquipment(
+  uuid: string | null,
+  brand: string | null,
+  model: string | null,
+): AudiometryEquipment | null {
+  return uuid && brand && model ? { uuid, brand, model } : null;
+}
+
 type PatientAudiometryEntryWithType = PatientAudiometryEntry & { type: { name: string } };
 
 const INCLUDE_TYPE_NAME = { type: { select: { name: true } } } as const;
@@ -36,6 +46,9 @@ interface AudiometryListRow {
   screeningResult: ScreeningResult | null;
   createdAt: Date;
   createdByUuid: string;
+  equipmentUuid: string | null;
+  equipmentBrand: string | null;
+  equipmentModel: string | null;
   invalidatedAt: Date | null;
   invalidatedByUuid: string | null;
   invalidationReason: string | null;
@@ -57,6 +70,7 @@ export class PatientAudiometryEntryStorage {
       typeName: record.type.name,
       createdAt: record.createdAt.toISOString(),
       createdByUuid: record.createdByUuid,
+      equipment: toEquipment(record.equipmentUuid, record.equipmentBrand, record.equipmentModel),
       invalidatedAt: record.invalidatedAt?.toISOString() ?? null,
       invalidatedByUuid: record.invalidatedByUuid,
       invalidationReason: record.invalidationReason,
@@ -92,7 +106,12 @@ export class PatientAudiometryEntryStorage {
     const createdAt = new Date();
     const [record] = await this.prisma.$transaction([
       this.prisma.patientAudiometryEntry.create({
-        data: { ...data, uuid, createdAt, payload: data.payload as unknown as Prisma.InputJsonObject },
+        data: {
+          ...data,
+          uuid,
+          createdAt,
+          payload: data.payload as unknown as Prisma.InputJsonObject,
+        },
         include: INCLUDE_TYPE_NAME,
       }),
       this.prisma.patientNote.create({ data: buildAudiometryNoteData(data, createdAt, uuid) }),
@@ -110,6 +129,9 @@ export class PatientAudiometryEntryStorage {
         e."uuid",
         e."createdAt",
         e."createdByUuid",
+        e."equipmentUuid",
+        e."equipmentBrand",
+        e."equipmentModel",
         e."invalidatedAt",
         e."invalidatedByUuid",
         e."invalidationReason",
@@ -132,6 +154,7 @@ export class PatientAudiometryEntryStorage {
       screeningResult: row.screeningResult,
       createdAt: row.createdAt.toISOString(),
       createdByUuid: row.createdByUuid,
+      equipment: toEquipment(row.equipmentUuid, row.equipmentBrand, row.equipmentModel),
       invalidatedAt: row.invalidatedAt?.toISOString() ?? null,
       invalidatedByUuid: row.invalidatedByUuid,
       invalidationReason: row.invalidationReason,

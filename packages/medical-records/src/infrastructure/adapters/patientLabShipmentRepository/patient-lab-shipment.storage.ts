@@ -106,6 +106,8 @@ export class PatientLabShipmentStorage {
             warrantyExpiredSince: true,
             renewPrescriptionSince: true,
             prioritySince: true,
+            priorityReason: true,
+            priorityByUuid: true,
           },
         }),
       findOpenShipment: async () =>
