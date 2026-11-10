@@ -1,18 +1,9 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
-import {
-  BadRequestException,
-  ConflictException,
-  ExecutionContext,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { RolesGuard } from '@project/core';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import {
   CreatePatientAudiometryEntrySchema,
   InvalidatePatientAudiometryEntrySchema,
 } from '@medical-records/app/dtos/patient-audiometry-entry.dto';
-import { PatientAudiometryEntryController } from '@medical-records/app/controllers/patient-audiometry-entry.controller';
 import { CreatePatientAudiometryEntryUseCase } from './create-patient-audiometry-entry.use-case';
 import { FindAudiometryTypesUseCase } from './find-audiometry-types.use-case';
 import { FindPatientAudiometryEntriesUseCase } from './find-patient-audiometry-entries.use-case';
@@ -127,6 +118,25 @@ describe('validación del payload de audiometría', () => {
   it('sin typeCode el body se trata como clínico', () => {
     const result = CreatePatientAudiometryEntrySchema.parse(buildBody());
     expect(result.typeCode).toBe('CLINICAL');
+  });
+
+  it('acepta Weber sin respuesta (NO_RESPONSE) y sigue aceptando los valores anteriores', () => {
+    const body = buildBody({ weber: { '500': 'NO_RESPONSE', '1000': 'LEFT', '2000': 'CENTER' } });
+    const result = CreatePatientAudiometryEntrySchema.parse(body);
+    if (result.typeCode !== 'CLINICAL') throw new Error('se esperaba una audiometría clínica');
+    expect(result.payload.weber).toEqual({
+      '500': 'NO_RESPONSE',
+      '1000': 'LEFT',
+      '2000': 'CENTER',
+    });
+    expect(parse(buildBody({ weber: { '500': 'NR' } })).success).toBe(false);
+  });
+
+  it('el equipo es opcional en el cuerpo y debe ser un uuid', () => {
+    const equipmentUuid = '7b0f2a52-3c1e-4a0e-9d57-0c1f5a6a8b11';
+    expect(parse({ ...buildBody(), equipmentUuid }).success).toBe(true);
+    expect(parse({ ...buildScreeningBody(), equipmentUuid }).success).toBe(true);
+    expect(parse({ ...buildBody(), equipmentUuid: 'no-es-uuid' }).success).toBe(false);
   });
 
   it('acepta weber ausente y lo deja vacío', () => {
@@ -343,8 +353,25 @@ describe('guardado de audiometrías', () => {
   let activeTypes: string[];
   let typeStorage: Record<string, unknown>;
   let getOrCreateUser: { execute: (uuid: string) => Promise<string | null> };
+  let equipmentRows: {
+    uuid: string;
+    tenantUuid: string;
+    brand: string;
+    model: string;
+    isActive: boolean;
+  }[];
+  let equipmentStorage: Record<string, unknown>;
 
   beforeEach(() => {
+    equipmentRows = [];
+    equipmentStorage = {
+      findAll: (tenantUuid: string) =>
+        Promise.resolve(equipmentRows.filter((e) => e.tenantUuid === tenantUuid)),
+      findByUuid: (tenantUuid: string, uuid: string) =>
+        Promise.resolve(
+          equipmentRows.find((e) => e.uuid === uuid && e.tenantUuid === tenantUuid) ?? null,
+        ),
+    };
     records = [];
     created = [];
     invalidateCalls = [];
@@ -425,8 +452,90 @@ describe('guardado de audiometrías', () => {
         storage as never,
         typeStorage as never,
         getOrCreateUser as never,
+        equipmentStorage as never,
       );
     const dto = () => CreatePatientAudiometryEntrySchema.parse(buildBody());
+    const EQUIPMENT = '7b0f2a52-3c1e-4a0e-9d57-0c1f5a6a8b11';
+    const withEquipment = (equipmentUuid?: string) =>
+      CreatePatientAudiometryEntrySchema.parse({ ...buildBody(), equipmentUuid });
+    const addEquipment = (overrides: Partial<(typeof equipmentRows)[number]> = {}) =>
+      equipmentRows.push({
+        uuid: EQUIPMENT,
+        tenantUuid: TENANT,
+        brand: 'Interacoustics',
+        model: 'AD629',
+        isActive: true,
+        ...overrides,
+      });
+
+    it('sin equipos en la clínica el equipo es opcional y se guarda sin él', async () => {
+      await build().execute(PATIENT, TENANT, AUTHOR, dto());
+      expect(created[0]).toMatchObject({
+        equipmentUuid: null,
+        equipmentBrand: null,
+        equipmentModel: null,
+      });
+    });
+
+    it('con al menos un equipo activo, omitirlo da 400 y no guarda nada', async () => {
+      addEquipment();
+      await expect(build().execute(PATIENT, TENANT, AUTHOR, dto())).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(created).toHaveLength(0);
+    });
+
+    it('con solo equipos inactivos el equipo sigue siendo opcional', async () => {
+      addEquipment({ isActive: false });
+      await build().execute(PATIENT, TENANT, AUTHOR, dto());
+      expect(created).toHaveLength(1);
+    });
+
+    it('guarda el equipo con copia de marca y modelo, también en un rastreo', async () => {
+      addEquipment();
+      await build().execute(PATIENT, TENANT, AUTHOR, withEquipment(EQUIPMENT));
+      expect(created[0]).toMatchObject({
+        equipmentUuid: EQUIPMENT,
+        equipmentBrand: 'Interacoustics',
+        equipmentModel: 'AD629',
+      });
+
+      const screening = CreatePatientAudiometryEntrySchema.parse({
+        ...buildScreeningBody(),
+        equipmentUuid: EQUIPMENT,
+      });
+      await build().execute(PATIENT, TENANT, AUTHOR, screening);
+      expect(created[1]).toMatchObject({ equipmentUuid: EQUIPMENT, equipmentModel: 'AD629' });
+    });
+
+    it('un equipo de otra clínica da 404 y no guarda nada', async () => {
+      addEquipment({ tenantUuid: 'otra-clinica' });
+      await expect(
+        build().execute(PATIENT, TENANT, AUTHOR, withEquipment(EQUIPMENT)),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(created).toHaveLength(0);
+    });
+
+    it('un equipo inexistente da 404', async () => {
+      await expect(
+        build().execute(PATIENT, TENANT, AUTHOR, withEquipment(EQUIPMENT)),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('un equipo desactivado da 400 aunque la clínica tenga otros activos', async () => {
+      addEquipment({ isActive: false });
+      equipmentRows.push({
+        uuid: 'otro',
+        tenantUuid: TENANT,
+        brand: 'GSI',
+        model: 'Pro',
+        isActive: true,
+      });
+      await expect(
+        build().execute(PATIENT, TENANT, AUTHOR, withEquipment(EQUIPMENT)),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(created).toHaveLength(0);
+    });
 
     it('guarda con el autor del JWT y devuelve su nombre', async () => {
       const result = await build().execute(PATIENT, TENANT, AUTHOR, dto());
@@ -669,23 +778,5 @@ describe('guardado de audiometrías', () => {
         NotFoundException,
       );
     });
-  });
-});
-
-describe('permisos del controlador de audiometrías', () => {
-  const guard = new RolesGuard(new Reflector());
-  const contextFor = (role: string): ExecutionContext =>
-    ({
-      getHandler: () => () => undefined,
-      getClass: () => PatientAudiometryEntryController,
-      switchToHttp: () => ({ getRequest: () => ({ user: { role } }) }),
-    }) as unknown as ExecutionContext;
-
-  it.each(['OWNER', 'ADMIN', 'DOCTOR'])('%s puede entrar', (role) => {
-    expect(guard.canActivate(contextFor(role))).toBe(true);
-  });
-
-  it('STAFF recibe 403', () => {
-    expect(() => guard.canActivate(contextFor('STAFF'))).toThrow(ForbiddenException);
   });
 });

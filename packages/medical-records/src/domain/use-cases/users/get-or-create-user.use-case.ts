@@ -2,17 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { UserStorage } from '@medical-records/infrastructure/adapters/userRepository/user.storage';
 import { IdentityRepository } from '@medical-records/infrastructure/adapters/identityRepository/identity.repository';
 
+/** Tiempo que vale la copia local antes de volver a preguntarle el nombre a identity. */
+export const USER_CACHE_TTL_MS = 5 * 60 * 1000;
+
 /**
  * Resuelve el nombre de un usuario a partir de su uuid.
  *
- * Primero busca la copia local (poblada por otro get-or-create previo);
- * si no existe, la pide a identity y la guarda para las próximas veces.
- * Igual que el patrón de service-core-comx (GetUser.getOrCreateUser en
- * billing): la copia local puede quedar desactualizada si el usuario
- * cambia de nombre en identity, se acepta ese trade-off.
+ * Usa la copia local (poblada por un get-or-create previo) mientras sea reciente; si no existe,
+ * o tiene más de USER_CACHE_TTL_MS, la pide a identity y la guarda, así un usuario renombrado se
+ * ve con su nombre nuevo en notas e historial en pocos minutos.
  *
- * Si el uuid viene vacío, o identity no responde (o no está configurada la URL), devuelve null
- * en vez de fallar: el nombre del autor es informativo, no crítico.
+ * Si el uuid viene vacío, o identity no responde (o no está configurada la URL), devuelve el nombre
+ * local si lo hay, o null: el nombre del autor es informativo, no crítico.
  */
 @Injectable()
 export class GetOrCreateUserUseCase {
@@ -28,13 +29,13 @@ export class GetOrCreateUserUseCase {
     }
 
     const localUser = await this.userStorage.findByUuid(uuid);
-    if (localUser) {
+    if (localUser && Date.now() - localUser.updatedAt.getTime() < USER_CACHE_TTL_MS) {
       return localUser.fullName;
     }
 
     const identityUser = await this.identityRepository.getUser(uuid, tenantUuid);
     if (!identityUser) {
-      return null;
+      return localUser?.fullName ?? null;
     }
 
     const savedUser = await this.userStorage.upsert(

@@ -57,9 +57,9 @@ export class EncounterStorage {
     const record = await this.prisma.encounter.findFirst({
       where: { uuid, tenantUuid },
       include: {
-        medicalControls: true,
-        maintenances: true,
-        studies: true,
+        medicalControls: { where: { tenantUUID: tenantUuid } },
+        maintenances: { where: { tenantUuid } },
+        studies: { where: { tenantUuid } },
       },
     });
 
@@ -88,7 +88,7 @@ export class EncounterStorage {
     }
 
     const record = await this.prisma.encounter.update({
-      where: { uuid },
+      where: { uuid, tenantUuid },
       data: { status: EncounterStatus.CLOSED, closedAt: new Date() },
     });
     return this.mapToEntity(record);

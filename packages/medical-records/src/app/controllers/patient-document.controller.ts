@@ -24,6 +24,8 @@ import {
   ZodValidationPipe,
   imageAndPdfFilter,
 } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import {
   UpdatePatientDocumentDto,
   UpdatePatientDocumentSchema,
@@ -44,7 +46,8 @@ const UPLOAD_OPTIONS = {
 };
 
 @Controller('patients/:patientUuid/documents')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class PatientDocumentController {
   constructor(
     private readonly findUseCase: FindPatientDocumentsUseCase,

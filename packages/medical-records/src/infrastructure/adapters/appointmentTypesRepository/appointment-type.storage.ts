@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentTypeEntity } from '@medical-records/domain/entities/appointment-type.entity';
@@ -142,8 +142,11 @@ export class AppointmentTypeStorage {
   }
 
   async delete(tenantUUID: string, uuid: string): Promise<void> {
+    const type = await this.prisma.appointmentType.count({ where: { uuid, tenantUUID } });
+    if (type === 0) throw new NotFoundException('Tipo de cita no encontrado');
+
     const appointmentCount = await this.prisma.appointment.count({
-      where: { typeUUID: uuid },
+      where: { typeUUID: uuid, tenantUUID },
     });
 
     if (appointmentCount > 0) {

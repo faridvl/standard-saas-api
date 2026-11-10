@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { IdentityRepository } from '@medical-records/infrastructure/adapters/identityRepository/identity.repository';
 import {
   CalendarEventRow,
   CalendarFeedStorage,
@@ -20,6 +21,8 @@ const NAME_SEPARATOR = ' · ';
 
 /** Dominio del UID de cada evento: estable, así el teléfono actualiza en vez de duplicar. */
 const UID_DOMAIN = 'standard-saas.com';
+
+const OWNER_ACTIVE_STATUS = 'ACTIVE';
 
 export interface CalendarFeedOptions {
   /** Solo las citas de esta sede: un calendario por sede, cada uno de su color. */
@@ -72,18 +75,28 @@ function toIcsEvent(row: CalendarEventRow, scope: CalendarScope): IcsEvent {
 /**
  * El calendario (.ics) de un enlace. Un token que no existe (revocado o
  * inventado) devuelve un calendario vacío y no un error: así el teléfono borra
- * las citas que tenía en vez de quedarse con las viejas.
+ * las citas que tenía en vez de quedarse con las viejas. Si el dueño del enlace
+ * ya no existe o no está activo, responde 404: un enlace sin dueño vigente no sirve.
  */
 @Injectable()
 export class BuildCalendarFeedUseCase {
   private readonly logger = new Logger(BuildCalendarFeedUseCase.name);
 
-  constructor(private readonly storage: CalendarFeedStorage) {}
+  constructor(
+    private readonly storage: CalendarFeedStorage,
+    private readonly identity: IdentityRepository,
+  ) {}
 
   async execute(token: string, options: CalendarFeedOptions = {}): Promise<string> {
     const feed = await this.storage.findByToken(token);
     if (!feed) {
       return buildIcsCalendar({ name: CALENDAR_NAME, refreshMinutes: REFRESH_MINUTES, events: [] });
+    }
+
+    // identity caído o sin respuesta cuenta como no activo: ante la duda no se publican citas.
+    const owner = await this.identity.getUser(feed.userUuid, feed.tenantUuid);
+    if (!owner || owner.status !== OWNER_ACTIVE_STATUS) {
+      throw new NotFoundException('Calendario no encontrado');
     }
 
     const { branchUuid } = options;

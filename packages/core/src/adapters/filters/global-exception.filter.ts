@@ -41,6 +41,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? (exceptionResponse as { details?: unknown }).details || null // <--- AQUÍ CAPTURAMOS TUS DETALLES DE ZOD
         : null;
 
+    // Código de negocio opcional (p. ej. EQUIPMENT_REQUIRED) para que el cliente distinga casos.
+    const code =
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'code' in exceptionResponse &&
+      typeof (exceptionResponse as { code?: unknown }).code === 'string'
+        ? (exceptionResponse as { code: string }).code
+        : undefined;
+
     const logInfo = {
       path: request.url,
       method: request.method,
@@ -60,6 +69,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message: message,
       details: details, // <--- AHORA SÍ SALDRÁ EN POSTMAN
+      ...(code !== undefined && { code }),
       timestamp: new Date().toISOString(),
     });
   }

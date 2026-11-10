@@ -88,6 +88,12 @@ export class CreateResourceUseCase {
 - Never exposes Prisma types to callers — maps rows to domain types in a `mapToDomain()` private method
 - Accepts optional `tx?: Prisma.TransactionClient` for operations that need to participate in a transaction
 
+## Aislamiento entre clínicas (regla permanente)
+
+Todo endpoint que reciba un id (leer, editar, borrar o crear algo colgado de otro registro) filtra por `{ uuid, tenantUuid }` en la misma consulta o verifica antes que el padre sea del tenant de la sesión. Otra clínica responde 404, nunca 403. Cada endpoint nuevo lleva su prueba de aislamiento.
+
+La prueba generada desde la lista de rutas (`packages/medical-records/src/test/tenant-isolation`) falla si aparece una ruta con parámetro sin sonda ni exención con motivo en `routes.manifest.ts`. Las sondas HTTP contra base real corren con `TENANT_ISOLATION_DB=1` (solo base local).
+
 ## Auth rules
 
 - `AuthGuard` is applied at class level on every protected controller

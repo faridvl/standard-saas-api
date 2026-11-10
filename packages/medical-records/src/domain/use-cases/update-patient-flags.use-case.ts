@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,7 +16,6 @@ import {
   PatientLabShipmentRecord,
   PatientLabShipmentStorage,
 } from '@medical-records/infrastructure/adapters/patientLabShipmentRepository/patient-lab-shipment.storage';
-import { CLINICAL_ACCESS_ROLES } from '@medical-records/domain/policies/clinical-access.policy';
 import { UpdatePatientFlagsDto } from '@medical-records/app/dtos/update-patient-flags.dto';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import {
@@ -41,10 +39,12 @@ type FlagKey =
 /** Largo del extracto de la nota que se guarda en la bitácora (igual que al crear una nota). */
 const NOTE_EXCERPT_LENGTH = 120;
 
+type SinceField = Exclude<keyof PatientFlagsUpdate, 'priorityReason' | 'priorityByUuid'>;
+
 /** Cada indicador: su clave en el DTO, la columna "desde cuándo" y la acción de la bitácora. */
 const FLAGS: {
   key: FlagKey;
-  sinceField: keyof PatientFlagsUpdate;
+  sinceField: SinceField;
   action: PatientActivityAction;
 }[] = [
   {
@@ -84,6 +84,10 @@ interface Activity {
   detail: PatientActivityDetail;
 }
 
+const PATIENT_ALREADY_PRIORITY_CODE = 'PATIENT_ALREADY_PRIORITY';
+const PATIENT_ALREADY_PRIORITY_MESSAGE = 'El paciente ya está marcado como prioridad';
+const PRIORITY_REMOVED_NOTE = 'Se quitó la prioridad';
+
 /** "DD/MM/AAAA" del día de un instante, para el mensaje que lee el usuario. */
 function formatDay(instant: Date): string {
   const [year, month, day] = toClinicDayKey(instant).split('-');
@@ -99,7 +103,10 @@ function formatDay(instant: Date): string {
  * Los audífonos en laboratorio además llevan un historial de envíos: prender abre un envío,
  * cambiar la fecha mientras está en laboratorio corrige el día de envío del abierto (con
  * `shipmentUuid` solo corrige, nunca abre), y apagar
- * es la entrega (cierra el envío; la nota, si hay, también queda en Control de evolución).
+ * es la entrega (cierra el envío). Enviar y recibir dejan una nota en Control de evolución; la
+ * nota de la entrega, si hay, va en la misma de recepción.
+ *
+ * Marcar la prioridad exige un motivo y deja una nota; desmarcarla también.
  */
 @Injectable()
 export class UpdatePatientFlagsUseCase {
@@ -114,13 +121,7 @@ export class UpdatePatientFlagsUseCase {
     tenantUuid: string,
     actorUuid: string,
     dto: UpdatePatientFlagsDto,
-    actorRole: string | null | undefined,
   ): Promise<PatientRecord> {
-    // La nota queda en Control de evolución, que STAFF no puede ver ni escribir.
-    if (dto.note && !CLINICAL_ACCESS_ROLES.includes(actorRole ?? '')) {
-      throw new ForbiddenException('Solo el personal clínico puede agregar notas.');
-    }
-
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);
@@ -134,8 +135,10 @@ export class UpdatePatientFlagsUseCase {
       throw new BadRequestException('La fecha de entrega no puede ser posterior a hoy');
     }
 
-    if (dto.hearingAidsInLab === undefined) {
-      const { changes, activities } = this.plan(existing, dto, now);
+    // La prioridad también va por la transacción: su nota de evolución y la bitácora deben quedar
+    // o no quedar junto con el cambio.
+    if (dto.hearingAidsInLab === undefined && dto.isPriority === undefined) {
+      const { changes, activities } = this.plan(existing, dto, actorUuid, now);
       if (activities.length === 0) return existing;
       const updated = await this.storage.updateFlags(uuid, tenantUuid, changes);
       await this.recordAll(uuid, tenantUuid, actorUuid, activities);
@@ -148,18 +151,20 @@ export class UpdatePatientFlagsUseCase {
       const open = await tx.findOpenShipment();
       this.assertShipmentRequest(current, open, dto);
 
-      const { changes, activities } = this.plan(current, dto, now);
+      const { changes, activities, noteTexts } = this.plan(current, dto, actorUuid, now);
       if (activities.length === 0) return { changed: false };
 
-      const noteText = await this.syncShipment(tx, current, open, changes, dto, actorUuid, now);
+      const shipmentNote = await this.syncShipment(tx, current, open, changes, dto, actorUuid, now);
+      if (shipmentNote) noteTexts.unshift(shipmentNote);
       await tx.updateFlags(changes);
       for (const activity of activities) {
         await tx.recordActivity(actorUuid, activity.action, activity.detail);
       }
-      if (noteText) {
+      for (const text of noteTexts) {
+        await tx.createEvolutionNote(actorUuid, text);
         await tx.recordActivity(actorUuid, PatientActivityAction.NOTE_ADDED, {
           category: DocumentCategory.EVOLUTION_CONTROL,
-          excerpt: noteText.slice(0, NOTE_EXCERPT_LENGTH),
+          excerpt: text.slice(0, NOTE_EXCERPT_LENGTH),
         });
       }
       return { changed: true };
@@ -172,15 +177,21 @@ export class UpdatePatientFlagsUseCase {
     return (await this.storage.findByUuid(uuid, tenantUuid)) ?? existing;
   }
 
-  /** Qué columnas cambian y qué se anota en la bitácora, según cómo estaban los indicadores. */
+  /**
+   * Qué columnas cambian y qué se anota en la bitácora, según cómo estaban los indicadores.
+   * `noteTexts` son las notas de Control de evolución propias de la prioridad (las del envío las
+   * arma `syncShipment`).
+   */
   private plan(
     current: PatientFlagsSnapshot,
     dto: UpdatePatientFlagsDto,
+    actorUuid: string,
     now: Date,
-  ): { changes: PatientFlagsUpdate; activities: Activity[] } {
+  ): { changes: PatientFlagsUpdate; activities: Activity[]; noteTexts: string[] } {
     const shipmentDay = dto.hearingAidsInLabDate;
     const changes: PatientFlagsUpdate = {};
     const activities: Activity[] = [];
+    const noteTexts: string[] = [];
 
     for (const flag of FLAGS) {
       const isOn = dto[flag.key];
@@ -203,8 +214,35 @@ export class UpdatePatientFlagsUseCase {
         continue;
       }
 
+      if (flag.key === 'isPriority' && isOn && wasOn && dto.priorityReason?.trim()) {
+        throw new ConflictException({
+          message: PATIENT_ALREADY_PRIORITY_MESSAGE,
+          code: PATIENT_ALREADY_PRIORITY_CODE,
+        });
+      }
+
       if (isOn === wasOn) continue;
       changes[flag.sinceField] = isOn ? now : null;
+
+      if (flag.key === 'isPriority') {
+        if (isOn) {
+          const reason = dto.priorityReason?.trim();
+          if (!reason) {
+            throw new BadRequestException(
+              'Indica el motivo para marcar al paciente como prioridad',
+            );
+          }
+          changes.priorityReason = reason;
+          changes.priorityByUuid = actorUuid;
+          noteTexts.push(`Paciente marcado como prioridad: ${reason}`);
+        } else {
+          changes.priorityReason = null;
+          changes.priorityByUuid = null;
+          noteTexts.push(PRIORITY_REMOVED_NOTE);
+        }
+        activities.push({ action: flag.action, detail: { isOn } });
+        continue;
+      }
 
       if (flag.key === 'hearingAidsInLab' && !isOn) {
         activities.push({
@@ -221,7 +259,7 @@ export class UpdatePatientFlagsUseCase {
       });
     }
 
-    return { changes, activities };
+    return { changes, activities, noteTexts };
   }
 
   /** Rechaza lo que una pantalla desactualizada manda sobre un envío que ya cambió. */
@@ -242,7 +280,10 @@ export class UpdatePatientFlagsUseCase {
   /** El envío nuevo (o con la fecha corregida) no puede quedar antes de la última entrega. */
   private async assertNotBeforeLastDelivery(tx: LabShipmentTransaction, sentAt: Date) {
     const lastClosed = await tx.findLastClosedShipment();
-    if (lastClosed?.deliveredAt && toClinicDayKey(sentAt) < toClinicDayKey(lastClosed.deliveredAt)) {
+    if (
+      lastClosed?.deliveredAt &&
+      toClinicDayKey(sentAt) < toClinicDayKey(lastClosed.deliveredAt)
+    ) {
       throw new BadRequestException(
         `La fecha de envío no puede ser anterior a la última entrega (${formatDay(lastClosed.deliveredAt)})`,
       );
@@ -251,7 +292,8 @@ export class UpdatePatientFlagsUseCase {
 
   /**
    * Lleva el historial de envíos al cambio del interruptor de laboratorio. Devuelve el texto
-   * de la nota de Control de evolución que se creó, o null si no hubo.
+   * de la nota de Control de evolución que corresponde (envío nuevo o recepción), o null si no
+   * hubo; quien llama la crea.
    */
   private async syncShipment(
     tx: LabShipmentTransaction,
@@ -270,11 +312,14 @@ export class UpdatePatientFlagsUseCase {
       const sentAt = shipmentDayToSince(toClinicDayKey(newSince));
       await this.assertNotBeforeLastDelivery(tx, sentAt);
       if (open) {
+        // Corregir la fecha de un envío abierto no es un hecho nuevo: no deja nota.
         await tx.updateSentAt(open.uuid, sentAt);
-      } else {
-        await tx.createShipment({ sentAt, createdByUuid: actorUuid });
+        return null;
       }
-      return null;
+      await tx.createShipment({ sentAt, createdByUuid: actorUuid });
+      // Corregir la fecha de un dato viejo (interruptor ya encendido, sin envío) tampoco es un hecho nuevo.
+      if (current.hearingAidsInLabSince) return null;
+      return `Audífonos enviados al laboratorio el ${formatDay(sentAt)}`;
     }
 
     const deliveredAt = shipmentDayToSince(dto.deliveredAt ?? toClinicDayKey(now));
@@ -298,9 +343,7 @@ export class UpdatePatientFlagsUseCase {
       });
     }
 
-    if (!note) return null;
-    await tx.createEvolutionNote(actorUuid, note);
-    return note;
+    return `Audífonos recibidos del laboratorio el ${formatDay(deliveredAt)}${note ? `: ${note}` : ''}`;
   }
 
   private async recordAll(

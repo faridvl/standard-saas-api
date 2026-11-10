@@ -1,0 +1,33 @@
+meta {
+  name: Set User Status
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{identityUrl}}/users/:uuid/status
+  body: json
+  auth: bearer
+}
+
+params:path {
+  uuid: 
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "INACTIVE"
+  }
+}
+
+docs {
+  Solo OWNER activo. status: ACTIVE | INACTIVE. 400 si es sobre uno mismo; 403 si el objetivo es otro OWNER.
+}

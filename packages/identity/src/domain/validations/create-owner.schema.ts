@@ -7,7 +7,12 @@ export const CreateOwnerSchema = z.object({
     .min(1, 'El nombre de la clínica es requerido')
     .min(3, 'El nombre debe tener al menos 3 caracteres'),
 
-  email: z.string().min(1, 'El correo es requerido').email('Formato de correo inválido'),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(1, 'El correo es requerido')
+    .email('Formato de correo inválido'),
   password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'), // <-- Añadir esto
 });
 

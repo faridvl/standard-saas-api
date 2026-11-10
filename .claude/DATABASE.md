@@ -31,7 +31,7 @@ Two separate PostgreSQL 15 databases are provisioned by `init-db.sh`. Each has i
 | email | String (unique) | |
 | name | String | mapped to `fullName` in domain layer |
 | password | String | bcrypt hash |
-| role | String? | default "OWNER"; values: OWNER, ADMIN, DOCTOR, STAFF, USER, MEDICO |
+| role | String? | default "STAFF"; values: OWNER, ADMIN, DOCTOR, STAFF, USER, MEDICO |
 | status | Enum(ACTIVE, INACTIVE) | default ACTIVE |
 | specialty | String? | |
 | avatarUrl | String? | |
@@ -312,3 +312,17 @@ HAVING COUNT(pu.id) < p."min_stock";
 -- Users for a tenant (identity database)
 SELECT uuid, email, name, role, status FROM "User" WHERE "tenantUUID" = '<uuid>';
 ```
+
+## User: nivel de acceso y datos profesionales
+
+`User.role` ahora guarda el nivel (`RECEPTION` por defecto, `ADMIN`, `OWNER`). Columnas nuevas: `attendsPatients` (bool, false), `specialties` (TEXT[]), `professionalTitle`, `licenseNumber`. Se eliminó `specialty`. Migración `20261109120000_access_level_attends_patients`: OWNER y DOCTOR pasan a `attendsPatients=true` con `AUDIOLOGY`; OWNER y ADMIN conservan nivel; el resto queda RECEPTION.
+
+Tabla `UserAudit` (`uuid`, `tenantUUID`, `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field`, `before`, `after`, `createdAt`), escrita en la misma transacción del cambio.
+
+## Equipos y motivo de prioridad
+
+Migración `20261109200000_priority_reason_and_equipment`: `Patient.priorityReason` y `priorityByUuid` (nullable); tabla `ClinicEquipment` (`uuid`, `tenantUuid`, `brand`, `model`, `isActive`, fechas) con índice único `lower(btrim(brand)), lower(btrim(model))` por `tenantUuid`; `PatientAudiometryEntry.equipmentUuid` (FK, `ON DELETE SET NULL`), `equipmentBrand` y `equipmentModel` (copia).
+
+## Branch: datos de configuración
+
+Migración `20261109180000_branch_settings`: enum `BranchColor` (RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE) y columnas `phone` (nullable), `address` (nullable) y `color` (default BLUE) en `Branch`. El color de las sedes existentes se rellena según su nombre.

@@ -11,6 +11,8 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel, PatientEditAccess } from '@medical-records/app/decorators/access.decorators';
 import { CreatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/create-patient-device.use-case';
 import { FindPatientDevicesUseCase } from '@medical-records/domain/use-cases/patient-device/find-patient-devices.use-case';
 import { DeactivatePatientDeviceUseCase } from '@medical-records/domain/use-cases/patient-device/deactivate-patient-device.use-case';
@@ -18,7 +20,8 @@ import { CreatePatientDeviceDto, CreatePatientDeviceSchema } from '../dtos/patie
 import { PatientDeviceWithProductUnit } from '@medical-records/infrastructure/adapters/patientDeviceRepository/patient-device.storage';
 
 @Controller('patients/:patientUuid/devices')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class PatientDeviceController {
   constructor(
     private readonly createUseCase: CreatePatientDeviceUseCase,
@@ -35,6 +38,7 @@ export class PatientDeviceController {
   }
 
   @Post()
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(CreatePatientDeviceSchema))
   async create(
     @Param('patientUuid') patientUuid: string,
@@ -51,6 +55,7 @@ export class PatientDeviceController {
   }
 
   @Delete(':deviceUuid')
+  @PatientEditAccess()
   @HttpCode(HttpStatus.NO_CONTENT)
   async deactivate(
     @Param('deviceUuid') deviceUuid: string,

@@ -11,6 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel } from '@medical-records/app/decorators/access.decorators';
 import {
   SetCalendarVisibilityDto,
   SetCalendarVisibilitySchema,
@@ -45,27 +47,31 @@ export class CalendarFeedController {
   ) {}
 
   @Get()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AccessGuard)
+  @AnyLevel()
   async getStatus(@CurrentUser() user: JwtPayload): Promise<CalendarFeedStatus> {
     return await this.getUseCase.execute(user.sub, user.tenantUuid);
   }
 
   /** Crea el enlace del usuario; si ya tiene uno, lo devuelve sin cambiarlo. */
   @Post()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AccessGuard)
+  @AnyLevel()
   async issue(@CurrentUser() user: JwtPayload): Promise<CalendarFeedStatus> {
     return await this.issueUseCase.execute(user.sub, user.tenantUuid);
   }
 
   @Delete()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AccessGuard)
+  @AnyLevel()
   async revoke(@CurrentUser() user: JwtPayload): Promise<{ success: boolean }> {
     return await this.revokeUseCase.execute(user.sub, user.tenantUuid);
   }
 
   /** Quita un calendario (queda vacío en el teléfono) o lo vuelve a mostrar. */
   @Patch('calendars')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AccessGuard)
+  @AnyLevel()
   async setVisibility(
     @Body(new ZodValidationPipe(SetCalendarVisibilitySchema)) dto: SetCalendarVisibilityDto,
     @CurrentUser() user: JwtPayload,

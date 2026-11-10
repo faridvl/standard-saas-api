@@ -5,6 +5,8 @@ import { env } from '@project/core';
 export interface IdentityUser {
   uuid: string;
   fullName: string;
+  /** Solo viene si identity lo informa; 'ACTIVE' es el único estado que puede operar. */
+  status?: string;
 }
 
 /**
@@ -45,12 +47,20 @@ export class IdentityRepository {
 
       const data = (await response.json()) as Partial<IdentityUser> | null;
       // Una ruta mal resuelta en identity puede responder 200 con otra cosa (p. ej. una lista).
-      if (!data || typeof data.uuid !== 'string' || data.uuid === '' || data.uuid !== uuid ||
+      if (
+        !data ||
+        typeof data.uuid !== 'string' ||
+        data.uuid === '' ||
+        data.uuid !== uuid ||
         typeof data.fullName !== 'string'
       ) {
         return null;
       }
-      return { uuid: data.uuid, fullName: data.fullName };
+      return {
+        uuid: data.uuid,
+        fullName: data.fullName,
+        status: typeof data.status === 'string' ? data.status : undefined,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`No se pudo resolver el usuario ${uuid} en identity: ${message}`);

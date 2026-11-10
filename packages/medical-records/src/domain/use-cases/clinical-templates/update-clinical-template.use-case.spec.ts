@@ -54,7 +54,7 @@ describe('plantillas clínicas: secciones QUESTIONNAIRE', () => {
   describe('cambio de speciality', () => {
     it('no deja pasar una sección QUESTIONNAIRE a otra speciality', async () => {
       await expect(
-        update.execute('template-1', TENANT, { speciality: 'AUDIOLOGY' }, 'DOCTOR'),
+        update.execute('template-1', TENANT, { speciality: 'AUDIOLOGY' }),
       ).rejects.toThrow(BadRequestException);
       expect(updates).toHaveLength(0);
     });
@@ -62,10 +62,10 @@ describe('plantillas clínicas: secciones QUESTIONNAIRE', () => {
     it('no deja convertir otra plantilla en QUESTIONNAIRE ni en la historia clínica', async () => {
       existing = buildTemplate('AUDIOLOGY');
       await expect(
-        update.execute('template-1', TENANT, { speciality: 'QUESTIONNAIRE' }, 'DOCTOR'),
+        update.execute('template-1', TENANT, { speciality: 'QUESTIONNAIRE' }),
       ).rejects.toThrow(BadRequestException);
       await expect(
-        update.execute('template-1', TENANT, { speciality: 'CLINICAL_HISTORY' }, 'DOCTOR'),
+        update.execute('template-1', TENANT, { speciality: 'CLINICAL_HISTORY' }),
       ).rejects.toThrow(BadRequestException);
       expect(updates).toHaveLength(0);
     });
@@ -73,52 +73,52 @@ describe('plantillas clínicas: secciones QUESTIONNAIRE', () => {
     it('no deja cambiar la speciality de la historia clínica', async () => {
       existing = buildTemplate('CLINICAL_HISTORY');
       await expect(
-        update.execute('template-1', TENANT, { speciality: 'QUESTIONNAIRE' }, 'DOCTOR'),
+        update.execute('template-1', TENANT, { speciality: 'QUESTIONNAIRE' }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('permite repetir la misma speciality y cambiar entre las que no son clínicas', async () => {
-      await update.execute('template-1', TENANT, { speciality: 'QUESTIONNAIRE' }, 'DOCTOR');
+      await update.execute('template-1', TENANT, { speciality: 'QUESTIONNAIRE' });
       existing = buildTemplate('AUDIOLOGY');
-      await update.execute('template-1', TENANT, { speciality: 'OTHER' }, 'DOCTOR');
+      await update.execute('template-1', TENANT, { speciality: 'OTHER' });
       expect(updates).toHaveLength(2);
     });
   });
 
   describe('topes de una sección', () => {
     it('rechaza un nombre vacío o de más de 60 caracteres', async () => {
-      await expect(update.execute('template-1', TENANT, { name: '   ' }, 'DOCTOR')).rejects.toThrow(
+      await expect(update.execute('template-1', TENANT, { name: '   ' })).rejects.toThrow(
         BadRequestException,
       );
       await expect(
-        create.execute(
-          TENANT,
-          { name: 'x'.repeat(61), speciality: 'QUESTIONNAIRE', fields: [field('a')] },
-          'DOCTOR',
-        ),
+        create.execute(TENANT, {
+          name: 'x'.repeat(61),
+          speciality: 'QUESTIONNAIRE',
+          fields: [field('a')],
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('rechaza más de 100 preguntas', async () => {
       const fields = Array.from({ length: 101 }, (_, index) => field(`q${index}`));
       await expect(
-        create.execute(TENANT, { name: 'Hábitos', speciality: 'QUESTIONNAIRE', fields }, 'DOCTOR'),
+        create.execute(TENANT, { name: 'Hábitos', speciality: 'QUESTIONNAIRE', fields }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('rechaza una pregunta de más de 120 caracteres', async () => {
       await expect(
-        update.execute('template-1', TENANT, { fields: [field('a', 'x'.repeat(121))] }, 'DOCTOR'),
+        update.execute('template-1', TENANT, { fields: [field('a', 'x'.repeat(121))] }),
       ).rejects.toThrow(BadRequestException);
     });
 
     it('rechaza ids de pregunta repetidos', async () => {
       await expect(
-        create.execute(
-          TENANT,
-          { name: 'Hábitos', speciality: 'QUESTIONNAIRE', fields: [field('a'), field('a')] },
-          'DOCTOR',
-        ),
+        create.execute(TENANT, {
+          name: 'Hábitos',
+          speciality: 'QUESTIONNAIRE',
+          fields: [field('a'), field('a')],
+        }),
       ).rejects.toThrow(BadRequestException);
       expect(creates).toHaveLength(0);
     });
@@ -126,12 +126,8 @@ describe('plantillas clínicas: secciones QUESTIONNAIRE', () => {
     it('no aplica los topes a otras speciality (Zynka)', async () => {
       existing = buildTemplate('AUDIOLOGY');
       const fields = Array.from({ length: 150 }, (_, index) => field('dup', `p${index}`));
-      await create.execute(
-        TENANT,
-        { name: 'x'.repeat(200), speciality: 'AUDIOLOGY', fields },
-        'DOCTOR',
-      );
-      await update.execute('template-1', TENANT, { fields }, 'DOCTOR');
+      await create.execute(TENANT, { name: 'x'.repeat(200), speciality: 'AUDIOLOGY', fields });
+      await update.execute('template-1', TENANT, { fields });
       expect(creates).toHaveLength(1);
       expect(updates).toHaveLength(1);
     });

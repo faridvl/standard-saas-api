@@ -56,13 +56,25 @@ model CalendarFeed {
   @@index([tenantUuid])
 }
 
+enum BranchColor {
+  RED
+  ORANGE
+  YELLOW
+  GREEN
+  BLUE
+  PURPLE
+}
+
 model Branch {
-  id         Int      @id @default(autoincrement())
-  uuid       String   @unique @default(uuid())
+  id         Int         @id @default(autoincrement())
+  uuid       String      @unique @default(uuid())
   tenantUuid String
   name       String
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  phone      String?
+  address    String?
+  color      BranchColor @default(BLUE)
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
 
   patients     Patient[]
   patientBranches PatientBranch[]
@@ -101,7 +113,10 @@ model Patient {
   warrantyExpiredSince  DateTime?
   renewPrescriptionSince DateTime?
   // Marca de prioridad: solo marca y filtro, no cambia el orden de la lista.
+  // El motivo y quién la marcó van juntos con prioritySince; los tres son nulos al desmarcar.
   prioritySince          DateTime?
+  priorityReason         String?
+  priorityByUuid         String?
   // Mantenimientos 1 a 4: estado marcado a mano por el personal. Sus notas viven en
   // PatientMaintenanceNote.
   maintenance1Status MaintenanceStatus @default(UNMARKED)
@@ -339,12 +354,35 @@ model PatientAudiometryEntry {
   invalidatedAt      DateTime?
   invalidatedByUuid  String?
   invalidationReason String?
+  // Equipo con el que se hizo. La marca y el modelo se copian al crear: el historial no cambia
+  // si el equipo se edita después. Todo nulo en las audiometrías sin equipo.
+  equipmentUuid  String?
+  equipmentBrand String?
+  equipmentModel String?
 
   patient       Patient  @relation(fields: [patientUuid], references: [uuid])
   type          AudiometryType @relation(fields: [typeCode], references: [code])
+  equipment     ClinicEquipment? @relation(fields: [equipmentUuid], references: [uuid])
   notes         PatientNote[]
 
   @@index([tenantUuid, patientUuid, createdAt])
+}
+
+/// Equipos de audiometría de la clínica. No se borran: se desactivan.
+/// El índice único por expresión (lower(btrim)) de marca + modelo vive en la migración; Prisma no lo modela.
+model ClinicEquipment {
+  id         Int      @id @default(autoincrement())
+  uuid       String   @unique @default(uuid())
+  tenantUuid String
+  brand      String
+  model      String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  audiometryEntries PatientAudiometryEntry[]
+
+  @@index([tenantUuid])
 }
 
 /// Catálogo global (no por clínica) de tipos de audiometría. Sumar un tipo = una fila acá + su schema de payload en el código.

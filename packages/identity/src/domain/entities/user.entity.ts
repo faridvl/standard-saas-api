@@ -1,4 +1,6 @@
 // identity/src/domain/entities/user.entity.ts
+import { UserStatus } from '../types/user.types';
+
 export type User = {
   id: number;
   uuid: string;
@@ -6,7 +8,11 @@ export type User = {
   name: string;
   password: string;
   role?: string | null;
+  status: UserStatus;
   tenantId: number;
   tenantUuid: string;
-  specialty?: string | null;
+  attendsPatients: boolean;
+  specialties: string[];
+  professionalTitle?: string | null;
+  licenseNumber?: string | null;
 };

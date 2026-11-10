@@ -3,6 +3,7 @@ import { PatientRecord } from '@medical-records/domain/types/patient-record.type
 import { PatientStorage } from '../../infrastructure/adapters/patientsRepository/patient.storage';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import {
+  assertBranchesActive,
   assertBranchesExist,
   resolvePatientBranches,
 } from '@medical-records/domain/services/patient-branches';
@@ -10,6 +11,7 @@ import { PatientContactStorage } from '@medical-records/infrastructure/adapters/
 import { PatientEntity } from '../entities/patient.entity';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
+import { stripPatientClinicalWrites } from '@medical-records/domain/policies/patient-clinical-fields.policy';
 
 @Injectable()
 export class CreatePatientUseCase {
@@ -21,9 +23,10 @@ export class CreatePatientUseCase {
   ) {}
 
   async execute(
-    data: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
-    userContext: { tenantId: number; tenantUuid: string; sub: string },
+    input: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
+    userContext: { tenantId: number; tenantUuid: string; sub: string; attendsPatients: boolean },
   ): Promise<PatientRecord> {
+    const data = stripPatientClinicalWrites(input, userContext.attendsPatients);
     if (data.documentId) {
       const existing = await this.storage.findByDocumentId(data.documentId, userContext.tenantUuid);
       if (existing) {
@@ -40,6 +43,10 @@ export class CreatePatientUseCase {
     assertBranchesExist(
       branches.branchUuids,
       await this.branchStorage.findUuidsInTenant(userContext.tenantUuid, branches.branchUuids),
+    );
+    assertBranchesActive(
+      branches.branchUuids,
+      await this.branchStorage.findInactiveUuids(userContext.tenantUuid, branches.branchUuids),
     );
 
     const patientData = {

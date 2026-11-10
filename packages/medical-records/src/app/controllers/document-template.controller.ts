@@ -1,19 +1,8 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  SetMetadata,
-  UseGuards,
-  UsePipes,
-} from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
-import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+import { Body, Controller, Get, Param, Post, Put, UseGuards, UsePipes } from '@nestjs/common';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel, MinLevel } from '@medical-records/app/decorators/access.decorators';
+import { AccessLevel } from '@medical-records/domain/policies/access.policy';
 import {
   DocumentTemplateBodyDto,
   DocumentTemplateBodySchema,
@@ -32,7 +21,8 @@ import {
 // Ver las plantillas lo puede todo el que imprime documentos; crearlas o cambiarlas
 // sigue la regla de las preguntas de la historia clínica: solo roles clínicos. Sin borrado.
 @Controller('document-templates')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class DocumentTemplateController {
   constructor(
     private readonly createUseCase: CreateDocumentTemplateUseCase,
@@ -55,8 +45,7 @@ export class DocumentTemplateController {
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(DocumentTemplateBodySchema))
   async create(
     @Body() dto: DocumentTemplateBodyDto,
@@ -66,8 +55,7 @@ export class DocumentTemplateController {
   }
 
   @Put(':uuid')
-  @UseGuards(RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(DocumentTemplateBodySchema))
   async update(
     @Param('uuid') uuid: string,

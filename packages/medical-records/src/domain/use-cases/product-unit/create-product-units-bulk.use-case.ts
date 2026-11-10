@@ -37,7 +37,7 @@ export class CreateProductUnitsBulkUseCase {
       );
     }
 
-    const productId = await this.productStorage.findRawId(productUuid);
+    const productId = await this.productStorage.findRawId(productUuid, tenantUuid);
     return this.unitStorage.createMany(productId!, units);
   }
 }

@@ -4,7 +4,10 @@ import { PatientActivityAction } from '@medical-records/domain/types/patient-act
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
-import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
+import {
+  assertAppointmentBranch,
+  assertBranchesActive,
+} from '@medical-records/domain/services/patient-branches';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { toClinicDayKey } from '@medical-records/domain/utils/lab-shipment-date.util';
@@ -49,6 +52,10 @@ export class UpdateAppointmentUseCase {
         dto.branchUUID,
         patientBranches,
         await this.branchStorage.findUuidsInTenant(tenantUUID, [dto.branchUUID]),
+      );
+      assertBranchesActive(
+        [dto.branchUUID],
+        await this.branchStorage.findInactiveUuids(tenantUUID, [dto.branchUUID]),
       );
     }
 

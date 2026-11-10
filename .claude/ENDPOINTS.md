@@ -2,6 +2,8 @@
 
 **Auth header for protected routes:** `Authorization: Bearer <access_token>`
 
+**Formato de error:** `{ success: false, statusCode, message, details, timestamp }`, más `code` (string de primer nivel, p. ej. `EQUIPMENT_REQUIRED`) solo cuando el error tiene código de negocio. Donde este documento dice `error.code`, el valor llega en `code`.
+
 ---
 
 ## Identity Service (port 7170)
@@ -99,30 +101,31 @@
 ---
 
 ### POST /users
-**Auth:** Required  
+**Auth:** Required. Solo OWNER (lista `USER_ADMIN_ROLES`). El actor se relee de la base: debe estar ACTIVE y seguir siendo OWNER, aunque su token siga vigente; si no, 403 "Tu usuario ya no está activo en esta clínica" (o "Solo el propietario de la clínica puede administrar usuarios" si ya no es OWNER). Lo mismo aplica a todos los endpoints de administración de abajo.
 **Body:**
 ```json
 {
-  "email": "string (email)",
+  "email": "string (email; se guarda en minúsculas)",
   "fullName": "string",
-  "password": "string (min 8, uppercase, digit)",
-  "role": "ADMIN | DOCTOR | STAFF | USER | MEDICO (default: ADMIN)",
+  "password": "string (contraseña temporal; min 8, mayúscula y número)",
+  "role": "ADMIN | DOCTOR | STAFF (default: ADMIN)",
   "specialty": "string (optional)",
   "phoneNumber": "string (optional)"
 }
 ```
-**Response 201:** Created user domain object.  
-**Status:** Implemented. Creates user under authenticated user's tenant.
+**Response 201:** Created user domain object.
+**Errors:** 403 si no es OWNER activo; 400 si `role` es OWNER (el OWNER nace solo al registrar la clínica); 409 si el email ya existe (sin distinguir mayúsculas).
+**Status:** Implemented. Crea el usuario en la clínica del JWT (el cliente nunca manda tenant). Nace ACTIVE.
 
 ---
 
 ### GET /users
-**Auth:** Required  
-**Query params:** `page` (default 1), `limit` (default 10)  
+**Auth:** Required (cualquier usuario de la clínica).
+**Query params:** `page` (default 1), `limit` (default 10, máximo 100: un valor mayor se reduce a 100), `status` = `ACTIVE | INACTIVE | ALL` (default `ALL`, el comportamiento anterior: incluye inactivos). Un valor inválido da 400.
 **Response 200:**
 ```json
 {
-  "data": [ { "uuid": "...", "email": "...", "fullName": "...", "role": "...", "tenantId": N, ... } ],
+  "data": [ { "uuid": "...", "email": "...", "fullName": "...", "role": "...", "status": "ACTIVE", "phoneNumber": "...", "tenantId": N, ... } ],
   "meta": { "total": N, "page": N, "limit": N, "totalPages": N }
 }
 ```
@@ -131,31 +134,62 @@
 ---
 
 ### GET /users/:uuid
-**Auth:** Required  
-**Response 200:** `UserDetail` — `{ uuid, fullName, email, role, specialty?, phoneNumber?, tenantId, createdAt }`  
-**Status:** Implemented. Scoped to caller's tenant.
+**Auth:** Required
+**Response 200:** ADMIN, OWNER o el propio usuario: la ficha completa (`UserDomain`, igual que el listado). RECEPTION viendo a otro: solo `{ uuid, fullName, status }`.
+**Status:** Implemented. Scoped to caller's tenant. Devuelve también usuarios INACTIVE: medical-records lo usa para el nombre del autor de notas viejas.
 
 ---
 
 ### PATCH /users/:uuid
-**Auth:** Required  
+**Auth:** Required. El propio usuario ACTIVE (sin `role`) u OWNER activo sobre otro usuario de su clínica que no sea OWNER. La firma y la foto solo las cambia su dueño.
 **Body (all optional):**
 ```json
 {
   "fullName": "string",
   "phoneNumber": "string",
-  "specialty": "string"
+  "specialty": "string",
+  "signatureUrl": "string | null (https del bucket propio; solo el dueño)",
+  "avatarUrl": "string | null (https del bucket propio; solo el dueño)",
+  "role": "ADMIN | DOCTOR | STAFF (solo OWNER, nunca sobre sí mismo)"
 }
 ```
-**Response 200:** Updated user domain object.  
-**Status:** Implemented. Email and role are not editable via this endpoint.
+**Response 200:** Updated user domain object.
+**Errors:** 403 si el actor no está ACTIVE; 403 si manda `role` o edita a otro sin ser OWNER; 403 "Un propietario no puede administrar a otro propietario" si el objetivo es otro OWNER (también para sus datos de perfil); 403 "La firma y la foto solo las cambia su dueño" si manda `signatureUrl` o `avatarUrl` de otro; 400 si `role` es OWNER o el OWNER se cambia su propio rol; 400 si una URL no es https del bucket propio (`R2_PUBLIC_URL`); 404 si el usuario es de otra clínica.
+**Status:** Implemented. El email no es editable. El OWNER edita su propio perfil. Las subidas `POST /upload/users/:uuid/signature` y `/avatar` solo las hace el propio usuario ACTIVE: se verifica antes de subir al bucket, así un rechazo no deja archivos huérfanos.
+
+---
+
+### PATCH /users/:uuid/status
+**Auth:** Required. Solo OWNER.
+**Body:** `{ "status": "ACTIVE | INACTIVE" }`
+**Response 200:** El usuario actualizado.
+**Errors:** 403 si no es OWNER activo; 400 "No puedes cambiar tu propio estado" (en ambos sentidos); 403 "Un propietario no puede administrar a otro propietario"; 404 si es de otra clínica.
+**Status:** Implemented. Un INACTIVE no inicia sesión (401 "Credenciales inválidas") y `GET /auth/me` lo rechaza con 401. Reactivarlo le devuelve el acceso.
+
+---
+
+### PUT /users/:uuid/password
+**Auth:** Required. Solo OWNER.
+**Body:** `{ "password": "string (min 8, mayúscula y número)" }`
+**Response 204:** No content.
+**Errors:** 403 si no es OWNER activo; 403 "Un propietario no puede administrar a otro propietario" (la propia contraseña sí se puede poner); 404 si es de otra clínica.
+**Status:** Implemented. El OWNER pone la contraseña nueva a cualquier usuario de su clínica que no sea otro OWNER.
+
+---
+
+### PUT /users/me/password
+**Auth:** Required. Cualquier rol; cambia la contraseña de quien tiene el token.
+**Body:** `{ "currentPassword": "string", "newPassword": "string (min 8, mayúscula y número)" }`
+**Response 204:** No content.
+**Errors:** 400 de validación (nueva débil o falta la actual); 400 `code: INVALID_CURRENT_PASSWORD`; 400 `code: SAME_PASSWORD` (la nueva igual a la actual); 401 sin token; 404 si el usuario está inactivo.
+**Status:** Implemented. La sesión actual sigue válida. Deja un registro `field: PASSWORD` en `GET /users/audit` sin valores.
 
 ---
 
 ### DELETE /users/:uuid
-**Auth:** Required
+**Auth:** Required. Solo OWNER.
 **Response 204:** No content.
-**Status:** Implemented. Scoped to caller's tenant.
+**Status:** Implemented. No borra: es alias de `PATCH /users/:uuid/status` con `INACTIVE`, con las mismas reglas.
 
 ---
 
@@ -708,7 +742,7 @@ original (si falla, queda un warning en el log).
 `typeName` y `patientName` son copias al momento de la acción.
 
 ### GET /patient-activity
-**Auth:** Required. 403 para el rol `STAFF` en `/patient-activity`, `/months` y `/summary`; `/actors` queda abierto (solo nombres, lo usa la agenda).  
+**Auth:** Required. ADMIN u OWNER en `/patient-activity`, `/months` y `/summary`; `/actors` es de cualquier nivel (solo nombres, lo usa la agenda para "Agendó…").  
 **Query:**
 - `page` (default `1`), `limit` (default `20`, máx `100`)
 - `actorUuid` — solo acciones de ese usuario
@@ -840,9 +874,11 @@ Migración `20261020120000_add_warranty_expired_renew_prescription`.
 ```json
 { "hearingAidsInLab": false, "deliveredAt": "YYYY-MM-DD ?", "note": "string (máx. 1000) ?" }
 ```
-`deliveredAt` por defecto es hoy (Costa Rica); **400** si es posterior a hoy ("La fecha de entrega no puede ser posterior a hoy") o anterior al día de envío del abierto ("La fecha de entrega no puede ser anterior a la de envío (DD/MM/AAAA)"). Todo ocurre en una transacción con el paciente bloqueado: cierra el envío (`deliveredAt`, `note`, `deliveredByUuid`), apaga el switch y, si hay `note`, crea además una nota de Control de evolución (`EVOLUTION_CONTROL`) con el mismo texto, mismo autor y fecha de hoy. Sin envío abierto (dato viejo) crea uno ya cerrado con `sentAt` = el día que tenía el interruptor (`hearingAidsInLabSince`), o `deliveredAt` si no lo tenía; la misma regla de que la entrega no sea antes del envío. Un envío abierto por paciente como máximo (índice parcial único). Con `deliveredAt` o `note` y el interruptor ya apagado: **409** "Los audífonos ya se marcaron como entregados.". Con `note` y un rol fuera de OWNER, ADMIN y DOCTOR (p. ej. STAFF): **403** "Solo el personal clínico puede agregar notas."; entregar sin nota sí lo puede hacer cualquier rol (el endpoint no lleva `RolesGuard`). Bitácora, dentro de la misma transacción (si algo falla no queda evento): `HEARING_AIDS_DELIVERED` con `{ date, hasNote }` (sin el texto) y, si hubo nota, `NOTE_ADDED`.
+`deliveredAt` por defecto es hoy (Costa Rica); **400** si es posterior a hoy ("La fecha de entrega no puede ser posterior a hoy") o anterior al día de envío del abierto ("La fecha de entrega no puede ser anterior a la de envío (DD/MM/AAAA)"). Todo ocurre en una transacción con el paciente bloqueado: cierra el envío (`deliveredAt`, `note`, `deliveredByUuid`), apaga el switch y, si hay `note`, crea además una nota de Control de evolución (`EVOLUTION_CONTROL`) con el mismo texto, mismo autor y fecha de hoy. Sin envío abierto (dato viejo) crea uno ya cerrado con `sentAt` = el día que tenía el interruptor (`hearingAidsInLabSince`), o `deliveredAt` si no lo tenía; la misma regla de que la entrega no sea antes del envío. Un envío abierto por paciente como máximo (índice parcial único). Con `deliveredAt` o `note` y el interruptor ya apagado: **409** "Los audífonos ya se marcaron como entregados.". El endpoint exige `attendsPatients` (grupo Clínico), así que quien llega puede dejar la nota. Bitácora, dentro de la misma transacción (si algo falla no queda evento): `HEARING_AIDS_DELIVERED` con `{ date, hasNote }` (sin el texto) y, si hubo nota, `NOTE_ADDED`.
 
-Prioridad: `isPriority: true` guarda `prioritySince` (ahora); `false` lo deja en `null`. Bitácora: `PRIORITY_CHANGED` con `{ isOn }`. `prioritySince` viene en el detalle y en la lista. Un paciente de otra clínica responde **404**.
+Prioridad: `isPriority: true` exige `priorityReason` (texto recortado, máx. 500; vacío o ausente es **400**) y guarda `prioritySince` (ahora), `priorityReason` y `priorityByUuid` (quien marca). `false` deja los tres en `null`. `priorityReason` sin `isPriority: true` es 400. Bitácora: `PRIORITY_CHANGED` con `{ isOn }`, más una nota de Control de evolución: "Paciente marcado como prioridad: <motivo>" o "Se quitó la prioridad". El detalle y la lista del paciente traen `priorityReason`, `prioritySince` y `priorityByName` (nombre de quien marcó, `null` si no está marcada o el usuario ya no existe).
+
+**Notas de envío al laboratorio (Control de evolución, con su bitácora `NOTE_ADDED`).** Envío nuevo: "Audífonos enviados al laboratorio el DD/MM/AAAA". Cierre: "Audífonos recibidos del laboratorio el DD/MM/AAAA", con ": <nota>" si viene `note`. Corregir la fecha de un envío abierto no deja nota. Las fechas van en hora de Costa Rica. Un paciente de otra clínica responde **404**.
 
 ### GET /patients/stale
 Pacientes sin movimiento: el último movimiento es de hace 6 meses o más. Movimiento = cualquier evento de la bitácora (`PatientActivity`); sin actividad cuenta la fecha de creación. Excluye archivados, inactivos (`status` distinto de ACTIVE) y eliminados. Mismos permisos que `GET /patients`; aislado por la clínica del JWT. Una sola consulta.
@@ -1049,7 +1085,7 @@ Tipos (`GET /audiometry-types`, mismos roles clínicos): `CLINICAL` "Clínica" y
 }
 ```
 
-**Clínica (`typeCode` ausente o `"CLINICAL"`).** Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT`. `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` 10 si el tipo es `BISYLLABLE`, 25 si es `MONOSYLLABLE` (con `wordListType` en `null` vale cualquiera de los dos). Las intensidades (claves de `speech.marks`) van de 0 a 100 en pasos de 5 y sin ceros a la izquierda (`"5"`, no `"05"`). `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `pta` va en pasos de 5 dB y `grade` debe existir en la escala elegida (`ASHA` no tiene `TOTAL_LOSS`; `BIAP` no tiene `SLIGHT` ni `MODERATELY_SEVERE`). `isMasked: true` solo se acepta en `AIR` y `BONE`. `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos (incluida una herramienta que no sea de las 5): 400. El `GET :entryUuid` y el `POST` responden 404 si el paciente está borrado (`deletedAt`).
+**Clínica (`typeCode` ausente o `"CLINICAL"`).** Reglas del payload: `marks` exige las 5 herramientas (`AIR`, `BONE`, `UCL`, `MCL`, `FREE_FIELD`), cada una con `RIGHT` y `LEFT` (mapa de frecuencia a marca, vacío si no hay); frecuencias `125, 250, 500, 1000, 1500, 2000, 3000, 4000, 6000, 8000`; `thresholdDb` entero de -10 a 120. `weber` (opcional): `500|1000|2000|4000` a `CENTER|RIGHT|LEFT|NO_RESPONSE` (sin respuesta; las audiometrías guardadas siguen válidas). `equipmentUuid` (uuid, opcional en clínica y rastreo): obligatorio (**400**, `error.code = EQUIPMENT_REQUIRED`) si la clínica tiene al menos un equipo activo; debe ser un equipo activo de la misma clínica (**404** si no existe o es de otra, **400** si está desactivado). Se guarda copia de marca y modelo. El detalle y el historial traen `equipment: { uuid, brand, model } | null` (`null` en las anteriores). `speech.marks`: por oído, dB (0 a 100) a porcentaje (0 a 100); `wordListType` `BISYLLABLE|MONOSYLLABLE|null`, `wordListId` de ese tipo o `null`, `presentedWords` 10 si el tipo es `BISYLLABLE`, 25 si es `MONOSYLLABLE` (con `wordListType` en `null` vale cualquiera de los dos). Las intensidades (claves de `speech.marks`) van de 0 a 100 en pasos de 5 y sin ceros a la izquierda (`"5"`, no `"05"`). `summary.ptaType` `PTA_512|PTA_5124|PTA_124|PTA_251`, `gradingScale` `ASHA|BIAP`, y por oído `pta`, `grade` (`NORMAL`, `SLIGHT`, `MILD`, `MODERATE`, `MODERATELY_SEVERE`, `SEVERE`, `PROFOUND`, `TOTAL_LOSS`), `speechThresholdDb`, `maxDiscriminationPercent`, `failedWords` (todos nulables; `failedWords` no puede superar `presentedWords`). `pta` va en pasos de 5 dB y `grade` debe existir en la escala elegida (`ASHA` no tiene `TOTAL_LOSS`; `BIAP` no tiene `SLIGHT` ni `MODERATELY_SEVERE`). `isMasked: true` solo se acepta en `AIR` y `BONE`. `notes.diagnosis` y `notes.observations`: texto recortado, máximo 1000 caracteres. Claves desconocidas en `marks`/oídos (incluida una herramienta que no sea de las 5): 400. El `GET :entryUuid` y el `POST` responden 404 si el paciente está borrado (`deletedAt`).
 
 ```json
 {
@@ -1154,3 +1190,51 @@ Variables permitidas (constante `DOCUMENT_TEMPLATE_VARIABLES` en `domain/types/d
 ```
 
 Errores: 400 body inválido o variable desconocida (el mensaje nombra las claves, p. ej. `{{cedula}}`), 401 sin token, 403 `STAFF` al escribir, 404 plantilla inexistente o de otro negocio, 409 nombre repetido en el negocio (sin distinguir mayúsculas).
+
+## Niveles de acceso y atiende pacientes (identity)
+
+Nivel: `RECEPTION` | `ADMIN` | `OWNER` (campo `role`). `attendsPatients` (bool) y `specialties` (catálogo `AUDIOLOGY`, `ENT`, `SPEECH_THERAPY`, `GENERAL_MEDICINE`). `professionalTitle` (`LIC`, `LICDA`, `MSC`, `DR`, `DRA`) y `licenseNumber`.
+
+| Método y ruta | Quién | Notas |
+|---|---|---|
+| `GET /users/catalogs` | Cualquier usuario | `{ roles, adminAssignableRoles, specialties, professionalTitles }` |
+| `GET /users` | ADMIN, OWNER | 403 a RECEPTION |
+| `POST /users` | ADMIN, OWNER | `role` OWNER, `attendsPatients` o `specialties` solo OWNER (ADMIN recibe 403) |
+| `PATCH /users/:uuid` | ADMIN, OWNER; título y colegiado solo el propio usuario | Nivel: ADMIN asigna RECEPTION/ADMIN; OWNER da o quita OWNER. `attendsPatients` y `specialties` solo OWNER. Nadie cambia su propio nivel (400). Otro OWNER solo lo toca un OWNER (403). |
+| `PATCH /users/:uuid/status`, `DELETE /users/:uuid` | ADMIN, OWNER | Propio estado 400; último OWNER activo 400 |
+| `PUT /users/:uuid/password` | ADMIN, OWNER | A un OWNER solo otro OWNER |
+| `PUT /users/me/password` | Cualquier usuario | Solo la propia; pide la actual (400 `INVALID_CURRENT_PASSWORD`, `SAME_PASSWORD`) |
+| `GET /users/audit?page&limit&targetUuid` | ADMIN, OWNER | Bitácora: `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field` (`ROLE`, `ATTENDS_PATIENTS`, `SPECIALTIES`, `PASSWORD`), `before`, `after`, `createdAt` |
+| `POST /auth/refresh` | Con token | Relee la base y reemite token y `user` con el acceso actual |
+
+Errores: 400 atiende pacientes sin especialidad, especialidad o título fuera de catálogo, cambio de nivel o estado propio, último OWNER; 403 sin nivel suficiente; 404 usuario de otra clínica.
+`GET /auth/me` devuelve `{ user, tenant }`; `user` trae `role`, `attendsPatients`, `specialties`, `professionalTitle`, `licenseNumber`. Login devuelve esos campos en `user`. JWT: `role`, `attendsPatients`, `specialties`.
+Se quitó el texto libre `specialty` (también en `POST /auth/register`: ahora `specialties[]`). Compatibilidad: si un cliente viejo manda `specialty` con un código del catálogo y no manda `specialties`, se toma como `specialties: [codigo]`; cualquier otro valor se ignora.
+
+## Acceso por ruta (medical-records)
+
+Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (RECEPTION, ADMIN, OWNER) y atender pacientes de `attendsPatients`. Un token sin el claim `attendsPatients` o con rol viejo da 401 (el cliente se vuelve a autenticar). Excepciones públicas: `POST /appointment-types/initialize` (llamada interna) y `GET /calendar-feed/:file`.
+
+| Grupo | Exige | Rutas |
+|---|---|---|
+| Cualquier nivel | token con nivel válido | pacientes (alta y lectura de datos generales sin tipo de sangre, prioridad, estado; borrar paciente es ADMIN u OWNER), lectura de contactos y dispositivos, citas, agenda, `next-appointment`, productos y unidades, sedes, envíos a laboratorio, `calendar-feed` (autenticadas), lectura de `appointment-types`, `clinical-templates` y `document-templates` |
+| Clínico | `attendsPatients` | `PUT patients/:uuid/flags`, `patients/:id/background`, `physical-exam`, notas, preguntas, audiometrías y otoscopías (leer), documentos, encuentros, controles médicos, estudios, `maintenance` (incluye el cambio de estado), mantenimientos del paciente (GET y notas), `audiometry-types`, `upload/*` |
+| Edición de paciente | ADMIN u OWNER, o cualquier nivel con `attendsPatients` | `PATCH /patients/:uuid`, `PUT /patients/:uuid/status`, `POST`, `PUT` y `DELETE` en `/patients/:patientUuid/contacts`, `POST` y `DELETE` en `/patients/:patientUuid/devices` (RECEPTION sin atender pacientes recibe 403) |
+| Prueba | `attendsPatients` + AUDIOLOGY | crear o anular audiometrías; crear o editar otoscopías |
+| Configuración | ADMIN u OWNER | crear, editar y borrar `appointment-types`, `clinical-templates` y `document-templates`; `DELETE /patients/:uuid` |
+| Bitácora | ADMIN u OWNER | `patient-activity` (listado, `months`, `summary`); `actors` es de cualquier nivel |
+
+El resumen de bitácora y las notas de envíos a laboratorio solo muestran lo clínico a quien atiende. En `GET /patients`, `GET /patients/:uuid` y las respuestas de escritura de pacientes, `bloodType` solo aparece si el usuario atiende pacientes. En `POST /patients` y `PATCH /patients/:uuid`, `bloodType` y `warrantyDocumentUuid` solo los escribe quien atiende pacientes: de otro usuario se ignoran sin error y el paciente conserva su valor (en el alta queda `null`). `GET /calendar-feed/:file` responde 404 si el dueño del enlace no existe o no está ACTIVE. `POST /appointment-types/initialize` exige el JWT de servicio de identity (1 minuto, atado a la clínica); otro token da 401.
+
+## Sedes (Configuración)
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| GET | /branches | cualquier nivel | Todas las sedes de la clínica, activas primero y luego por nombre (es-CR, sin distinguir mayúsculas ni tildes). |
+| POST | /branches | ADMIN+ | Crea una sede `{ name, phone?, address?, color }`. 201 con la sede. 409 si el nombre ya existe en la clínica (sin distinguir mayúsculas ni tildes). |
+| GET | /equipment | cualquier nivel | Equipos de audiometría de la clínica `[{ uuid, brand, model, isActive, createdAt, updatedAt }]`, activos primero y luego por marca y modelo; incluye inactivos. |
+| POST | /equipment | ADMIN+ | Crea un equipo `{ brand, model }` (recortados, máx. 80 c/u, obligatorios). 201 con el equipo. 409 con `error.code = EQUIPMENT_ALREADY_EXISTS` si ya existe esa marca y modelo en la clínica (sin distinguir mayúsculas, ni activos ni inactivos). |
+| PATCH | /equipment/:uuid | ADMIN+ | Edita parcial `{ brand?, model?, isActive? }` (al menos uno); desactivar y reactivar es `isActive`. Nunca se borra. 404 si es de otra clínica; 409 si queda igual a otro equipo. |
+| PATCH | /branches/:uuid | ADMIN+ | Edita parcial `{ name?, phone?, address?, color?, isActive? }`. `phone` y `address` aceptan null o "" para vaciar. 404 si la sede es de otra clínica. |
+
+No hay DELETE: una sede se desactiva con `isActive: false`. Una sede desactivada se rechaza (400) al crear paciente, crear cita, agendar la siguiente cita o cambiar la sede de una cita; los registros que ya la tienen siguen funcionando. `color`: RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE.

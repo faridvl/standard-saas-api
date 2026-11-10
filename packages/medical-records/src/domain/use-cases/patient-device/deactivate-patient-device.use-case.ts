@@ -10,13 +10,13 @@ export class DeactivatePatientDeviceUseCase {
   ) {}
 
   async execute(uuid: string, tenantUuid: string): Promise<void> {
-    const device = await this.storage.findOne(uuid);
+    const device = await this.storage.findOne(uuid, tenantUuid);
     if (!device) throw new NotFoundException('Dispositivo no encontrado');
 
     await this.storage.deactivate(uuid, tenantUuid);
 
     if (device.productUnit?.uuid) {
-      await this.unitStorage.release(device.productUnit.uuid);
+      await this.unitStorage.release(device.productUnit.uuid, tenantUuid);
     }
   }
 }

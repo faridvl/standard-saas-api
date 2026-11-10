@@ -1,5 +1,51 @@
 # Decisiones
 
+## 2026-11-09 - Cierre de la revisión de niveles de acceso (D71): migración, tokens, ids del cuerpo, initialize, paciente general y calendario
+
+- Migración de niveles (`20261109120000_access_level_attends_patients`): normaliza `User.role` a `UPPER(TRIM(role))` y mapea los roles viejos; guarda el rol y la especialidad anteriores en la tabla de respaldo `"_UserRoleBackup20261109"` (se borra a mano cuando producción esté estable). Antes de aplicarla en producción se corre, solo lectura, `SELECT UPPER(TRIM(role)), count(*) FROM "User" GROUP BY 1` para ver qué valores hay y confirmar que ninguno queda sin mapear.
+- Token anterior al modelo de niveles (sin el claim `attendsPatients` o con rol viejo): 401, no 403, para que el cliente cierre sesión y entre de nuevo con un token nuevo.
+- Ids en el cuerpo o en subidas (paciente, cita, dispositivo, encuentro, documento): se verifica que sean de la clínica de la sesión antes de actuar; otra clínica da 404 y no llega al almacenamiento.
+- `POST /appointment-types/initialize` ya no es abierto: solo acepta el JWT de servicio de 1 minuto que identity firma atado a la clínica (mismo `JWT_SECRET`, sin variables nuevas). Un token de usuario o de otra clínica da 401.
+- Paciente general (P2.8): borrar un paciente pide ADMIN u OWNER; el tipo de sangre (`bloodType`) solo se devuelve a quien atiende pacientes, en detalle, listado y respuestas de escritura; cambiar el estado de un mantenimiento es acceso clínico. `statusReason` y `gender` quedan visibles para cualquier nivel. Aceptado: `PATCH` todavía puede escribir `bloodType` a quien no atiende.
+- Calendario publicado (P2.7): al servir `GET /calendar-feed/:file` se consulta a identity por el dueño del enlace; si no existe, no está ACTIVE o identity no responde, 404 (se cierra ante la duda). Un token inexistente sigue devolviendo un calendario vacío.
+- Detalle de usuario (P2.11): `GET /users/:uuid` devuelve la ficha completa a ADMIN, OWNER y al propio usuario; a RECEPTION le devuelve solo `uuid`, `fullName` y `status` de otro. Historias lo sigue usando con un token del propio usuario, así que lee también a los inactivos.
+- Clientes viejos (P2.12): Zynka manda una sola `specialty` al registrar, crear y editar usuarios. El API la toma como `specialties: [codigo]` si es un código del catálogo y `specialties` no viene; si no, la ignora. Zynka sigue sin entender los roles nuevos (manda DOCTOR y STAFF) ni lee `specialties`: queda pendiente de adaptar.
+- Aceptado: quitar la atención de pacientes o desactivar a alguien deja su token vigente hasta 1 hora (el JWT no consulta la base). `POST /auth/refresh` relee la base y reemite el acceso actual; las acciones de administración sí releen al actor en cada llamada.
+
+## 2026-11-09 - Aislamiento entre clínicas: todo acceso por id lleva tenant
+
+- Regla: Todo endpoint que reciba un id (leer, editar, borrar o crear algo colgado de otro registro) filtra por `{ uuid, tenantUuid }` en la misma consulta o verifica antes que el padre sea del tenant de la sesión. Otra clínica responde 404, nunca 403. Cada endpoint nuevo lleva su prueba de aislamiento.
+- No hay RLS: cada consulta filtra a mano. RLS de Postgres queda como segunda barrera a mediano plazo; no se implementa ahora.
+- Corregidos: `ProductUnitStorage` (findOne, update, assign, release, findRawId por `product.tenantUuid`), `PatientDeviceStorage` (findOne y verificación del paciente al crear), `MedicalControlStorage.addCorrectionNote`; reforzados con tenant en el where: plantillas clínicas, cierre de encuentros, otoscopias, pacientes e inventario.
+- `PatientTenantInterceptor` (global, records): toda ruta que cuelga de un paciente (`:patientUuid` o `:uuid` bajo `/patients`, `/encounters/patient`, `/studies/patient`, `/maintenance/patient`) verifica que el paciente sea de la clínica de la sesión antes de ejecutar; si no, 404. Cubre también las rutas futuras. Identity: `PATCH /tenants/:uuid` con un tenant ajeno ahora da 404 (antes 403); el tipo de cita ajeno da 404 (antes 409 con el conteo de citas).
+- Aceptado: `ProductUnit.serialNumber` y `Product.sku` son únicos globales (por esquema).
+- Prueba: `src/test/tenant-isolation` (manifiesto de rutas sin base + sondas HTTP con base local).
+
+
+## 2026-11-09 - Niveles de acceso y "Atiende pacientes"
+
+El modelo completo está en D71 del front (`audiocolors-backoffice/.claude/DECISIONS.md`). En el API:
+nivel de acceso (Recepción, Administración, Propietario) + `atiende pacientes` con especialidades de
+un catálogo fijo. El acceso a lo clínico y a archivos depende solo de `atiende pacientes`, nunca del
+nivel. Administración administra usuarios salvo el acceso clínico, las especialidades y el nivel
+Propietario, que son solo del Propietario. Cada acción relee al actor en la base. Reemplaza
+`CLINICAL_ACCESS_ROLES` y el permiso de usuarios solo para OWNER (D70).
+
+## 2026-11-08 - Administración de usuarios por el OWNER (D70)
+
+> Reemplazada por D71 (ver "Niveles de acceso y atiende pacientes"): administran ADMIN y OWNER, y los roles son RECEPTION, ADMIN y OWNER. Lo demás de esta entrada (desactivar en vez de borrar, relectura del actor, aislamiento por clínica) sigue vigente.
+
+- Solo el OWNER administra usuarios, con la lista nombrada `USER_ADMIN_ROLES = [OWNER]` verificada en el servidor (`assertCanAdministerUsers`); sin permiso, 403. El actor se relee de la base en cada acción (ACTIVE y rol OWNER); el rol del token no se usa para autorizar y un rol nulo o heredado no administra. Roles asignables: ADMIN, DOCTOR y STAFF; OWNER no se asigna por la API (400), nace solo al registrar la clínica.
+- Alta con contraseña temporal escrita por el OWNER (`POST /users`), que también puede ponérsela nueva a cualquier usuario de su clínica (`PUT /users/:uuid/password`, 204). No hay correo ni enlace de recuperación.
+- No se borra: se desactiva y se reactiva (`Status` ACTIVE/INACTIVE). `DELETE /users/:uuid` es alias de desactivar. Un INACTIVE da 401 con el mismo mensaje genérico que una clave mala (no revela que la cuenta existe) y `GET /auth/me` lo rechaza.
+- Nadie cambia su propio estado (400, en ambos sentidos) ni su propio rol. Un OWNER no administra a otro OWNER (rol, estado, contraseña, DELETE y datos de perfil dan 403); sí edita su propio perfil. Como OWNER no se asigna ni se toca, la clínica no puede quedar sin OWNER por esta vía.
+- Todo se filtra por el tenant del JWT; un usuario de otra clínica da 404. El cliente nunca manda tenant.
+- Cualquier usuario edita su propio perfil (nombre, teléfono, especialidad, firma, avatar) sin `role`; con `role` recibe 403. La firma y el avatar solo los cambia su dueño, también el OWNER (subidas y `PATCH`); la subida verifica antes de escribir en el bucket. `signatureUrl` y `avatarUrl` solo aceptan https con el prefijo público del bucket propio (`R2_PUBLIC_URL`) o null.
+- Los correos se guardan y buscan en minúsculas. `GET /users` limita `limit` a `USERS_LIST_MAX_LIMIT` (100). El default de `User.role` pasa de OWNER a STAFF (migración `20261108160000_user_role_default_staff`, sin tocar datos existentes).
+- `GET /users` sin `status` devuelve todos (ALL), el comportamiento anterior. `PATCH /users/:uuid/status` responde 200 con el usuario actualizado.
+- Token ya emitido: el JWT dura 1 hora y `AuthGuard` no consulta la base, así que un usuario desactivado con token vigente sigue leyendo en identity y medical-records hasta que venza. Las acciones de administración sí se bloquean al instante porque releen al actor en la base.
+- Caché de usuarios de medical-records: la copia local sirve 5 minutos (`USER_CACHE_TTL_MS`) y luego se vuelve a pedir a identity, así un usuario nuevo o renombrado se ve con su nombre en notas e historial. Si identity no responde se usa el nombre local. `GET /users/:uuid` sigue devolviendo INACTIVE para no perder el nombre del autor de notas viejas.
+
 ## 2026-11-08 - La nota de audiometría lleva el tipo y el uuid de la audiometría
 
 - Cada audiometría guardada deja una nota `EXTERNAL_TEST` ("Pruebas") en Control de evolución, en la misma transacción:
@@ -129,3 +175,67 @@
 - Sin movimiento excluye `isActive = false`, `deletedAt` y `status` distinto de ACTIVE (inactivos y fallecidos).
 - `GET /patients/stale` responde `[{ uuid, fullName, lastMovementAt }]` sin paginar, del más antiguo al más reciente; se declara antes de `/:uuid` para que no lo capture.
 - Prioridad: solo marca y filtro (`prioritySince`), no altera el orden de la lista. Migración sin backfill.
+
+## Niveles de acceso y atiende pacientes
+
+- Se reutiliza la columna `role` para el nivel; no hay columna nueva.
+- Bitácora en tabla `UserAudit`, escrita en la misma transacción que el cambio; incluye el nivel inicial al crear.
+- El actor se relee de la base en cada acción (activo y nivel vigente); el JWT no decide permisos de administración.
+- Los cambios de acceso aplican en el JWT al renovarlo (1 h) o antes con `POST /auth/refresh`.
+- medical-records usa el modelo de niveles: un solo `AccessGuard` (después de `AuthGuard`) lee `@AnyLevel()`, `@ClinicalAccess()`, `@MinLevel(ADMIN)` o `@RequiresSpecialty(AUDIOLOGY)`. Ruta sin clasificar, sin token o con rol viejo (DOCTOR, STAFF, USER, MEDICO) da 403. La prueba `route-access-coverage.spec.ts` falla si una ruta no tiene guards y clasificación (solo `initialize` y `GET /calendar-feed/:file` son públicas).
+- Clínico (exige `attendsPatients`, cualquier nivel): historia, evolución, encuentros, mantenimientos clínicos, otoscopías, audiometrías, preguntas, notas, controles, estudios, documentos del paciente y `upload/*`. Crear o editar pruebas (audiometría, otoscopía) exige además AUDIOLOGY; ver no.
+- Cualquier nivel: datos generales del paciente, contactos, citas, agenda, dispositivos, inventario, prioridad, sedes, envíos a laboratorio y la lectura de plantillas (clínicas y de documento: no tienen datos de pacientes y quien atiende las necesita aunque sea RECEPTION).
+- ADMIN u OWNER, atienda o no: editar sedes, tipos de cita, plantillas clínicas y de documento, y la bitácora (incluye `actors`, antes sin restricción).
+- Dudas resueltas por mínimo necesario: `physical-exam` PUT y preguntas son clínicos sin AUDIOLOGY (no son pruebas); `/maintenance` y `patients/:uuid/maintenances` (GET y notas) son clínicos; el marcado de estado de un mantenimiento sigue en cualquier nivel; `audiometry-type` GET es clínico; notas de envíos a laboratorio y de flags solo si atiende.
+- Riesgo residual: `GET /patients/:uuid` y `DELETE /patients/:uuid` siguen en cualquier nivel; el registro general puede traer bloodType, gender y statusReason.
+- La variable de plantilla "profesional" se resuelve en el front, no en el API.
+
+## 2026-11-09 - Correcciones de la revisión de niveles
+
+- Último OWNER atómico: degradar o desactivar a un OWNER corre en una `$transaction` que bloquea con `SELECT ... FOR UPDATE` a los OWNER activos de la clínica y falla (400) si sin el objetivo no queda ninguno (`UserStorage.update` y `updateStatus`, parámetro `requireOtherOwner`). El chequeo previo del use case queda como respuesta rápida. Prueba con peticiones paralelas: `last-owner-race.db.spec.ts` (`IDENTITY_DB_TESTS=1` + `IDENTITY_DB_URL`).
+- Migración `20261109120000` (aún sin producción, editada): usa `UPPER(TRIM(role))`, respalda `id, role, specialty` en `"_UserRoleBackup20261109"` antes de transformar y borrar `specialty`. Mapeo: OWNER -> OWNER atiende AUDIOLOGY; ADMIN -> ADMIN no atiende; DOCTOR -> RECEPTION atiende AUDIOLOGY; todo lo demás (STAFF, USER, MEDICO, nulo, desconocido) -> RECEPTION no atiende.
+- Antes de mergear a main, correr en producción (solo lectura) `SELECT role, count(*) FROM "User" GROUP BY role` y confirmar que ningún valor inesperado cae en RECEPTION por error. La tabla de respaldo se borra cuando se confirme el resultado.
+
+
+## D-sedes: administración de sedes
+
+- Una sede nunca se borra, solo se desactiva y reactiva.
+- El nombre es único por clínica sin distinguir mayúsculas ni tildes; se compara en código (NFD) sobre las sedes de la clínica. Una carrera entre dos altas simultáneas con el mismo nombre es posible y se acepta.
+- Sede desactivada en registros nuevos: 400. Conservar la sede que el paciente o la cita ya tenían sigue permitido.
+- El 409 por nombre repetido lleva el código `BRANCH_NAME_ALREADY_EXISTS` en la excepción, pero `GlobalExceptionFilter` no lo expone en el JSON; el front distingue por status 409.
+- No hay bitácora de configuración, así que no se registra el cambio.
+
+## 2026-11-09 - Pedidos de la clínica: equipos y prioridad
+
+- Equipos por clínica en `ClinicEquipment`, sin borrado: desactivar es `isActive` en el PATCH (como sedes). `GET /equipment` es de cualquier nivel porque quien atiende elige el equipo al guardar la audiometría; crear y editar piden ADMIN+.
+- Duplicados: se validan en el caso de uso (409 `EQUIPMENT_ALREADY_EXISTS`) y un índice único sobre `lower(btrim(brand))`, `lower(btrim(model))` por clínica cubre las carreras. Prisma no modela ese índice: `migrate diff` lo puede mostrar como diferencia.
+- La audiometría guarda copia de marca y modelo además de la llave (`ON DELETE SET NULL`), para que el historial no cambie si el equipo se edita.
+- La prioridad pasa por la transacción del envío (`runLocked`) para que la nota de evolución y la bitácora queden o no junto con el cambio. Los permisos de `flags` no cambian (D80).
+- Los tests de flags que suponían envío o prioridad sin nota ni motivo se ajustaron al nuevo requisito.
+- El motivo de prioridad (`priorityReason`) y quién la marcó (`priorityByName`) son datos clínicos: se ocultan a quien no atiende pacientes en lista y detalle (`filterPatientClinicalFields`).
+- Volver a marcar prioridad con motivo a un paciente ya marcado responde 409 `PATIENT_ALREADY_PRIORITY` (no pisa el motivo); sin motivo sigue siendo un no-op.
+- Corregir la fecha de un dato viejo (en laboratorio, sin envío abierto) crea la fila del envío sin nota de evolución; la nota de envío solo sale cuando el interruptor pasa de apagado a encendido.
+- Marca y modelo de equipos se guardan con trim y espacios internos colapsados, para coincidir con el índice único y con `equipmentKey`.
+- Riesgo conocido: Zynka (`next-audiology-files`) no manda `equipmentUuid`; en una clínica con equipos activos su POST de audiometría responde 400 `EQUIPMENT_REQUIRED`. Zynka está pausado y se deja así.
+
+## 2026-11-09 - Sedes: última sede activa y citas con sede desactivada
+
+- No se puede desactivar la única sede activa de la clínica: 409 con `error.code = BRANCH_LAST_ACTIVE` y mensaje "No puedes desactivar la única sede activa". Las sedes de otra clínica no cuentan. Reactivar siempre se permite. `GlobalExceptionFilter` sí expone el `code` en `error.code` (corrige la nota anterior de D-sedes); aun así el front puede distinguir por 409 en la acción de desactivar.
+- Una cita existente cuya sede se desactiva conserva su sede al reagendarla (`alreadyHeld`). El API no exige `branchUUID` al agendar para no romper a Zynka; el front evita enviar sin sede.
+
+## 2026-11-09 - Cambiar la propia contraseña
+
+- `PUT /users/me/password` (cualquier rol autenticado): el usuario sale del JWT, nunca de la URL; la ruta se declara antes de `:uuid/password`. Pide la actual y la nueva (la confirmación se valida en el front). 400 `INVALID_CURRENT_PASSWORD` o `SAME_PASSWORD`; la sesión actual no se invalida.
+- Queda en la bitácora de usuarios con `field = PASSWORD` y `before`/`after` nulos (nunca un valor de contraseña). `UserAudit.field` es texto: no hubo migración. No hay límite de intentos (ni en login ni aquí).
+- Sin límite de intentos en `PUT /users/me/password` porque el API no tiene throttler. Pendiente: agregarlo (5 intentos por 15 min por usuario) y que el refresh rechace tokens emitidos antes de un cambio de contraseña.
+- La nueva y la actual aceptan hasta 72 bytes UTF-8 (tope de bcrypt, que ignora el resto); el reseteo del administrador también deja bitácora `PASSWORD` sin valores.
+
+## 2026-11-10 - Firma del profesional: `GET /users/:uuid/signature`
+
+- El informe de audiometría se firma con nombre, título y colegiado del autor. `GET /users` es solo para administración y `GET /users/:uuid` solo da nombre a quien no administra, así que la firma variaba según quién imprimía. No existía otro endpoint con título y colegiado, por eso se agregó este.
+- Lo puede llamar cualquier usuario autenticado de la clínica y responde únicamente `{ uuid, fullName, professionalTitle, licenseNumber }`; sin email, rol ni estado. Busca por `{ uuid, tenant }`: otra clínica o inexistente responde 404.
+- Devuelve también usuarios inactivos: un informe viejo de alguien que ya no trabaja ahí debe seguir firmado igual.
+- Cualquier usuario de la clínica puede leer el título y el colegiado de otro: es un dato público del Colegio.
+- El nombre de la firma es el `createdByName` del registro (el de quien lo creó); el título y el colegiado son los actuales del usuario.
+- Orden de despliegue: el API va antes que el front, que ya llama a este endpoint.
+- `findByUuidAndTenant` devuelve `null` si la clínica viene vacía o undefined: con undefined Prisma deja de filtrar y un JWT válido sin claim de clínica leería usuarios de cualquiera. Es el único método `...AndTenant` del storage.

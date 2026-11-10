@@ -4,6 +4,7 @@ import {
   PatientWithNextAppointment,
 } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { Injectable } from '@nestjs/common';
+import { filterPatientClinicalFields } from '@medical-records/domain/policies/patient-clinical-fields.policy';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 
 @Injectable()
@@ -18,8 +19,9 @@ export class GetPatientsUseCase {
     search?: string,
     nextAppointmentMonths?: string[],
     filters: PatientListFilters = {},
+    attendsPatients = false,
   ): Promise<PaginatedResponse<PatientWithNextAppointment>> {
-    return await this.patientStorage.findAllByTenant(
+    const result = await this.patientStorage.findAllByTenant(
       tenantUUID,
       page,
       limit,
@@ -28,5 +30,9 @@ export class GetPatientsUseCase {
       nextAppointmentMonths,
       filters,
     );
+    return {
+      ...result,
+      data: result.data.map((patient) => filterPatientClinicalFields(patient, attendsPatients)),
+    };
   }
 }

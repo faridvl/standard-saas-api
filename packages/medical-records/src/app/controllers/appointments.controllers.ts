@@ -11,6 +11,8 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel } from '@medical-records/app/decorators/access.decorators';
 import { PaginatedResponse } from '@project/core/domain/types/pagination.types';
 
 // Use Cases
@@ -35,7 +37,8 @@ import {
 } from '@medical-records/domain/use-cases/appointments/find-byPatient-appointment.use-case';
 
 @Controller('appointments')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class AppointmentController {
   constructor(
     private readonly createUseCase: CreateAppointmentUseCase,

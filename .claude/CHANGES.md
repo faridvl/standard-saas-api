@@ -28,6 +28,8 @@
 - Medical records service: audiometría marcada como "mal hecha" — `POST /patients/:patientUuid/audiometry-entries/:entryUuid/invalidate` con `{ reason }` (obligatorio, máximo 500 caracteres), definitiva (409 si ya está marcada), el payload no cambia. Lista y detalle devuelven `invalidatedAt`, `invalidatedByUuid`, `invalidatedByName` e `invalidationReason`. Migración `20261108140000_patient_audiometry_entry_invalidation`, aplicada solo en la base local de pruebas
 - Identity service: nombre y logo de la clínica — `PATCH /tenants/current` acepta `name`; `POST` y `DELETE /tenants/current/logo` (PNG/JPG/WEBP/SVG, 2 MB, OWNER y ADMIN); `Tenant.logoKey` y `logoUrl` resuelto en `/auth/me` y `/tenants/current`. Migración `20261108150000_tenant_logo_key`
 - Identity service: datos de contacto de la clínica — `Tenant.phone/email/address`, `GET` y `PATCH /tenants/current` (escritura solo OWNER y ADMIN); variables de plantilla `otoscopia_od/oi`, `diagnostico`, `observaciones` y `clinica_*`. Migración `20261108130000_tenant_contact_fields`
+- Identity service: administración de usuarios por el OWNER — `POST /users`, `PATCH /users/:uuid` (con `role`), `PATCH /users/:uuid/status`, `PUT /users/:uuid/password`, `DELETE /users/:uuid` (desactiva) y `GET /users?status=`. Un INACTIVE no inicia sesión. Medical-records refresca la copia local del usuario cada 5 minutos. Sin migración (el enum `Status` ya existía)
+- Identity service: corrección de la administración de usuarios — OWNER ya no es asignable, el actor se relee de la base, un OWNER no administra a otro, firma y foto solo del dueño con URL del bucket propio, correos en minúsculas, `limit` máximo 100 y default de `User.role` a STAFF. Migración `20261108160000_user_role_default_staff`
 
 ## 🔄 EN PROGRESO
 
@@ -75,3 +77,20 @@ _(nothing currently marked as in-progress in code)_
 - **`packages/core/src/index.ts`**: Exports `ZodValidationPipe` and `GlobalExceptionFilter` twice (duplicate export lines) — cosmetic issue.
 - **DELETE /appointments/:uuid**: Route exists in controller file but is commented out — endpoint not available.
 - **followUp block in `CreateMedicalControlUseCase`**: 8-line commented block for saving follow-up data. FollowUp table doesn't exist in schema yet.
+
+## 2026-11-09: pedidos de la clínica (prioridad, laboratorio, Weber, equipos)
+
+- `PUT /patients/:uuid/flags`: marcar prioridad exige `priorityReason` (400 si falta) y deja nota de Control de evolución; el paciente devuelve `priorityReason`, `prioritySince` y `priorityByName`.
+- Envíos al laboratorio: enviar y recibir dejan nota de evolución con fecha de Costa Rica; corregir la fecha de un envío abierto no.
+- Audiometría: Weber acepta `NO_RESPONSE`.
+- Equipos de la clínica: `GET/POST /equipment`, `PATCH /equipment/:uuid`; `equipmentUuid` en la audiometría nueva y `equipment` en detalle e historial.
+- Migración `20261109200000_priority_reason_and_equipment`.
+
+## 2026-11-09: administración de sedes
+
+- `GET/POST/PATCH /branches` para crear, editar, desactivar y reactivar sedes desde Configuración.
+- Una sede desactivada no se ofrece para pacientes ni citas nuevos.
+
+## 2026-11-09: código de negocio en los errores
+
+- El filtro global de excepciones ahora devuelve `code` (primer nivel del cuerpo) cuando el error lo trae, p. ej. `EQUIPMENT_REQUIRED`, `EQUIPMENT_ALREADY_EXISTS`, `PATIENT_ALREADY_PRIORITY`. Solo se agrega el campo; el resto de la respuesta no cambia.

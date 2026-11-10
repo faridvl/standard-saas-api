@@ -12,6 +12,8 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel, PatientEditAccess } from '@medical-records/app/decorators/access.decorators';
 import {
   CreatePatientContactDto,
   CreatePatientContactSchema,
@@ -25,7 +27,8 @@ import { SyncPatientContactsUseCase } from '@medical-records/domain/use-cases/pa
 import { PatientContact } from '@prisma/client';
 
 @Controller('patients/:patientUuid/contacts')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class PatientContactController {
   constructor(
     private readonly createUseCase: CreatePatientContactUseCase,
@@ -43,6 +46,7 @@ export class PatientContactController {
   }
 
   @Post()
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(CreatePatientContactSchema))
   async create(
     @Param('patientUuid') patientUuid: string,
@@ -61,6 +65,7 @@ export class PatientContactController {
   }
 
   @Put()
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(SyncPatientContactsSchema))
   async sync(
     @Param('patientUuid') patientUuid: string,
@@ -71,6 +76,7 @@ export class PatientContactController {
   }
 
   @Delete(':contactUuid')
+  @PatientEditAccess()
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @Param('contactUuid') contactUuid: string,

@@ -1,18 +1,7 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  SetMetadata,
-  UseGuards,
-  UsePipes,
-} from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
-import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+import { Body, Controller, Get, Param, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import {
   CreatePatientNoteDto,
   CreatePatientNoteSchema,
@@ -25,8 +14,8 @@ import {
 
 /** Control de evolución: notas clínicas, fuera del alcance de STAFF. */
 @Controller('patients/:patientUuid/notes')
-@UseGuards(AuthGuard, RolesGuard)
-@SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class PatientNoteController {
   constructor(
     private readonly createUseCase: CreatePatientNoteUseCase,

@@ -34,7 +34,7 @@ const WEBER_FREQUENCIES_HZ = ['500', '1000', '2000', '4000'] as const;
 
 export const AudiometryEarSchema = z.enum(['RIGHT', 'LEFT']);
 export const AudiometryToolSchema = z.enum(['AIR', 'BONE', 'UCL', 'MCL', 'FREE_FIELD']);
-export const WeberResultSchema = z.enum(['CENTER', 'RIGHT', 'LEFT']);
+export const WeberResultSchema = z.enum(['CENTER', 'RIGHT', 'LEFT', 'NO_RESPONSE']);
 export const PtaTypeSchema = z.enum(['PTA_512', 'PTA_5124', 'PTA_124', 'PTA_251']);
 export const GradingScaleSchema = z.enum(['ASHA', 'BIAP']);
 export const HearingGradeSchema = z.enum([
@@ -222,16 +222,21 @@ export const ScreeningPayloadV1Schema = z.object({
   notes: z.object({ observations: notesText }),
 });
 
+/** Equipo con que se hizo la prueba; la regla de si es obligatorio depende de la clínica. */
+const EquipmentUuidSchema = z.string().uuid().optional();
+
 const ClinicalEntryBodySchema = z.object({
   typeCode: z.literal('CLINICAL'),
   schemaVersion: z.literal(AUDIOMETRY_SCHEMA_VERSION),
   payload: AudiometryPayloadV1Schema,
+  equipmentUuid: EquipmentUuidSchema,
 });
 
 const ScreeningEntryBodySchema = z.object({
   typeCode: z.literal('SCREENING'),
   schemaVersion: z.literal(AUDIOMETRY_SCHEMA_VERSION),
   payload: ScreeningPayloadV1Schema,
+  equipmentUuid: EquipmentUuidSchema,
 });
 
 /** `typeCode` es opcional por compatibilidad: sin él, el body se trata como clínico. */

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PatientDocument } from '@prisma/client';
 import { PatientDocumentStorage } from '@medical-records/infrastructure/adapters/patientDocumentRepository/patient-document.storage';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
@@ -12,6 +12,11 @@ export class DeletePatientDocumentUseCase {
   ) {}
 
   async execute(uuid: string, tenantUuid: string, actorUuid?: string): Promise<PatientDocument> {
+    const existing = await this.storage.findByUuid(uuid, tenantUuid);
+    if (!existing) {
+      throw new NotFoundException(`Documento con UUID ${uuid} no encontrado`);
+    }
+
     const document = await this.storage.delete(uuid, tenantUuid);
 
     if (actorUuid) {

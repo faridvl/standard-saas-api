@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { TenantStorage } from '../../../infrastructure/adapters/tenant.storage';
 import { TenantDomain } from '../../types/auth.types';
 
@@ -18,7 +18,7 @@ export class UpdateTenantUseCase {
     data: UpdateTenantData,
   ): Promise<TenantDomain> {
     if (uuid !== requesterTenantUuid) {
-      throw new ForbiddenException('No tienes permiso para modificar este tenant');
+      throw new NotFoundException('Tenant no encontrado');
     }
 
     const existing = await this.tenantStorage.findByUuid(uuid);

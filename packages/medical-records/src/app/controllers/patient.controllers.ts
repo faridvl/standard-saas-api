@@ -9,18 +9,21 @@ import {
   Param,
   Patch,
   Put,
-  SetMetadata,
   Delete,
   HttpCode,
   HttpStatus,
-  ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessLevel } from '@medical-records/domain/policies/access.policy';
+import { filterPatientClinicalFields } from '@medical-records/domain/policies/patient-clinical-fields.policy';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
 import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+  AnyLevel,
+  ClinicalAccess,
+  MinLevel,
+  PatientEditAccess,
+} from '@medical-records/app/decorators/access.decorators';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
 import { GetPatientsUseCase } from '@medical-records/domain/use-cases/get-patients.use-case';
@@ -75,7 +78,6 @@ import { PatientBackgroundEntity } from '@medical-records/domain/entities/patien
 
 // STAFF (recepción) no tiene acceso a antecedentes: son datos de salud
 // sensibles (Ley 8968), no información administrativa.
-const STAFF_ROLE = 'STAFF';
 
 /** "a,b" -> ['a', 'b']; vacío o ausente = sin filtrar. */
 function parseList(value: string | undefined): string[] | undefined {
@@ -119,7 +121,8 @@ function parseDayKey(value?: string): string | undefined {
 }
 
 @Controller('patients')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class PatientController {
   constructor(
     private readonly createUseCase: CreatePatientUseCase,
@@ -153,12 +156,17 @@ export class PatientController {
 
   @Post()
   @UsePipes(new ZodValidationPipe(CreatePatientSchema))
-  async create(@Body() body: CreatePatientDto, @CurrentUser() user: JwtPayload): Promise<PatientRecord> {
-    return await this.createUseCase.execute(body, {
+  async create(
+    @Body() body: CreatePatientDto,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientRecord> {
+    const created = await this.createUseCase.execute(body, {
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
       sub: user.sub,
+      attendsPatients: user.attendsPatients === true,
     });
+    return filterPatientClinicalFields(created, user.attendsPatients === true);
   }
 
   @Get()
@@ -203,6 +211,7 @@ export class PatientController {
         hearingAidsInLabSentDay: parseDayKey(hearingAidsInLabDate),
         nextAppointmentKinds: parseKinds(nextAppointmentKind),
       },
+      user.attendsPatients === true,
     );
   }
 
@@ -213,53 +222,78 @@ export class PatientController {
   }
 
   @Delete(':uuid')
+  @MinLevel(AccessLevel.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async softDelete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.softDeletePatientUseCase.execute(uuid, user.tenantUuid);
   }
 
   @Get(':uuid')
-  async findOne(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<PatientRecord> {
-    return await this.getPatientByUuidUseCase.execute(uuid, user.tenantUuid);
+  async findOne(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: JwtPayload,
+  ): Promise<PatientRecord> {
+    return await this.getPatientByUuidUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      user.attendsPatients === true,
+    );
   }
 
   @Patch(':uuid')
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientSchema))
   async update(
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
+    const updated = await this.updatePatientUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      dto,
+      user.sub,
+      user.attendsPatients === true,
+    );
+    return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
 
   @Put(':uuid/status')
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientStatusSchema))
   async updateStatus(
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientStatusDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.updatePatientStatusUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
+    const updated = await this.updatePatientStatusUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      user.sub,
+      dto,
+    );
+    return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
 
   @Put(':uuid/flags')
+  @ClinicalAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientFlagsSchema))
   async updateFlags(
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientFlagsDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    return await this.updatePatientFlagsUseCase.execute(
+    const updated = await this.updatePatientFlagsUseCase.execute(
       uuid,
       user.tenantUuid,
       user.sub,
       dto,
-      user.role,
     );
+    return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
 
   @Put(':uuid/maintenances/:number')
+  @ClinicalAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientMaintenanceSchema))
   async updateMaintenance(
     @Param('uuid') uuid: string,
@@ -281,36 +315,27 @@ export class PatientController {
   }
 
   @Get(':uuid/background')
+  @ClinicalAccess()
   async getBackground(
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientBackgroundEntity | null> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException(
-        'El personal administrativo no tiene acceso a antecedentes clínicos',
-      );
-    }
     return await this.findBackgroundUseCase.execute(uuid, user.tenantUuid);
   }
 
   @Put(':uuid/background')
+  @ClinicalAccess()
   @UsePipes(new ZodValidationPipe(UpsertPatientBackgroundSchema))
   async upsertBackground(
     @Param('uuid') uuid: string,
     @Body() dto: UpsertPatientBackgroundDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientBackgroundEntity> {
-    if (user.role === STAFF_ROLE) {
-      throw new ForbiddenException(
-        'El personal administrativo no tiene acceso a antecedentes clínicos',
-      );
-    }
     return await this.upsertBackgroundUseCase.execute(uuid, user.tenantUuid, user.sub, dto);
   }
 
   @Get(':uuid/physical-exam')
-  @UseGuards(RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @ClinicalAccess()
   async getPhysicalExam(
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
@@ -319,8 +344,7 @@ export class PatientController {
   }
 
   @Put(':uuid/physical-exam')
-  @UseGuards(RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @ClinicalAccess()
   @UsePipes(new ZodValidationPipe(UpsertPatientPhysicalExamSchema))
   async upsertPhysicalExam(
     @Param('uuid') uuid: string,

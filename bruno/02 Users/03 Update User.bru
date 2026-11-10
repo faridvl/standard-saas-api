@@ -1,0 +1,36 @@
+meta {
+  name: Update User
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{identityUrl}}/users/:uuid
+  body: json
+  auth: bearer
+}
+
+params:path {
+  uuid: 
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "fullName": "Dra. María López Mora",
+    "phoneNumber": "+50688001234",
+    "specialty": "Audiología",
+    "role": "ADMIN"
+  }
+}
+
+docs {
+  Perfil propio: sin "role". Con "role" solo el OWNER activo, nunca sobre sí mismo y nunca OWNER (400). Otro OWNER: 403. signatureUrl/avatarUrl: solo el dueño (403) y URL https del bucket propio o null.
+}

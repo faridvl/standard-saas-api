@@ -5,7 +5,8 @@
   "types": "dist/index.d.ts",
   "private": true,
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "test": "jest -c jest.config.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.840.0",

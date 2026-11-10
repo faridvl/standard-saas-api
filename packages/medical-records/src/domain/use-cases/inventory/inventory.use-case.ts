@@ -29,6 +29,7 @@ export class ProductManagerUseCase {
   }
 
   async toggleStatus(tenantUuid: string, uuid: string, status: boolean): Promise<void> {
+    await this.getDetail(tenantUuid, uuid);
     await this.storage.toggleStatus(uuid, tenantUuid, status);
   }
 }

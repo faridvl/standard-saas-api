@@ -21,7 +21,10 @@ export class CreatePatientDeviceUseCase {
   ) {}
 
   async execute(data: CreatePatientDeviceData): Promise<PatientDeviceWithProductUnit> {
-    const unit = await this.unitStorage.findOne(data.productUnitUuid);
+    if (!(await this.storage.patientExists(data.patientUuid, data.tenantUuid))) {
+      throw new NotFoundException('Paciente no encontrado');
+    }
+    const unit = await this.unitStorage.findOne(data.productUnitUuid, data.tenantUuid);
     if (!unit) throw new NotFoundException('Unidad de producto no encontrada');
     if (unit.status !== 'AVAILABLE') {
       throw new ConflictException(
@@ -29,7 +32,7 @@ export class CreatePatientDeviceUseCase {
       );
     }
 
-    const unitId = await this.unitStorage.findRawId(data.productUnitUuid);
+    const unitId = await this.unitStorage.findRawId(data.productUnitUuid, data.tenantUuid);
 
     const device = await this.storage.create({
       patientUuid: data.patientUuid,
@@ -39,7 +42,7 @@ export class CreatePatientDeviceUseCase {
       notes: data.notes,
     });
 
-    await this.unitStorage.assign(data.productUnitUuid, data.patientUuid);
+    await this.unitStorage.assign(data.productUnitUuid, data.tenantUuid, data.patientUuid);
 
     return device;
   }

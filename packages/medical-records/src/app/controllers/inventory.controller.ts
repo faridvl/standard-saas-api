@@ -11,12 +11,15 @@ import {
   Delete,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel } from '@medical-records/app/decorators/access.decorators';
 import { ProductManagerUseCase } from '@medical-records/domain/use-cases/inventory/inventory.use-case';
 import { ProductDto, ProductSchema } from '../dtos/inventory.dto';
 import { Product } from '@medical-records/domain/types/product.types';
 
 @Controller('products')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class ProductController {
   constructor(private readonly productManager: ProductManagerUseCase) {}
 

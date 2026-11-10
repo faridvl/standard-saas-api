@@ -12,6 +12,9 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel, MinLevel } from '@medical-records/app/decorators/access.decorators';
+import { AccessLevel } from '@medical-records/domain/policies/access.policy';
 import { CreateClinicalTemplateUseCase } from '@medical-records/domain/use-cases/clinical-templates/create-clinical-template.use-case';
 import { FindAllClinicalTemplatesUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-all-clinical-templates.use-case';
 import { FindClinicalTemplateBySpecialityUseCase } from '@medical-records/domain/use-cases/clinical-templates/find-clinical-template-by-speciality.use-case';
@@ -27,7 +30,8 @@ import {
 import { ClinicalTemplateEntity } from '@medical-records/domain/entities/clinical-template.entity';
 
 @Controller('clinical-templates')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class ClinicalTemplateController {
   constructor(
     private readonly createUseCase: CreateClinicalTemplateUseCase,
@@ -60,30 +64,33 @@ export class ClinicalTemplateController {
   }
 
   @Post()
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(CreateClinicalTemplateSchema))
   async create(
     @Body() dto: CreateClinicalTemplateDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<ClinicalTemplateEntity> {
-    return await this.createUseCase.execute(user.tenantUuid, dto, user.role);
+    return await this.createUseCase.execute(user.tenantUuid, dto);
   }
 
   @Patch(':uuid')
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(UpdateClinicalTemplateSchema))
   async update(
     @Param('uuid') uuid: string,
     @Body() dto: UpdateClinicalTemplateDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<ClinicalTemplateEntity> {
-    return await this.updateUseCase.execute(uuid, user.tenantUuid, dto, user.role);
+    return await this.updateUseCase.execute(uuid, user.tenantUuid, dto);
   }
 
   @Delete(':uuid')
+  @MinLevel(AccessLevel.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(
     @Param('uuid') uuid: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<{ success: boolean }> {
-    return await this.deleteUseCase.execute(uuid, user.tenantUuid, user.role);
+    return await this.deleteUseCase.execute(uuid, user.tenantUuid);
   }
 }

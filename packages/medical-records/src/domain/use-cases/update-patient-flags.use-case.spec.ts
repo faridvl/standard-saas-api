@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { UpdatePatientFlagsUseCase } from './update-patient-flags.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
 
@@ -27,7 +22,7 @@ const OTHER_SHIPMENT_UUID = '11111111-1111-4111-8111-111111111111';
 const noon = (day: string) => new Date(`${day}T12:00:00.000Z`);
 
 describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
-  let flags: Record<string, Date | null>;
+  let flags: Record<string, Date | string | null>;
   let shipments: Shipment[];
   let notes: { authorUuid: string; text: string }[];
   let activities: Record<string, unknown>[];
@@ -37,7 +32,6 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       tenantUuid: string,
       actorUuid: string,
       dto: never,
-      role?: string,
     ) => ReturnType<UpdatePatientFlagsUseCase['execute']>;
   };
 
@@ -52,6 +46,8 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       warrantyExpiredSince: null,
       renewPrescriptionSince: null,
       prioritySince: null,
+      priorityReason: null,
+      priorityByUuid: null,
     };
     shipments = [];
     notes = [];
@@ -60,7 +56,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     const storage = {
       findByUuid: (uuid: string, tenantUuid: string) =>
         Promise.resolve(uuid === PATIENT && tenantUuid === TENANT ? { uuid, ...flags } : null),
-      updateFlags: (_u: string, _t: string, data: Record<string, Date | null>) => {
+      updateFlags: (_u: string, _t: string, data: Record<string, Date | string | null>) => {
         Object.assign(flags, data);
         return Promise.resolve({ uuid: PATIENT, ...flags });
       },
@@ -112,7 +108,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
               if (s) Object.assign(s, data);
               return Promise.resolve();
             },
-            updateFlags: (data: Record<string, Date | null>) => {
+            updateFlags: (data: Record<string, Date | string | null>) => {
               Object.assign(flags, data);
               return Promise.resolve();
             },
@@ -146,8 +142,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       recordActivity as never,
     );
     useCase = {
-      execute: (uuid, tenantUuid, actorUuid, dto, role = 'DOCTOR') =>
-        real.execute(uuid, tenantUuid, actorUuid, dto, role),
+      execute: (uuid, tenantUuid, actorUuid, dto) => real.execute(uuid, tenantUuid, actorUuid, dto),
     };
   });
 
@@ -204,7 +199,12 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       deliveredByUuid: 'user-2',
     });
     expect(flags.hearingAidsInLabSince).toBeNull();
-    expect(notes).toEqual([{ authorUuid: 'user-2', text: 'Se cambió el receptor' }]);
+    expect(notes.slice(1)).toEqual([
+      {
+        authorUuid: 'user-2',
+        text: 'Audífonos recibidos del laboratorio el 01/11/2026: Se cambió el receptor',
+      },
+    ]);
     expect(activities).toEqual([
       expect.objectContaining({
         action: PatientActivityAction.HEARING_AIDS_DELIVERED,
@@ -215,7 +215,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     expect(JSON.stringify(activities[0])).not.toContain('receptor');
   });
 
-  it('entregar sin nota usa hoy y no crea nota de evolución', async () => {
+  it('entregar sin nota usa hoy y deja la nota de recepción sin texto adicional', async () => {
     await useCase.execute(PATIENT, TENANT, ACTOR, {
       hearingAidsInLab: true,
       hearingAidsInLabDate: '2026-10-30',
@@ -223,7 +223,10 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     await useCase.execute(PATIENT, TENANT, ACTOR, { hearingAidsInLab: false } as never);
 
     expect(shipments[0]).toMatchObject({ deliveredAt: noon('2026-11-02'), note: null });
-    expect(notes).toEqual([]);
+    expect(notes.map((n) => n.text)).toEqual([
+      'Audífonos enviados al laboratorio el 30/10/2026',
+      'Audífonos recibidos del laboratorio el 02/11/2026',
+    ]);
   });
 
   it('una entrega anterior al envío responde 400 y no cambia nada', async () => {
@@ -245,7 +248,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     );
     expect(shipments[0].deliveredAt).toBeNull();
     expect(flags.hearingAidsInLabSince).not.toBeNull();
-    expect(notes).toEqual([]);
+    expect(notes.map((n) => n.text)).toEqual(['Audífonos enviados al laboratorio el 30/10/2026']);
   });
 
   it('una entrega en el futuro responde 400', async () => {
@@ -289,7 +292,9 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
         deliveredAt: '2026-10-19',
       } as never),
     ).rejects.toThrow(
-      new BadRequestException('La fecha de entrega no puede ser anterior a la de envío (20/10/2026)'),
+      new BadRequestException(
+        'La fecha de entrega no puede ser anterior a la de envío (20/10/2026)',
+      ),
     );
     expect(shipments).toEqual([]);
     expect(flags.hearingAidsInLabSince).toEqual(noon('2026-10-20'));
@@ -438,56 +443,108 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     });
   });
 
-  describe('nota de la entrega según el rol', () => {
+  describe('nota de la entrega', () => {
     const sendToLab = () =>
       useCase.execute(PATIENT, TENANT, ACTOR, {
         hearingAidsInLab: true,
         hearingAidsInLabDate: '2026-10-30',
       } as never);
 
-    it('STAFF con nota responde 403 y no cambia nada', async () => {
+    it('entregar sin nota cierra el envío', async () => {
       await sendToLab();
 
-      await expect(
-        useCase.execute(
-          PATIENT,
-          TENANT,
-          ACTOR,
-          { hearingAidsInLab: false, note: 'Texto clínico' } as never,
-          'STAFF',
-        ),
-      ).rejects.toThrow(new ForbiddenException('Solo el personal clínico puede agregar notas.'));
-      expect(open()).toBeDefined();
-      expect(notes).toEqual([]);
-    });
-
-    it('STAFF sin nota puede entregar', async () => {
-      await sendToLab();
-
-      await useCase.execute(
-        PATIENT,
-        TENANT,
-        ACTOR,
-        { hearingAidsInLab: false, deliveredAt: '2026-11-01' } as never,
-        'STAFF',
-      );
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        deliveredAt: '2026-11-01',
+      } as never);
 
       expect(shipments[0].deliveredAt).toEqual(noon('2026-11-01'));
       expect(flags.hearingAidsInLabSince).toBeNull();
     });
 
-    it.each(['OWNER', 'ADMIN', 'DOCTOR'])('%s puede dejar la nota', async (role) => {
+    it('entregar con nota deja la nota de evolución', async () => {
       await sendToLab();
 
-      await useCase.execute(
-        PATIENT,
-        TENANT,
-        ACTOR,
-        { hearingAidsInLab: false, note: 'Nota' } as never,
-        role,
-      );
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        note: 'Nota',
+      } as never);
 
-      expect(notes).toEqual([{ authorUuid: ACTOR, text: 'Nota' }]);
+      expect(notes.map((n) => n.text)).toEqual([
+        'Audífonos enviados al laboratorio el 30/10/2026',
+        'Audífonos recibidos del laboratorio el 02/11/2026: Nota',
+      ]);
+    });
+
+    it('entregar sin nota deja una nota de recepción sin el sufijo', async () => {
+      await sendToLab();
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        deliveredAt: '2026-11-01',
+      } as never);
+
+      expect(notes).toHaveLength(2);
+      expect(notes[1]).toEqual({
+        authorUuid: ACTOR,
+        text: 'Audífonos recibidos del laboratorio el 01/11/2026',
+      });
+    });
+
+    it('un envío nuevo deja la nota de envío con la fecha en hora de Costa Rica y su evento', async () => {
+      await sendToLab();
+
+      expect(notes).toEqual([
+        { authorUuid: ACTOR, text: 'Audífonos enviados al laboratorio el 30/10/2026' },
+      ]);
+      expect(activities).toContainEqual(
+        expect.objectContaining({
+          action: PatientActivityAction.NOTE_ADDED,
+          detail: {
+            category: 'EVOLUTION_CONTROL',
+            excerpt: 'Audífonos enviados al laboratorio el 30/10/2026',
+          },
+        }),
+      );
+    });
+
+    it('corregir la fecha de un envío abierto no deja nota', async () => {
+      await sendToLab();
+      notes.length = 0;
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-28',
+      } as never);
+
+      expect(notes).toEqual([]);
+    });
+
+    it('corregir la fecha de un dato viejo sin envío abierto crea la fila sin nota', async () => {
+      flags.hearingAidsInLabSince = noon('2026-10-20');
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-22',
+      } as never);
+
+      expect(shipments).toEqual([expect.objectContaining({ sentAt: noon('2026-10-22') })]);
+      expect(open()).toBeDefined();
+      expect(notes).toEqual([]);
+    });
+
+    it('entregar un dato viejo sin envío abierto deja la nota de recepción', async () => {
+      flags.hearingAidsInLabSince = noon('2026-10-20');
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        deliveredAt: '2026-11-01',
+        note: 'Listo',
+      } as never);
+
+      expect(notes.map((n) => n.text)).toEqual([
+        'Audífonos recibidos del laboratorio el 01/11/2026: Listo',
+      ]);
     });
   });
 
@@ -534,27 +591,126 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     ]);
   });
 
-  it('marcar prioridad guarda la fecha y deja el evento; desmarcar la deja en null', async () => {
-    await useCase.execute(PATIENT, TENANT, ACTOR, { isPriority: true } as never);
+  describe('prioridad con motivo', () => {
+    const mark = (priorityReason?: string) =>
+      useCase.execute(PATIENT, TENANT, ACTOR, { isPriority: true, priorityReason } as never);
 
-    expect(flags.prioritySince).toEqual(NOW);
-    expect(activities).toEqual([
-      expect.objectContaining({
-        action: PatientActivityAction.PRIORITY_CHANGED,
-        detail: { isOn: true },
-      }),
-    ]);
+    it('marcar guarda motivo, quién y cuándo, deja la nota y los eventos', async () => {
+      await mark('  Pérdida de audición rápida  ');
 
-    activities.length = 0;
-    await useCase.execute(PATIENT, TENANT, ACTOR, { isPriority: false } as never);
+      expect(flags.prioritySince).toEqual(NOW);
+      expect(flags.priorityReason).toBe('Pérdida de audición rápida');
+      expect(flags.priorityByUuid).toBe(ACTOR);
+      expect(notes).toEqual([
+        {
+          authorUuid: ACTOR,
+          text: 'Paciente marcado como prioridad: Pérdida de audición rápida',
+        },
+      ]);
+      expect(activities).toEqual([
+        expect.objectContaining({
+          action: PatientActivityAction.PRIORITY_CHANGED,
+          detail: { isOn: true },
+        }),
+        expect.objectContaining({
+          action: PatientActivityAction.NOTE_ADDED,
+          detail: {
+            category: 'EVOLUTION_CONTROL',
+            excerpt: 'Paciente marcado como prioridad: Pérdida de audición rápida',
+          },
+        }),
+      ]);
+    });
 
-    expect(flags.prioritySince).toBeNull();
-    expect(activities).toEqual([
-      expect.objectContaining({
-        action: PatientActivityAction.PRIORITY_CHANGED,
-        detail: { isOn: false },
-      }),
-    ]);
+    it('marcar sin motivo, vacío o solo con espacios responde 400 y no cambia nada', async () => {
+      await expect(mark()).rejects.toBeInstanceOf(BadRequestException);
+      await expect(mark('   ')).rejects.toBeInstanceOf(BadRequestException);
+
+      expect(flags.prioritySince).toBeNull();
+      expect(flags.priorityReason).toBeNull();
+      expect(notes).toEqual([]);
+      expect(activities).toEqual([]);
+    });
+
+    it('volver a marcar con otro motivo responde 409 con código y no cambia nada', async () => {
+      await mark('Motivo');
+      notes.length = 0;
+      activities.length = 0;
+
+      const error = await mark('Otro motivo').catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        message: 'El paciente ya está marcado como prioridad',
+        code: 'PATIENT_ALREADY_PRIORITY',
+      });
+      expect(flags.priorityReason).toBe('Motivo');
+      expect(notes).toEqual([]);
+      expect(activities).toEqual([]);
+    });
+
+    it('volver a marcar sin motivo sigue sin hacer nada', async () => {
+      await mark('Motivo');
+      notes.length = 0;
+
+      await expect(mark()).resolves.toBeDefined();
+
+      expect(flags.priorityReason).toBe('Motivo');
+      expect(notes).toEqual([]);
+    });
+
+    it('desmarcar limpia los tres campos y deja la nota de quitar prioridad', async () => {
+      await mark('Motivo');
+      notes.length = 0;
+      activities.length = 0;
+
+      await useCase.execute(PATIENT, TENANT, 'user-2', { isPriority: false } as never);
+
+      expect(flags.prioritySince).toBeNull();
+      expect(flags.priorityReason).toBeNull();
+      expect(flags.priorityByUuid).toBeNull();
+      expect(notes).toEqual([{ authorUuid: 'user-2', text: 'Se quitó la prioridad' }]);
+      expect(activities).toEqual([
+        expect.objectContaining({
+          action: PatientActivityAction.PRIORITY_CHANGED,
+          detail: { isOn: false },
+        }),
+        expect.objectContaining({ action: PatientActivityAction.NOTE_ADDED }),
+      ]);
+    });
+
+    it('marcar lo que ya está marcado no pide motivo ni deja nota', async () => {
+      await mark('Motivo');
+      notes.length = 0;
+      activities.length = 0;
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, { isPriority: true } as never);
+
+      expect(notes).toEqual([]);
+      expect(activities).toEqual([]);
+      expect(flags.priorityReason).toBe('Motivo');
+    });
+
+    it('desmarcar lo que no está marcado no deja nota', async () => {
+      await useCase.execute(PATIENT, TENANT, ACTOR, { isPriority: false } as never);
+
+      expect(notes).toEqual([]);
+      expect(activities).toEqual([]);
+    });
+
+    it('marcar prioridad junto con enviar audífonos deja las dos notas', async () => {
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        isPriority: true,
+        priorityReason: 'Urgente',
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-30',
+      } as never);
+
+      expect(notes.map((n) => n.text).sort()).toEqual([
+        'Audífonos enviados al laboratorio el 30/10/2026',
+        'Paciente marcado como prioridad: Urgente',
+      ]);
+    });
   });
 
   it('un negocio ajeno no puede marcar prioridad en el paciente', async () => {

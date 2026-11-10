@@ -113,7 +113,7 @@ export class MedicalControlStorage {
     correctionNotes: string,
   ): Promise<MedicalControlEntity> {
     const record = await this.prisma.medicalControl.update({
-      where: { uuid },
+      where: { uuid, tenantUUID: tenantUuid },
       data: { correctionNotes },
     });
     return this.mapToEntity(record);

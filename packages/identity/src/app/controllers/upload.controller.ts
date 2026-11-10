@@ -24,6 +24,7 @@ import {
   detectClinicLogoFormat,
 } from '../../domain/utils/clinic-logo.util';
 import { assertCanManageClinic } from '../../domain/utils/clinic-permissions.util';
+import { toUserActor } from '../utils/user-actor.util';
 
 const UPLOAD_OPTIONS = {
   storage: memoryStorage(),
@@ -71,6 +72,8 @@ export class UploadController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
   ): Promise<{ url: string }> {
+    const actor = toUserActor(currentUser);
+    await this.updateUserUseCase.assertCanChangeOwnMedia(uuid, actor);
     const url = await this.storageService.upload(
       'identity',
       currentUser.tenantUuid,
@@ -78,7 +81,7 @@ export class UploadController {
       file,
       uuid,
     );
-    await this.updateUserUseCase.execute(uuid, currentUser.tenantUuid, { signatureUrl: url });
+    await this.updateUserUseCase.execute(uuid, actor, { signatureUrl: url });
     return { url };
   }
 
@@ -89,6 +92,8 @@ export class UploadController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: JwtPayload,
   ): Promise<{ url: string }> {
+    const actor = toUserActor(currentUser);
+    await this.updateUserUseCase.assertCanChangeOwnMedia(uuid, actor);
     const url = await this.storageService.upload(
       'identity',
       currentUser.tenantUuid,
@@ -96,7 +101,7 @@ export class UploadController {
       file,
       uuid,
     );
-    await this.updateUserUseCase.execute(uuid, currentUser.tenantUuid, { avatarUrl: url });
+    await this.updateUserUseCase.execute(uuid, actor, { avatarUrl: url });
     return { url };
   }
 }

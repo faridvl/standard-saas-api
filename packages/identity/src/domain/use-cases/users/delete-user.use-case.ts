@@ -1,15 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { UserStorage } from '../../../infrastructure/adapters/user.storage';
+import { Injectable } from '@nestjs/common';
+import { UserActor, UserStatus } from '../../types/user.types';
+import { SetUserStatusUseCase } from './set-user-status.use-case';
 
+/** No se borra: DELETE desactiva al usuario con las mismas reglas que `PATCH /users/:uuid/status`. */
 @Injectable()
 export class DeleteUserUseCase {
-  constructor(private readonly userStorage: UserStorage) {}
+  constructor(private readonly setUserStatus: SetUserStatusUseCase) {}
 
-  async execute(uuid: string, tenantUuid: string): Promise<{ success: boolean }> {
-    const existing = await this.userStorage.findByUuidAndTenant(uuid, tenantUuid);
-    if (!existing) throw new NotFoundException('Usuario no encontrado');
-
-    await this.userStorage.softDelete(uuid);
-    return { success: true };
+  async execute(uuid: string, actor: UserActor): Promise<void> {
+    await this.setUserStatus.execute(uuid, UserStatus.INACTIVE, actor);
   }
 }

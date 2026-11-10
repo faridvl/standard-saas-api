@@ -1,0 +1,23 @@
+meta {
+  name: Delete User
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{identityUrl}}/users/:uuid
+  body: none
+  auth: bearer
+}
+
+params:path {
+  uuid: 
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  No borra: desactiva al usuario (alias de Set User Status con INACTIVE). Solo OWNER activo. 400 si es uno mismo; 403 si el objetivo es otro OWNER. Responde 204.
+}

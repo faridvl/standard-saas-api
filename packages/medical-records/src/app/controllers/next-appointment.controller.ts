@@ -10,6 +10,8 @@ import {
   UsePipes,
 } from '@nestjs/common';
 import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { AnyLevel } from '@medical-records/app/decorators/access.decorators';
 import {
   ScheduleNextAppointmentDto,
   ScheduleNextAppointmentSchema,
@@ -26,7 +28,8 @@ import { Appointment } from '@medical-records/domain/types/appointment.types';
  * reemplaza (CANCELLED) cualquier cita CONFIRMED futura previa del paciente.
  */
 @Controller('patients/:patientUuid/next-appointment')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@AnyLevel()
 export class NextAppointmentController {
   constructor(
     private readonly scheduleUseCase: ScheduleNextAppointmentUseCase,

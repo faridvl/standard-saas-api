@@ -101,6 +101,8 @@ export interface PatientFlagsUpdate {
   warrantyExpiredSince?: Date | null;
   renewPrescriptionSince?: Date | null;
   prioritySince?: Date | null;
+  priorityReason?: string | null;
+  priorityByUuid?: string | null;
 }
 
 export function maintenanceStatusColumn(
@@ -129,7 +131,10 @@ function withBranchUuids(row: PatientRow): PatientWithBranches {
   return { ...patient, branchUuids: row.branchUuid ? [row.branchUuid, ...others] : others };
 }
 
-export type PatientWithNextAppointment = PatientWithBranches & {
+/** Quién marcó la prioridad, por nombre; null si no está marcada o el usuario ya no existe. */
+export type PatientWithPriorityName = PatientWithBranches & { priorityByName: string | null };
+
+export type PatientWithNextAppointment = PatientWithPriorityName & {
   nextAppointmentAt: Date | null;
   /** Sede de esa próxima cita; null si no hay cita o se agendó sin sede. */
   nextAppointmentBranchUuid: string | null;
@@ -198,7 +203,7 @@ export class PatientStorage {
     uuid: string,
     tenantUuid: string,
   ): Promise<
-    | (PatientWithBranches & {
+    | (PatientWithPriorityName & {
         nextAppointmentAt: Date | null;
         nextAppointmentBranchUuid: string | null;
         tentativeAppointmentTypeName: string | null;
@@ -216,16 +221,20 @@ export class PatientStorage {
     if (!row) return null;
     const patient = withBranchUuids(row);
 
-    const [nextAppointments, typeNames] = await Promise.all([
+    const [nextAppointments, typeNames, userNames] = await Promise.all([
       this.findNextAppointmentsByPatient(tenantUuid, [patient.uuid]),
       this.findAppointmentTypeNames(
         tenantUuid,
         patient.tentativeAppointmentTypeUuid ? [patient.tentativeAppointmentTypeUuid] : [],
       ),
+      this.findUserNames(tenantUuid, patient.priorityByUuid ? [patient.priorityByUuid] : []),
     ]);
 
     return {
       ...patient,
+      priorityByName: patient.priorityByUuid
+        ? (userNames.get(patient.priorityByUuid) ?? null)
+        : null,
       nextAppointmentAt: nextAppointments.get(patient.uuid)?.startTime ?? null,
       nextAppointmentBranchUuid: nextAppointments.get(patient.uuid)?.branchUuid ?? null,
       tentativeAppointmentTypeName: patient.tentativeAppointmentTypeUuid
@@ -269,7 +278,7 @@ export class PatientStorage {
 
     if (!branches) {
       const row = await this.prisma.patient.update({
-        where: { uuid },
+        where: { uuid, tenantUuid },
         data,
         include: BRANCHES_INCLUDE,
       });
@@ -279,7 +288,7 @@ export class PatientStorage {
     return this.prisma.$transaction(async (tx) => {
       await this.replaceBranches(tx, uuid, tenantUuid, branches.branchUuids);
       const row = await tx.patient.update({
-        where: { uuid },
+        where: { uuid, tenantUuid },
         data: { ...data, branchUuid: branches.branchUuid },
         include: BRANCHES_INCLUDE,
       });
@@ -725,6 +734,16 @@ export class PatientStorage {
     };
   }
 
+  /** Nombres de usuarios de la clínica, por uuid; los de otra clínica no aparecen. */
+  private async findUserNames(tenantUuid: string, uuids: string[]): Promise<Map<string, string>> {
+    if (uuids.length === 0) return new Map();
+    const users = await this.prisma.user.findMany({
+      where: { tenantUuid, uuid: { in: [...new Set(uuids)] } },
+      select: { uuid: true, fullName: true },
+    });
+    return new Map(users.map((user) => [user.uuid, user.fullName]));
+  }
+
   /**
    * Completa una tanda de pacientes con su próxima cita y con el nombre del
    * tipo que tengan anotado como tentativo. Las dos consultas se hacen por
@@ -734,7 +753,7 @@ export class PatientStorage {
     tenantUUID: string,
     records: PatientWithBranches[],
   ): Promise<PatientWithNextAppointment[]> {
-    const [nextAppointments, typeNames] = await Promise.all([
+    const [nextAppointments, typeNames, userNames] = await Promise.all([
       this.findNextAppointmentsByPatient(
         tenantUUID,
         records.map((record) => record.uuid),
@@ -745,10 +764,15 @@ export class PatientStorage {
           .map((record) => record.tentativeAppointmentTypeUuid)
           .filter((uuid): uuid is string => !!uuid),
       ),
+      this.findUserNames(
+        tenantUUID,
+        records.map((record) => record.priorityByUuid).filter((uuid): uuid is string => !!uuid),
+      ),
     ]);
 
     return records.map((record) => ({
       ...record,
+      priorityByName: record.priorityByUuid ? (userNames.get(record.priorityByUuid) ?? null) : null,
       nextAppointmentAt: nextAppointments.get(record.uuid)?.startTime ?? null,
       nextAppointmentBranchUuid: nextAppointments.get(record.uuid)?.branchUuid ?? null,
       nextAppointmentType: nextAppointments.get(record.uuid)?.typeName ?? null,

@@ -17,6 +17,8 @@ import {
   StorageService,
   imageAndPdfFilter,
 } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { ClinicalAccess } from '@medical-records/app/decorators/access.decorators';
 import { CreatePatientDocumentUseCase } from '@medical-records/domain/use-cases/patient-documents/create-patient-document.use-case';
 import { PatientDocumentWithUploader } from '@medical-records/domain/use-cases/patient-documents/find-patient-documents.use-case';
 import { decodeUploadedFileName } from '@medical-records/domain/utils/file-name.util';
@@ -28,7 +30,8 @@ const UPLOAD_OPTIONS = {
 };
 
 @Controller('upload')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, AccessGuard)
+@ClinicalAccess()
 export class UploadController {
   constructor(
     private readonly storageService: StorageService,

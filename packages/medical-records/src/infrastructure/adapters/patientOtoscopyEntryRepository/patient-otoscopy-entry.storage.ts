@@ -129,7 +129,7 @@ export class PatientOtoscopyEntryStorage {
         },
       });
       const updated = await transaction.patientOtoscopyEntry.update({
-        where: { uuid: entryUuid },
+        where: { uuid: entryUuid, tenantUuid },
         data: {
           otoscopyRight: data.otoscopyRight,
           otoscopyLeft: data.otoscopyLeft,

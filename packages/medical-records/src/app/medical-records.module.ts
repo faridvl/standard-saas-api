@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { PatientTenantInterceptor } from '@medical-records/infrastructure/adapters/tenant/patient-tenant.interceptor';
 import { PrismaModule } from '@medical-records/infrastructure/adapters/prisma/prisma.module';
 import { PatientsModule } from './modules/patients.module';
 import { PatientContactsModule } from './modules/patient-contacts.module';
@@ -24,6 +26,7 @@ import { MaintenanceModule } from './modules/maintenance.module';
 import { EncountersModule } from './modules/encounters.module';
 import { StudiesModule } from './modules/studies.module';
 import { BranchesModule } from './modules/branches.module';
+import { EquipmentModule } from './modules/equipment.module';
 import { InventoryModule } from './modules/inventory.module';
 import { ProductUnitModule } from './modules/product-unit.module';
 import { UsersModule } from './modules/users.module';
@@ -66,6 +69,7 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     EncountersModule,
     StudiesModule,
     BranchesModule,
+    EquipmentModule,
     InventoryModule,
     ProductUnitModule,
     UsersModule,
@@ -73,5 +77,6 @@ import { CalendarFeedModule } from './modules/calendar-feed.module';
     PatientActivityModule,
     CalendarFeedModule,
   ],
+  providers: [{ provide: APP_INTERCEPTOR, useClass: PatientTenantInterceptor }],
 })
 export class MedicalRecordsModule {}

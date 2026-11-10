@@ -5,20 +5,17 @@ import {
   Body,
   UseGuards,
   UsePipes,
-  Headers,
-  ForbiddenException,
   Delete,
   Param,
   Patch,
   HttpCode,
   HttpStatus,
-  SetMetadata,
 } from '@nestjs/common';
-import { AuthGuard, CurrentUser, JwtPayload, RolesGuard, ZodValidationPipe } from '@project/core';
-import {
-  CLINICAL_ACCESS_ROLES,
-  ROLES_METADATA_KEY,
-} from '@medical-records/domain/policies/clinical-access.policy';
+import { AuthGuard, CurrentUser, JwtPayload, ZodValidationPipe } from '@project/core';
+import { AccessGuard } from '@medical-records/app/guards/access.guard';
+import { IdentityServiceGuard } from '@medical-records/app/guards/identity-service.guard';
+import { AnyLevel, MinLevel } from '@medical-records/app/decorators/access.decorators';
+import { AccessLevel } from '@medical-records/domain/policies/access.policy';
 import { FindAllAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/find-all-appointment-types.use-case';
 import { CreateAppointmentTypeUseCase } from '@medical-records/domain/use-cases/appointment-types/create-appointment-type.use-case';
 import { InitializeAppointmentTypesUseCase } from '@medical-records/domain/use-cases/appointment-types/initialize-appointment-types.use-case';
@@ -50,15 +47,16 @@ export class AppointmentTypeController {
   ) {}
 
   @Get()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AccessGuard)
+  @AnyLevel()
   async findAll(@CurrentUser() user: JwtPayload): Promise<AppointmentTypeEntity[]> {
     return await this.findAllUseCase.execute(user.tenantUuid);
   }
 
   // Ver los tipos lo necesita todo el que agenda; cambiarlos es configuración: STAFF no.
   @Post()
-  @UseGuards(AuthGuard, RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @UseGuards(AuthGuard, AccessGuard)
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(CreateAppointmentTypeSchema))
   async create(
     @Body() dto: CreateAppointmentTypeDto,
@@ -68,8 +66,8 @@ export class AppointmentTypeController {
   }
 
   @Patch(':uuid')
-  @UseGuards(AuthGuard, RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @UseGuards(AuthGuard, AccessGuard)
+  @MinLevel(AccessLevel.ADMIN)
   @UsePipes(new ZodValidationPipe(UpdateAppointmentTypeSchema))
   async update(
     @Param('uuid') uuid: string,
@@ -80,27 +78,18 @@ export class AppointmentTypeController {
   }
 
   @Delete(':uuid')
-  @UseGuards(AuthGuard, RolesGuard)
-  @SetMetadata(ROLES_METADATA_KEY, CLINICAL_ACCESS_ROLES)
+  @UseGuards(AuthGuard, AccessGuard)
+  @MinLevel(AccessLevel.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('uuid') uuid: string, @CurrentUser() user: JwtPayload): Promise<void> {
     await this.deleteUseCase.execute(user.tenantUuid, uuid);
   }
 
+  // Solo la llamada de servicio de identity al registrar una clínica (ver IdentityServiceGuard).
   @Post('initialize')
+  @UseGuards(IdentityServiceGuard)
   @UsePipes(new ZodValidationPipe(InitializeAppointmentTypesSchema))
-  async initialize(
-    @Body() dto: InitializeAppointmentTypesDto,
-    @Headers('x-internal-call') internalHeader: string | undefined,
-    @Headers('authorization') authHeader: string | undefined,
-  ): Promise<AppointmentTypeEntity[]> {
-    const isInternal = internalHeader === 'true';
-    const isUnauthenticated = !authHeader;
-
-    if (!isInternal && !isUnauthenticated) {
-      throw new ForbiddenException('Este endpoint es solo para llamadas internas');
-    }
-
+  async initialize(@Body() dto: InitializeAppointmentTypesDto): Promise<AppointmentTypeEntity[]> {
     return await this.initializeUseCase.execute(dto.tenantUuid);
   }
 }
