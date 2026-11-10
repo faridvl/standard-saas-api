@@ -229,3 +229,9 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - Queda en la bitácora de usuarios con `field = PASSWORD` y `before`/`after` nulos (nunca un valor de contraseña). `UserAudit.field` es texto: no hubo migración. No hay límite de intentos (ni en login ni aquí).
 - Sin límite de intentos en `PUT /users/me/password` porque el API no tiene throttler. Pendiente: agregarlo (5 intentos por 15 min por usuario) y que el refresh rechace tokens emitidos antes de un cambio de contraseña.
 - La nueva y la actual aceptan hasta 72 bytes UTF-8 (tope de bcrypt, que ignora el resto); el reseteo del administrador también deja bitácora `PASSWORD` sin valores.
+
+## 2026-11-10 - Firma del profesional: `GET /users/:uuid/signature`
+
+- El informe de audiometría se firma con nombre, título y colegiado del autor. `GET /users` es solo para administración y `GET /users/:uuid` solo da nombre a quien no administra, así que la firma variaba según quién imprimía. No existía otro endpoint con título y colegiado, por eso se agregó este.
+- Lo puede llamar cualquier usuario autenticado de la clínica y responde únicamente `{ uuid, fullName, professionalTitle, licenseNumber }`; sin email, rol ni estado. Busca por `{ uuid, tenant }`: otra clínica o inexistente responde 404.
+- Devuelve también usuarios inactivos: un informe viejo de alguien que ya no trabaja ahí debe seguir firmado igual.

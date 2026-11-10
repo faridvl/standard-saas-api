@@ -20,6 +20,10 @@ import {
   FindOneUserUseCase,
   UserSummary,
 } from '../../domain/use-cases/users/find-one-user.use-case';
+import {
+  GetUserSignatureUseCase,
+  UserSignature,
+} from '../../domain/use-cases/users/get-user-signature.use-case';
 import { UpdateUserUseCase } from '../../domain/use-cases/users/update-user.use-case';
 import { UpdateUserDto, UpdateUserSchema } from '../../domain/dtos/update-user.dto';
 import { DeleteUserUseCase } from '../../domain/use-cases/users/delete-user.use-case';
@@ -57,6 +61,7 @@ export class UserController {
     private readonly createUserUseCase: CreateUserUseCase,
     private readonly getUsersUseCase: GetUsersUseCase,
     private readonly findOneUserUseCase: FindOneUserUseCase,
+    private readonly getUserSignatureUseCase: GetUserSignatureUseCase,
     private readonly updateUserUseCase: UpdateUserUseCase,
     private readonly deleteUserUseCase: DeleteUserUseCase,
     private readonly setUserStatusUseCase: SetUserStatusUseCase,
@@ -116,6 +121,15 @@ export class UserController {
       Number(limit),
       targetUuid,
     );
+  }
+
+  // Sin restricción de nivel: el informe firma igual sin importar quién lo imprime.
+  @Get(':uuid/signature')
+  async findSignature(
+    @Param('uuid') uuid: string,
+    @CurrentUser() currentUser: JwtPayload,
+  ): Promise<UserSignature> {
+    return await this.getUserSignatureUseCase.execute(uuid, toUserActor(currentUser));
   }
 
   @Get(':uuid')
