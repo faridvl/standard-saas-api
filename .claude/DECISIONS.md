@@ -204,3 +204,8 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - Sede desactivada en registros nuevos: 400. Conservar la sede que el paciente o la cita ya tenían sigue permitido.
 - El 409 por nombre repetido lleva el código `BRANCH_NAME_ALREADY_EXISTS` en la excepción, pero `GlobalExceptionFilter` no lo expone en el JSON; el front distingue por status 409.
 - No hay bitácora de configuración, así que no se registra el cambio.
+
+## 2026-11-09 - Sedes: última sede activa y citas con sede desactivada
+
+- No se puede desactivar la única sede activa de la clínica: 409 con `error.code = BRANCH_LAST_ACTIVE` y mensaje "No puedes desactivar la única sede activa". Las sedes de otra clínica no cuentan. Reactivar siempre se permite. `GlobalExceptionFilter` sí expone el `code` en `error.code` (corrige la nota anterior de D-sedes); aun así el front puede distinguir por 409 en la acción de desactivar.
+- Una cita existente cuya sede se desactiva conserva su sede al reagendarla (`alreadyHeld`). El API no exige `branchUUID` al agendar para no romper a Zynka; el front evita enviar sin sede.

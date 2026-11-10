@@ -3,7 +3,10 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { BranchColor } from '@prisma/client';
 import { BranchEntity } from '@medical-records/domain/entities/branch.entity';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
-import { BRANCH_NAME_TAKEN_CODE } from '@medical-records/domain/utils/branch-name.util';
+import {
+  BRANCH_LAST_ACTIVE_CODE,
+  BRANCH_NAME_TAKEN_CODE,
+} from '@medical-records/domain/utils/branch-name.util';
 import { CreateBranchSchema, UpdateBranchSchema } from '@medical-records/app/dtos/branch.dto';
 import { CreateBranchUseCase } from './create-branch.use-case';
 import { FindAllBranchesUseCase } from './find-all-branches.use-case';
@@ -154,12 +157,49 @@ describe('Sedes: editar', () => {
   });
 
   it('desactiva y reactiva sin borrar la sede', async () => {
-    const { storage, rows } = buildStorage([{ uuid: 'b1' }]);
+    const { storage, rows } = buildStorage([{ uuid: 'b1' }, { uuid: 'b2' }]);
     const useCase = new UpdateBranchUseCase(storage);
 
     expect((await useCase.execute(TENANT, 'b1', { isActive: false })).isActive).toBe(false);
     expect((await useCase.execute(TENANT, 'b1', { isActive: true })).isActive).toBe(true);
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(2);
+  });
+
+  it('no deja desactivar la única sede activa: 409 con código y la sede sigue activa', async () => {
+    const { storage, rows } = buildStorage([
+      { uuid: 'b1' },
+      { uuid: 'b2', isActive: false },
+      { uuid: 'b3', tenantUuid: OTHER_TENANT },
+    ]);
+
+    const error = await new UpdateBranchUseCase(storage)
+      .execute(TENANT, 'b1', { isActive: false })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as ConflictException).getResponse()).toMatchObject({
+      message: 'No puedes desactivar la única sede activa',
+      code: BRANCH_LAST_ACTIVE_CODE,
+    });
+    expect(rows[0].isActive).toBe(true);
+  });
+
+  it('reactivar siempre se permite, aunque no haya ninguna activa', async () => {
+    const { storage } = buildStorage([{ uuid: 'b1', isActive: false }]);
+
+    const updated = await new UpdateBranchUseCase(storage).execute(TENANT, 'b1', {
+      isActive: true,
+    });
+
+    expect(updated.isActive).toBe(true);
+  });
+
+  it('desactivar una sede ya inactiva o editarla sin tocar el estado no se bloquea', async () => {
+    const { storage } = buildStorage([{ uuid: 'b1' }, { uuid: 'b2', isActive: false }]);
+    const useCase = new UpdateBranchUseCase(storage);
+
+    expect((await useCase.execute(TENANT, 'b2', { isActive: false })).isActive).toBe(false);
+    expect((await useCase.execute(TENANT, 'b1', { name: 'Nueva' })).name).toBe('Nueva');
   });
 
   it('una sede de otra clínica responde 404 y no se toca', async () => {
