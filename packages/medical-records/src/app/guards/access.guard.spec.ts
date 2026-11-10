@@ -9,7 +9,9 @@ import { ClinicalTemplateController } from '@medical-records/app/controllers/cli
 import { DocumentTemplateController } from '@medical-records/app/controllers/document-template.controller';
 import { PatientActivityController } from '@medical-records/app/controllers/patient-activity.controller';
 import { PatientAudiometryEntryController } from '@medical-records/app/controllers/patient-audiometry-entry.controller';
+import { PatientContactController } from '@medical-records/app/controllers/patient-contact.controller';
 import { PatientController } from '@medical-records/app/controllers/patient.controllers';
+import { PatientDeviceController } from '@medical-records/app/controllers/patient-device.controller';
 import { PatientDocumentController } from '@medical-records/app/controllers/patient-document.controller';
 import { PatientNoteController } from '@medical-records/app/controllers/patient-note.controller';
 import { PatientOtoscopyEntryController } from '@medical-records/app/controllers/patient-otoscopy-entry.controller';
@@ -133,6 +135,48 @@ const GROUPS: Group[] = [
     name: 'paciente: cambiar estado',
     controller: PatientController,
     method: 'updateStatus',
+    needs: { adminOrOwnerOrAttends: true },
+  },
+  {
+    name: 'contactos: leer',
+    controller: PatientContactController,
+    method: 'findAll',
+    needs: {},
+  },
+  {
+    name: 'contactos: crear',
+    controller: PatientContactController,
+    method: 'create',
+    needs: { adminOrOwnerOrAttends: true },
+  },
+  {
+    name: 'contactos: reemplazar lista',
+    controller: PatientContactController,
+    method: 'sync',
+    needs: { adminOrOwnerOrAttends: true },
+  },
+  {
+    name: 'contactos: borrar',
+    controller: PatientContactController,
+    method: 'delete',
+    needs: { adminOrOwnerOrAttends: true },
+  },
+  {
+    name: 'dispositivos: leer',
+    controller: PatientDeviceController,
+    method: 'findAll',
+    needs: {},
+  },
+  {
+    name: 'dispositivos: asignar',
+    controller: PatientDeviceController,
+    method: 'create',
+    needs: { adminOrOwnerOrAttends: true },
+  },
+  {
+    name: 'dispositivos: quitar',
+    controller: PatientDeviceController,
+    method: 'deactivate',
     needs: { adminOrOwnerOrAttends: true },
   },
   {

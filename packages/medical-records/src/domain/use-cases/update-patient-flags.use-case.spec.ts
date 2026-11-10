@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { UpdatePatientFlagsUseCase } from './update-patient-flags.use-case';
@@ -37,7 +36,6 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       tenantUuid: string,
       actorUuid: string,
       dto: never,
-      attendsPatients?: boolean,
     ) => ReturnType<UpdatePatientFlagsUseCase['execute']>;
   };
 
@@ -146,8 +144,7 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       recordActivity as never,
     );
     useCase = {
-      execute: (uuid, tenantUuid, actorUuid, dto, attendsPatients = true) =>
-        real.execute(uuid, tenantUuid, actorUuid, dto, attendsPatients),
+      execute: (uuid, tenantUuid, actorUuid, dto) => real.execute(uuid, tenantUuid, actorUuid, dto),
     };
   });
 
@@ -440,56 +437,32 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
     });
   });
 
-  describe('nota de la entrega según si atiende pacientes', () => {
+  describe('nota de la entrega', () => {
     const sendToLab = () =>
       useCase.execute(PATIENT, TENANT, ACTOR, {
         hearingAidsInLab: true,
         hearingAidsInLabDate: '2026-10-30',
       } as never);
 
-    it('Quien no atiende pacientes, con nota, responde 403 y no cambia nada', async () => {
+    it('entregar sin nota cierra el envío', async () => {
       await sendToLab();
 
-      await expect(
-        useCase.execute(
-          PATIENT,
-          TENANT,
-          ACTOR,
-          { hearingAidsInLab: false, note: 'Texto clínico' } as never,
-          false,
-        ),
-      ).rejects.toThrow(
-        new ForbiddenException('Solo quien atiende pacientes puede agregar notas.'),
-      );
-      expect(open()).toBeDefined();
-      expect(notes).toEqual([]);
-    });
-
-    it('Quien no atiende pacientes, sin nota, puede entregar', async () => {
-      await sendToLab();
-
-      await useCase.execute(
-        PATIENT,
-        TENANT,
-        ACTOR,
-        { hearingAidsInLab: false, deliveredAt: '2026-11-01' } as never,
-        false,
-      );
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        deliveredAt: '2026-11-01',
+      } as never);
 
       expect(shipments[0].deliveredAt).toEqual(noon('2026-11-01'));
       expect(flags.hearingAidsInLabSince).toBeNull();
     });
 
-    it('quien atiende pacientes puede dejar la nota', async () => {
+    it('entregar con nota deja la nota de evolución', async () => {
       await sendToLab();
 
-      await useCase.execute(
-        PATIENT,
-        TENANT,
-        ACTOR,
-        { hearingAidsInLab: false, note: 'Nota' } as never,
-        true,
-      );
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: false,
+        note: 'Nota',
+      } as never);
 
       expect(notes).toEqual([{ authorUuid: ACTOR, text: 'Nota' }]);
     });

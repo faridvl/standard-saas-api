@@ -10,6 +10,7 @@ import {
   assertBranchesExist,
   resolvePatientBranches,
 } from '@medical-records/domain/services/patient-branches';
+import { stripPatientClinicalWrites } from '@medical-records/domain/policies/patient-clinical-fields.policy';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
 import { UpdatePatientDto } from '@medical-records/app/dtos/update-patient.dto';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
@@ -57,9 +58,11 @@ export class UpdatePatientUseCase {
   async execute(
     uuid: string,
     tenantUuid: string,
-    dto: UpdatePatientDto,
-    actorUuid?: string,
+    input: UpdatePatientDto,
+    actorUuid: string | undefined,
+    attendsPatients: boolean,
   ): Promise<PatientRecord> {
+    const dto = stripPatientClinicalWrites(input, attendsPatients);
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);

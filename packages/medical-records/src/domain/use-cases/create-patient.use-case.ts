@@ -10,6 +10,7 @@ import { PatientContactStorage } from '@medical-records/infrastructure/adapters/
 import { PatientEntity } from '../entities/patient.entity';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
+import { stripPatientClinicalWrites } from '@medical-records/domain/policies/patient-clinical-fields.policy';
 
 @Injectable()
 export class CreatePatientUseCase {
@@ -21,9 +22,10 @@ export class CreatePatientUseCase {
   ) {}
 
   async execute(
-    data: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
-    userContext: { tenantId: number; tenantUuid: string; sub: string },
+    input: Omit<PatientEntity, 'tenantId' | 'tenantUuid' | 'createdBy'>,
+    userContext: { tenantId: number; tenantUuid: string; sub: string; attendsPatients: boolean },
   ): Promise<PatientRecord> {
+    const data = stripPatientClinicalWrites(input, userContext.attendsPatients);
     if (data.documentId) {
       const existing = await this.storage.findByDocumentId(data.documentId, userContext.tenantUuid);
       if (existing) {
