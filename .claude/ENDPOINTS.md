@@ -2,6 +2,8 @@
 
 **Auth header for protected routes:** `Authorization: Bearer <access_token>`
 
+**Formato de error:** `{ success: false, statusCode, message, details, timestamp }`, más `code` (string de primer nivel, p. ej. `EQUIPMENT_REQUIRED`) solo cuando el error tiene código de negocio. Donde este documento dice `error.code`, el valor llega en `code`.
+
 ---
 
 ## Identity Service (port 7170)

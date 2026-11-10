@@ -2,7 +2,7 @@ module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: ['./packages/core/tsconfig.json', './packages/identity/tsconfig.json', './packages/medical-records/tsconfig.json', './packages/medical-records/tsconfig.spec.json', './packages/identity/tsconfig.spec.json'],
+    project: ['./packages/core/tsconfig.json', './packages/core/tsconfig.spec.json', './packages/identity/tsconfig.json', './packages/medical-records/tsconfig.json', './packages/medical-records/tsconfig.spec.json', './packages/identity/tsconfig.spec.json'],
     tsconfigRootDir: __dirname
   },
   plugins: ['@typescript-eslint', 'jest'],

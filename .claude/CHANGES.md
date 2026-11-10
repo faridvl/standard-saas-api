@@ -90,3 +90,7 @@ _(nothing currently marked as in-progress in code)_
 
 - `GET/POST/PATCH /branches` para crear, editar, desactivar y reactivar sedes desde Configuración.
 - Una sede desactivada no se ofrece para pacientes ni citas nuevos.
+
+## 2026-11-09: código de negocio en los errores
+
+- El filtro global de excepciones ahora devuelve `code` (primer nivel del cuerpo) cuando el error lo trae, p. ej. `EQUIPMENT_REQUIRED`, `EQUIPMENT_ALREADY_EXISTS`, `PATIENT_ALREADY_PRIORITY`. Solo se agrega el campo; el resto de la respuesta no cambia.
