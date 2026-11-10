@@ -177,6 +177,15 @@
 
 ---
 
+### PUT /users/me/password
+**Auth:** Required. Cualquier rol; cambia la contraseña de quien tiene el token.
+**Body:** `{ "currentPassword": "string", "newPassword": "string (min 8, mayúscula y número)" }`
+**Response 204:** No content.
+**Errors:** 400 de validación (nueva débil o falta la actual); 400 `code: INVALID_CURRENT_PASSWORD`; 400 `code: SAME_PASSWORD` (la nueva igual a la actual); 401 sin token; 404 si el usuario está inactivo.
+**Status:** Implemented. La sesión actual sigue válida. Deja un registro `field: PASSWORD` en `GET /users/audit` sin valores.
+
+---
+
 ### DELETE /users/:uuid
 **Auth:** Required. Solo OWNER.
 **Response 204:** No content.
@@ -1194,7 +1203,8 @@ Nivel: `RECEPTION` | `ADMIN` | `OWNER` (campo `role`). `attendsPatients` (bool) 
 | `PATCH /users/:uuid` | ADMIN, OWNER; título y colegiado solo el propio usuario | Nivel: ADMIN asigna RECEPTION/ADMIN; OWNER da o quita OWNER. `attendsPatients` y `specialties` solo OWNER. Nadie cambia su propio nivel (400). Otro OWNER solo lo toca un OWNER (403). |
 | `PATCH /users/:uuid/status`, `DELETE /users/:uuid` | ADMIN, OWNER | Propio estado 400; último OWNER activo 400 |
 | `PUT /users/:uuid/password` | ADMIN, OWNER | A un OWNER solo otro OWNER |
-| `GET /users/audit?page&limit&targetUuid` | ADMIN, OWNER | Bitácora: `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field` (`ROLE`, `ATTENDS_PATIENTS`, `SPECIALTIES`), `before`, `after`, `createdAt` |
+| `PUT /users/me/password` | Cualquier usuario | Solo la propia; pide la actual (400 `INVALID_CURRENT_PASSWORD`, `SAME_PASSWORD`) |
+| `GET /users/audit?page&limit&targetUuid` | ADMIN, OWNER | Bitácora: `actorUuid`, `actorName`, `targetUuid`, `targetName`, `field` (`ROLE`, `ATTENDS_PATIENTS`, `SPECIALTIES`, `PASSWORD`), `before`, `after`, `createdAt` |
 | `POST /auth/refresh` | Con token | Relee la base y reemite token y `user` con el acceso actual |
 
 Errores: 400 atiende pacientes sin especialidad, especialidad o título fuera de catálogo, cambio de nivel o estado propio, último OWNER; 403 sin nivel suficiente; 404 usuario de otra clínica.

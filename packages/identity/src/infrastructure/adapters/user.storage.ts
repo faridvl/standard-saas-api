@@ -32,6 +32,13 @@ export type UpdateUserParams = {
   avatarUrl?: string | null;
 };
 
+export type UserCredentials = {
+  uuid: string;
+  fullName: string;
+  password: string;
+  status: UserStatus;
+};
+
 const toUserStatus = (status: Status): UserStatus =>
   status === Status.ACTIVE ? UserStatus.ACTIVE : UserStatus.INACTIVE;
 
@@ -164,11 +171,36 @@ export class UserStorage {
     }
   }
 
-  async updatePassword(uuid: string, hashedPassword: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { uuid },
-      data: { password: hashedPassword },
+  async updatePassword(
+    uuid: string,
+    hashedPassword: string,
+    audit: UserAuditChange[] = [],
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const record = await tx.user.update({
+        where: { uuid },
+        data: { password: hashedPassword },
+      });
+      await this.writeAudit(tx, record, audit);
     });
+  }
+
+  /** Datos mínimos para verificar la contraseña propia; el hash no sale de este flujo. */
+  async findCredentialsByUuidAndTenant(
+    uuid: string,
+    tenantUUID: string,
+  ): Promise<UserCredentials | null> {
+    const record = await this.prisma.user.findFirst({
+      where: { uuid, tenantUUID },
+      select: { uuid: true, name: true, password: true, status: true },
+    });
+    if (!record) return null;
+    return {
+      uuid: record.uuid,
+      fullName: record.name,
+      password: record.password,
+      status: toUserStatus(record.status),
+    };
   }
 
   /** Propietarios activos de la clínica, sin contar a `excludingUuid`. */

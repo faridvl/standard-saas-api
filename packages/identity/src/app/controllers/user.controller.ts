@@ -33,6 +33,11 @@ import {
   ResetUserPasswordDto,
   ResetUserPasswordSchema,
 } from '../../domain/dtos/reset-user-password.dto';
+import { ChangeOwnPasswordUseCase } from '../../domain/use-cases/users/change-own-password.use-case';
+import {
+  ChangeOwnPasswordDto,
+  ChangeOwnPasswordSchema,
+} from '../../domain/dtos/change-own-password.dto';
 import { GetUserAuditUseCase } from '../../domain/use-cases/users/get-user-audit.use-case';
 import {
   ADMIN_ASSIGNABLE_ROLES,
@@ -56,6 +61,7 @@ export class UserController {
     private readonly deleteUserUseCase: DeleteUserUseCase,
     private readonly setUserStatusUseCase: SetUserStatusUseCase,
     private readonly resetUserPasswordUseCase: ResetUserPasswordUseCase,
+    private readonly changeOwnPasswordUseCase: ChangeOwnPasswordUseCase,
     private readonly getUserAuditUseCase: GetUserAuditUseCase,
   ) {}
 
@@ -136,6 +142,20 @@ export class UserController {
     @CurrentUser() currentUser: JwtPayload,
   ): Promise<UserDomain> {
     return await this.setUserStatusUseCase.execute(uuid, dto.status, toUserActor(currentUser));
+  }
+
+  // Va antes de ':uuid/password': si no, "me" se leería como el uuid de otro usuario.
+  @Put('me/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changeOwnPassword(
+    @Body(new ZodValidationPipe(ChangeOwnPasswordSchema)) dto: ChangeOwnPasswordDto,
+    @CurrentUser() currentUser: JwtPayload,
+  ): Promise<void> {
+    await this.changeOwnPasswordUseCase.execute(
+      toUserActor(currentUser),
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 
   @Put(':uuid/password')

@@ -222,3 +222,8 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 
 - No se puede desactivar la única sede activa de la clínica: 409 con `error.code = BRANCH_LAST_ACTIVE` y mensaje "No puedes desactivar la única sede activa". Las sedes de otra clínica no cuentan. Reactivar siempre se permite. `GlobalExceptionFilter` sí expone el `code` en `error.code` (corrige la nota anterior de D-sedes); aun así el front puede distinguir por 409 en la acción de desactivar.
 - Una cita existente cuya sede se desactiva conserva su sede al reagendarla (`alreadyHeld`). El API no exige `branchUUID` al agendar para no romper a Zynka; el front evita enviar sin sede.
+
+## 2026-11-09 - Cambiar la propia contraseña
+
+- `PUT /users/me/password` (cualquier rol autenticado): el usuario sale del JWT, nunca de la URL; la ruta se declara antes de `:uuid/password`. Pide la actual y la nueva (la confirmación se valida en el front). 400 `INVALID_CURRENT_PASSWORD` o `SAME_PASSWORD`; la sesión actual no se invalida.
+- Queda en la bitácora de usuarios con `field = PASSWORD` y `before`/`after` nulos (nunca un valor de contraseña). `UserAudit.field` es texto: no hubo migración. No hay límite de intentos (ni en login ni aquí).

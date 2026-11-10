@@ -29,6 +29,7 @@ export enum UserAuditField {
   ROLE = 'ROLE',
   ATTENDS_PATIENTS = 'ATTENDS_PATIENTS',
   SPECIALTIES = 'SPECIALTIES',
+  PASSWORD = 'PASSWORD',
 }
 
 export enum UserStatus {
