@@ -40,7 +40,12 @@ type Group = {
   controller: Controller;
   method: string;
   /** Qué exige: nivel mínimo, atender pacientes y especialidad. */
-  needs: { adminOrOwner?: boolean; attends?: boolean; audiology?: boolean };
+  needs: {
+    adminOrOwner?: boolean;
+    attends?: boolean;
+    audiology?: boolean;
+    adminOrOwnerOrAttends?: boolean;
+  };
 };
 
 const GROUPS: Group[] = [
@@ -118,6 +123,24 @@ const GROUPS: Group[] = [
   },
   { name: 'paciente general: ver', controller: PatientController, method: 'findOne', needs: {} },
   { name: 'paciente general: crear', controller: PatientController, method: 'create', needs: {} },
+  {
+    name: 'paciente: modificar',
+    controller: PatientController,
+    method: 'update',
+    needs: { adminOrOwnerOrAttends: true },
+  },
+  {
+    name: 'paciente: cambiar estado',
+    controller: PatientController,
+    method: 'updateStatus',
+    needs: { adminOrOwnerOrAttends: true },
+  },
+  {
+    name: 'paciente: indicadores',
+    controller: PatientController,
+    method: 'updateFlags',
+    needs: { attends: true },
+  },
   { name: 'citas: listar', controller: AppointmentController, method: 'findAll', needs: {} },
   { name: 'sedes: listar', controller: BranchController, method: 'findAll', needs: {} },
   {
@@ -186,7 +209,8 @@ describe('AccessGuard: matriz nivel x atiende pacientes', () => {
           const specialties = attendsPatients ? ['AUDIOLOGY'] : [];
           const expected =
             (!group.needs.adminOrOwner || role !== 'RECEPTION') &&
-            (!group.needs.attends || attendsPatients);
+            (!group.needs.attends || attendsPatients) &&
+            (!group.needs.adminOrOwnerOrAttends || role !== 'RECEPTION' || attendsPatients);
 
           it(`${role} ${attendsPatients ? 'atiende' : 'no atiende'} -> ${expected ? 'pasa' : '403'}`, () => {
             expect(

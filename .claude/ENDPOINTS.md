@@ -1203,8 +1203,9 @@ Todas las rutas llevan `AuthGuard` + `AccessGuard`; el nivel sale de `role` (REC
 
 | Grupo | Exige | Rutas |
 |---|---|---|
-| Cualquier nivel | token con nivel válido | pacientes (datos generales sin tipo de sangre, prioridad, estado; borrar paciente es ADMIN u OWNER), contactos, citas, agenda, `next-appointment`, dispositivos, productos y unidades, sedes, envíos a laboratorio, `calendar-feed` (autenticadas), lectura de `appointment-types`, `clinical-templates` y `document-templates` |
-| Clínico | `attendsPatients` | `patients/:id/background`, `physical-exam`, notas, preguntas, audiometrías y otoscopías (leer), documentos, encuentros, controles médicos, estudios, `maintenance` (incluye el cambio de estado), mantenimientos del paciente (GET y notas), `audiometry-types`, `upload/*` |
+| Cualquier nivel | token con nivel válido | pacientes (alta y lectura de datos generales sin tipo de sangre, prioridad, estado; borrar paciente es ADMIN u OWNER), contactos, citas, agenda, `next-appointment`, dispositivos, productos y unidades, sedes, envíos a laboratorio, `calendar-feed` (autenticadas), lectura de `appointment-types`, `clinical-templates` y `document-templates` |
+| Clínico | `attendsPatients` | `PUT patients/:uuid/flags`, `patients/:id/background`, `physical-exam`, notas, preguntas, audiometrías y otoscopías (leer), documentos, encuentros, controles médicos, estudios, `maintenance` (incluye el cambio de estado), mantenimientos del paciente (GET y notas), `audiometry-types`, `upload/*` |
+| Edición de paciente | ADMIN u OWNER, o cualquier nivel con `attendsPatients` | `PATCH /patients/:uuid`, `PUT /patients/:uuid/status` (RECEPTION sin atender pacientes recibe 403) |
 | Prueba | `attendsPatients` + AUDIOLOGY | crear o anular audiometrías; crear o editar otoscopías |
 | Configuración | ADMIN u OWNER | crear, editar y borrar `appointment-types`, `clinical-templates` y `document-templates`; `DELETE /patients/:uuid` |
 | Bitácora | ADMIN u OWNER | `patient-activity` (listado, `months`, `summary`); `actors` es de cualquier nivel |

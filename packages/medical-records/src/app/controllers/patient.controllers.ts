@@ -22,6 +22,7 @@ import {
   AnyLevel,
   ClinicalAccess,
   MinLevel,
+  PatientEditAccess,
 } from '@medical-records/app/decorators/access.decorators';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
@@ -239,6 +240,7 @@ export class PatientController {
   }
 
   @Patch(':uuid')
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientSchema))
   async update(
     @Param('uuid') uuid: string,
@@ -250,6 +252,7 @@ export class PatientController {
   }
 
   @Put(':uuid/status')
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientStatusSchema))
   async updateStatus(
     @Param('uuid') uuid: string,
@@ -266,6 +269,7 @@ export class PatientController {
   }
 
   @Put(':uuid/flags')
+  @ClinicalAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientFlagsSchema))
   async updateFlags(
     @Param('uuid') uuid: string,

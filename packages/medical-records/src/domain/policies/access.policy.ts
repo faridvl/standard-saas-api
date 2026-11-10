@@ -20,6 +20,8 @@ export interface AccessRequirement {
   minLevel?: AccessLevel;
   /** Datos clínicos del paciente: exige `attendsPatients`, sin importar el nivel. */
   clinical?: boolean;
+  /** Gestión (ADMIN u OWNER) o quien atiende pacientes: basta uno de los dos. */
+  managementOrClinical?: boolean;
   /** Además de `clinical`, una especialidad (p. ej. crear pruebas de audiología). */
   specialty?: Specialty;
 }
@@ -54,6 +56,13 @@ export function canAccess(subject: AccessSubject, requirement: AccessRequirement
   const rank = levelRank(subject.role);
   if (rank === null) return false;
   if (requirement.minLevel && rank < LEVEL_RANK[requirement.minLevel]) return false;
+  if (
+    requirement.managementOrClinical &&
+    rank < LEVEL_RANK[AccessLevel.ADMIN] &&
+    subject.attendsPatients !== true
+  ) {
+    return false;
+  }
   if ((requirement.clinical || requirement.specialty) && subject.attendsPatients !== true) {
     return false;
   }
