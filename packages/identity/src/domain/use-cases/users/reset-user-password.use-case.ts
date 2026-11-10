@@ -2,7 +2,7 @@ import * as bcrypt from 'bcrypt';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserStorage } from '../../../infrastructure/adapters/user.storage';
 import { assertCanManageTarget, resolveUserAdmin } from '../../policies/user-admin.policy';
-import { UserActor } from '../../types/user.types';
+import { UserActor, UserAuditField } from '../../types/user.types';
 
 @Injectable()
 export class ResetUserPasswordUseCase {
@@ -17,6 +17,15 @@ export class ResetUserPasswordUseCase {
     assertCanManageTarget(admin, existing);
 
     const salt = await bcrypt.genSalt(10);
-    await this.userStorage.updatePassword(uuid, await bcrypt.hash(password, salt));
+    // La bitácora deja constancia del reseteo igual que del cambio propio: nunca un valor de contraseña.
+    await this.userStorage.updatePassword(uuid, await bcrypt.hash(password, salt), [
+      {
+        actorUuid: admin.uuid,
+        actorName: admin.fullName,
+        field: UserAuditField.PASSWORD,
+        before: null,
+        after: null,
+      },
+    ]);
   }
 }

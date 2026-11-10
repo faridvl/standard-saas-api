@@ -227,3 +227,5 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 
 - `PUT /users/me/password` (cualquier rol autenticado): el usuario sale del JWT, nunca de la URL; la ruta se declara antes de `:uuid/password`. Pide la actual y la nueva (la confirmación se valida en el front). 400 `INVALID_CURRENT_PASSWORD` o `SAME_PASSWORD`; la sesión actual no se invalida.
 - Queda en la bitácora de usuarios con `field = PASSWORD` y `before`/`after` nulos (nunca un valor de contraseña). `UserAudit.field` es texto: no hubo migración. No hay límite de intentos (ni en login ni aquí).
+- Sin límite de intentos en `PUT /users/me/password` porque el API no tiene throttler. Pendiente: agregarlo (5 intentos por 15 min por usuario) y que el refresh rechace tokens emitidos antes de un cambio de contraseña.
+- La nueva y la actual aceptan hasta 72 bytes UTF-8 (tope de bcrypt, que ignora el resto); el reseteo del administrador también deja bitácora `PASSWORD` sin valores.

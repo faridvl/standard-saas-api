@@ -134,6 +134,26 @@ describe('ChangeOwnPasswordSchema', () => {
     expect(() => validate({ currentPassword: CURRENT, newPassword })).toThrow(BadRequestException);
   });
 
+  it('acepta una nueva de exactamente 72 bytes', () => {
+    const newPassword = `A1${'a'.repeat(70)}`;
+    expect(validate({ currentPassword: CURRENT, newPassword }).newPassword).toBe(newPassword);
+  });
+
+  it.each([
+    ['73 bytes ASCII', `A1${'a'.repeat(71)}`],
+    ['«ñ» (40 caracteres, 80 bytes)', `A1${'ñ'.repeat(39)}`],
+    ['emoji (20 caracteres, 82 bytes)', `A1${'😀'.repeat(20)}`],
+  ])('rechaza una nueva de más de 72 bytes: %s', (_name, newPassword) => {
+    expect(newPassword.length).toBeLessThanOrEqual(80);
+    expect(() => validate({ currentPassword: CURRENT, newPassword })).toThrow(BadRequestException);
+  });
+
+  it('rechaza una actual de más de 72 bytes', () => {
+    expect(() => validate({ currentPassword: 'ñ'.repeat(37), newPassword: NEXT })).toThrow(
+      BadRequestException,
+    );
+  });
+
   it('rechaza si falta la actual', () => {
     expect(() => validate({ newPassword: NEXT })).toThrow(BadRequestException);
   });

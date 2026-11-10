@@ -14,6 +14,7 @@ import {
   UserActor,
   UserAuditChange,
   UserAuditEntry,
+  UserAuditField,
   UserDomain,
   UserRole,
   UserStatus,
@@ -110,8 +111,9 @@ class FakeUserStorage {
     (this.rows.find((r) => r.uuid === uuid) as Row).status = status;
   }
 
-  async updatePassword(uuid: string, hashed: string): Promise<void> {
+  async updatePassword(uuid: string, hashed: string, audit: UserAuditChange[] = []): Promise<void> {
     (this.rows.find((r) => r.uuid === uuid) as Row).password = hashed;
+    this.audit.push(...audit.map((a) => ({ ...a, targetUuid: uuid })));
   }
 
   async countActiveOwners(tenant: string, excluding?: string): Promise<number> {
@@ -505,6 +507,21 @@ describe('usuarios: contraseña y sesión', () => {
     await ctx.reset.execute('recep2', 'Nueva1234', actors.ADMIN);
     const stored = ctx.storage.rows.find((r) => r.uuid === 'recep2')!.password;
     expect(await bcrypt.compare('Nueva1234', stored)).toBe(true);
+  });
+
+  it('el reseteo del administrador queda en la bitácora sin valores', async () => {
+    const ctx = build();
+    await ctx.reset.execute('recep2', 'Nueva1234', actors.ADMIN);
+    expect(ctx.storage.audit).toEqual([
+      {
+        actorUuid: 'admin',
+        actorName: 'admin',
+        targetUuid: 'recep2',
+        field: UserAuditField.PASSWORD,
+        before: null,
+        after: null,
+      },
+    ]);
   });
 
   it('el token y la respuesta del login traen nivel, atiende pacientes y especialidades', async () => {
