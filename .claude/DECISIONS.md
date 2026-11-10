@@ -212,6 +212,11 @@ Propietario, que son solo del Propietario. Cada acción relee al actor en la bas
 - La audiometría guarda copia de marca y modelo además de la llave (`ON DELETE SET NULL`), para que el historial no cambie si el equipo se edita.
 - La prioridad pasa por la transacción del envío (`runLocked`) para que la nota de evolución y la bitácora queden o no junto con el cambio. Los permisos de `flags` no cambian (D80).
 - Los tests de flags que suponían envío o prioridad sin nota ni motivo se ajustaron al nuevo requisito.
+- El motivo de prioridad (`priorityReason`) y quién la marcó (`priorityByName`) son datos clínicos: se ocultan a quien no atiende pacientes en lista y detalle (`filterPatientClinicalFields`).
+- Volver a marcar prioridad con motivo a un paciente ya marcado responde 409 `PATIENT_ALREADY_PRIORITY` (no pisa el motivo); sin motivo sigue siendo un no-op.
+- Corregir la fecha de un dato viejo (en laboratorio, sin envío abierto) crea la fila del envío sin nota de evolución; la nota de envío solo sale cuando el interruptor pasa de apagado a encendido.
+- Marca y modelo de equipos se guardan con trim y espacios internos colapsados, para coincidir con el índice único y con `equipmentKey`.
+- Riesgo conocido: Zynka (`next-audiology-files`) no manda `equipmentUuid`; en una clínica con equipos activos su POST de audiometría responde 400 `EQUIPMENT_REQUIRED`. Zynka está pausado y se deja así.
 
 ## 2026-11-09 - Sedes: última sede activa y citas con sede desactivada
 

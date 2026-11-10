@@ -368,8 +368,8 @@ model PatientAudiometryEntry {
   @@index([tenantUuid, patientUuid, createdAt])
 }
 
-/// Equipos de audiometría de la clínica. No se borran: se desactivan. La unicidad de marca + modelo
-/// sin distinguir mayúsculas es un índice sobre lower() creado en la migración (Prisma no lo modela).
+/// Equipos de audiometría de la clínica. No se borran: se desactivan.
+/// El índice único por expresión (lower(btrim)) de marca + modelo vive en la migración; Prisma no lo modela.
 model ClinicEquipment {
   id         Int      @id @default(autoincrement())
   uuid       String   @unique @default(uuid())

@@ -78,6 +78,17 @@ describe('Equipos: crear', () => {
     expect(rows[0].tenantUuid).toBe(TENANT);
   });
 
+  it('guarda marca y modelo sin espacios de más', async () => {
+    const { storage, rows } = buildStorage();
+
+    await new CreateEquipmentUseCase(storage).execute(TENANT, {
+      brand: '  Inter   acoustics ',
+      model: ' AD   629 ',
+    });
+
+    expect(rows[0]).toMatchObject({ brand: 'Inter acoustics', model: 'AD 629' });
+  });
+
   it('repetir marca y modelo sin distinguir mayúsculas ni espacios da 409 con código', async () => {
     const { storage, rows } = buildStorage([{ brand: 'Interacoustics', model: 'AD629' }]);
 
@@ -123,6 +134,17 @@ describe('Equipos: editar, desactivar y reactivar', () => {
     });
 
     expect(updated).toMatchObject({ brand: 'GSI', model: 'Pro 2' });
+  });
+
+  it('al editar guarda marca y modelo normalizados', async () => {
+    const { storage, rows } = buildStorage([{ uuid: 'e1', brand: 'Marca', model: 'Modelo' }]);
+
+    await new UpdateEquipmentUseCase(storage).execute(TENANT, 'e1', {
+      brand: '  Nueva   marca ',
+      model: ' M  2 ',
+    });
+
+    expect(rows[0]).toMatchObject({ brand: 'Nueva marca', model: 'M 2' });
   });
 
   it('no deja quedar igual a otro equipo de la clínica, pero sí a sí mismo', async () => {

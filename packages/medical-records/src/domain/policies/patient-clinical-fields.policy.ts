@@ -1,5 +1,5 @@
 /** Campos clínicos del registro general del paciente: solo los ve quien atiende pacientes. */
-export const PATIENT_CLINICAL_FIELDS = ['bloodType'] as const;
+export const PATIENT_CLINICAL_FIELDS = ['bloodType', 'priorityReason', 'priorityByName'] as const;
 
 /** Campos clínicos que solo escribe quien atiende pacientes: a los demás se les ignoran. */
 export const PATIENT_CLINICAL_WRITE_FIELDS = ['bloodType', 'warrantyDocumentUuid'] as const;

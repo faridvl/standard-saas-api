@@ -520,6 +520,19 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       expect(notes).toEqual([]);
     });
 
+    it('corregir la fecha de un dato viejo sin envío abierto crea la fila sin nota', async () => {
+      flags.hearingAidsInLabSince = noon('2026-10-20');
+
+      await useCase.execute(PATIENT, TENANT, ACTOR, {
+        hearingAidsInLab: true,
+        hearingAidsInLabDate: '2026-10-22',
+      } as never);
+
+      expect(shipments).toEqual([expect.objectContaining({ sentAt: noon('2026-10-22') })]);
+      expect(open()).toBeDefined();
+      expect(notes).toEqual([]);
+    });
+
     it('entregar un dato viejo sin envío abierto deja la nota de recepción', async () => {
       flags.hearingAidsInLabSince = noon('2026-10-20');
 
@@ -617,6 +630,33 @@ describe('UpdatePatientFlagsUseCase (audífonos en laboratorio)', () => {
       expect(flags.priorityReason).toBeNull();
       expect(notes).toEqual([]);
       expect(activities).toEqual([]);
+    });
+
+    it('volver a marcar con otro motivo responde 409 con código y no cambia nada', async () => {
+      await mark('Motivo');
+      notes.length = 0;
+      activities.length = 0;
+
+      const error = await mark('Otro motivo').catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        message: 'El paciente ya está marcado como prioridad',
+        code: 'PATIENT_ALREADY_PRIORITY',
+      });
+      expect(flags.priorityReason).toBe('Motivo');
+      expect(notes).toEqual([]);
+      expect(activities).toEqual([]);
+    });
+
+    it('volver a marcar sin motivo sigue sin hacer nada', async () => {
+      await mark('Motivo');
+      notes.length = 0;
+
+      await expect(mark()).resolves.toBeDefined();
+
+      expect(flags.priorityReason).toBe('Motivo');
+      expect(notes).toEqual([]);
     });
 
     it('desmarcar limpia los tres campos y deja la nota de quitar prioridad', async () => {

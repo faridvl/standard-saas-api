@@ -84,6 +84,8 @@ interface Activity {
   detail: PatientActivityDetail;
 }
 
+const PATIENT_ALREADY_PRIORITY_CODE = 'PATIENT_ALREADY_PRIORITY';
+const PATIENT_ALREADY_PRIORITY_MESSAGE = 'El paciente ya está marcado como prioridad';
 const PRIORITY_REMOVED_NOTE = 'Se quitó la prioridad';
 
 /** "DD/MM/AAAA" del día de un instante, para el mensaje que lee el usuario. */
@@ -212,6 +214,13 @@ export class UpdatePatientFlagsUseCase {
         continue;
       }
 
+      if (flag.key === 'isPriority' && isOn && wasOn && dto.priorityReason?.trim()) {
+        throw new ConflictException({
+          message: PATIENT_ALREADY_PRIORITY_MESSAGE,
+          code: PATIENT_ALREADY_PRIORITY_CODE,
+        });
+      }
+
       if (isOn === wasOn) continue;
       changes[flag.sinceField] = isOn ? now : null;
 
@@ -308,6 +317,8 @@ export class UpdatePatientFlagsUseCase {
         return null;
       }
       await tx.createShipment({ sentAt, createdByUuid: actorUuid });
+      // Corregir la fecha de un dato viejo (interruptor ya encendido, sin envío) tampoco es un hecho nuevo.
+      if (current.hearingAidsInLabSince) return null;
       return `Audífonos enviados al laboratorio el ${formatDay(sentAt)}`;
     }
 
