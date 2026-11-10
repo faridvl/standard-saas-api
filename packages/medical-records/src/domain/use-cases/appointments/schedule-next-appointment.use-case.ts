@@ -13,7 +13,10 @@ import { PatientStorage } from '@medical-records/infrastructure/adapters/patient
 import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
 import { RecordPatientActivityUseCase } from '@medical-records/domain/use-cases/patient-activity/record-patient-activity.use-case';
 import { PatientActivityAction } from '@medical-records/domain/types/patient-activity.types';
-import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
+import {
+  assertAppointmentBranch,
+  assertBranchesActive,
+} from '@medical-records/domain/services/patient-branches';
 
 const APPOINTMENT_DURATION_MINUTES = 30;
 
@@ -59,6 +62,11 @@ export class ScheduleNextAppointmentUseCase {
         patient.branchUuids,
         await this.branchStorage.findUuidsInTenant(tenantUUID, [dto.branchUUID]),
         patient.nextAppointmentBranchUuid,
+      );
+      assertBranchesActive(
+        [dto.branchUUID],
+        await this.branchStorage.findInactiveUuids(tenantUUID, [dto.branchUUID]),
+        [patient.nextAppointmentBranchUuid],
       );
     }
 

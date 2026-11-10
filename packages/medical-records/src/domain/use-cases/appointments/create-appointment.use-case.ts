@@ -2,7 +2,10 @@ import { CreateAppointmentDto } from '@medical-records/app/dtos/appointment.dto'
 import { Appointment, AppointmentStatus } from '@medical-records/domain/types/appointment.types';
 import { AppointmentStorage } from '@medical-records/infrastructure/adapters/appointmentsRepository/appointments.storage';
 import { PatientStorage } from '@medical-records/infrastructure/adapters/patientsRepository/patient.storage';
-import { assertAppointmentBranch } from '@medical-records/domain/services/patient-branches';
+import {
+  assertAppointmentBranch,
+  assertBranchesActive,
+} from '@medical-records/domain/services/patient-branches';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import { AppointmentTypeStorage } from '@medical-records/infrastructure/adapters/appointmentTypesRepository/appointment-type.storage';
 import { Injectable, NotFoundException } from '@nestjs/common';
@@ -33,6 +36,10 @@ export class CreateAppointmentUseCase {
         dto.branchUUID,
         patientBranches,
         await this.branchStorage.findUuidsInTenant(tenantUUID, [dto.branchUUID]),
+      );
+      assertBranchesActive(
+        [dto.branchUUID],
+        await this.branchStorage.findInactiveUuids(tenantUUID, [dto.branchUUID]),
       );
     }
 

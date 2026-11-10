@@ -7,6 +7,7 @@ import {
 import { PatientRecord } from '@medical-records/domain/types/patient-record.type';
 import { BranchStorage } from '@medical-records/infrastructure/adapters/branchRepository/branch.storage';
 import {
+  assertBranchesActive,
   assertBranchesExist,
   resolvePatientBranches,
 } from '@medical-records/domain/services/patient-branches';
@@ -93,6 +94,12 @@ export class UpdatePatientUseCase {
       assertBranchesExist(
         branches.branchUuids,
         await this.branchStorage.findUuidsInTenant(tenantUuid, branches.branchUuids),
+      );
+      // Conservar una sede que ya tenía, aunque esté desactivada, no es un registro nuevo.
+      assertBranchesActive(
+        branches.branchUuids,
+        await this.branchStorage.findInactiveUuids(tenantUuid, branches.branchUuids),
+        [existing.branchUuid, ...existing.branchUuids],
       );
     }
 

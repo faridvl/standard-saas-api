@@ -56,13 +56,25 @@ model CalendarFeed {
   @@index([tenantUuid])
 }
 
+enum BranchColor {
+  RED
+  ORANGE
+  YELLOW
+  GREEN
+  BLUE
+  PURPLE
+}
+
 model Branch {
-  id         Int      @id @default(autoincrement())
-  uuid       String   @unique @default(uuid())
+  id         Int         @id @default(autoincrement())
+  uuid       String      @unique @default(uuid())
   tenantUuid String
   name       String
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  phone      String?
+  address    String?
+  color      BranchColor @default(BLUE)
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
 
   patients     Patient[]
   patientBranches PatientBranch[]

@@ -60,6 +60,7 @@ describeIfEnabled('aislamiento por clínica: sondas HTTP con el token de otra cl
       await prisma.productUnit.findUnique({ where: { uuid: seed.unit } }),
       await prisma.medicalControl.findUnique({ where: { uuid: seed.control } }),
       await prisma.appointmentType.findUnique({ where: { uuid: seed.appointmentType } }),
+      await prisma.branch.findUnique({ where: { uuid: seed.branch } }),
       await prisma.appointment.findUnique({ where: { uuid: seed.appointment } }),
       await prisma.patient.count({ where: { tenantUuid: TENANT_A } }),
       await prisma.productUnit.count({ where: { product: { tenantUuid: TENANT_A } } }),
@@ -132,6 +133,9 @@ describeIfEnabled('aislamiento por clínica: sondas HTTP con el token de otra cl
       data: { name: `Tipo ${SUFFIX}`, tenantUUID: TENANT_A },
     });
     seed.appointmentType = appointmentType.uuid;
+    seed.branch = (
+      await prisma.branch.create({ data: { name: `Sede ${SUFFIX}`, tenantUuid: TENANT_A } })
+    ).uuid;
     seed.appointment = (
       await prisma.appointment.create({
         data: {
@@ -167,6 +171,7 @@ describeIfEnabled('aislamiento por clínica: sondas HTTP con el token de otra cl
     await prisma.patient.deleteMany({ where: { tenantUuid: TENANT_B } });
     await prisma.appointment.deleteMany({ where: { tenantUUID: TENANT_A } });
     await prisma.appointmentType.deleteMany({ where: { tenantUUID: TENANT_A } });
+    await prisma.branch.deleteMany({ where: { tenantUuid: TENANT_A } });
     await prisma.medicalControl.deleteMany({ where: { tenantUUID: TENANT_A } });
     await prisma.patientDevice.deleteMany({ where: { tenantUuid: TENANT_A } });
     await prisma.productUnit.deleteMany({ where: { product: { tenantUuid: TENANT_A } } });

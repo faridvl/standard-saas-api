@@ -66,6 +66,23 @@ export function assertBranchesExist(requested: string[], found: string[]): void 
 }
 
 /**
+ * Una sede desactivada no se ofrece para registros nuevos. `alreadyHeld` son las
+ * sedes que el paciente o la cita ya tienen: se aceptan aunque estén desactivadas.
+ */
+export function assertBranchesActive(
+  requested: string[],
+  inactiveUuids: string[],
+  alreadyHeld: Array<string | null | undefined> = [],
+): void {
+  const rejected = requested.some(
+    (uuid) => inactiveUuids.includes(uuid) && !alreadyHeld.includes(uuid),
+  );
+  if (rejected) {
+    throw new BadRequestException('La sede está desactivada');
+  }
+}
+
+/**
  * Una cita se agenda en una sede de la clínica y, si el paciente tiene sedes,
  * en una de ellas. `keepBranchUuid` es la sede de una cita ya vigente del
  * paciente: se acepta aunque el paciente ya no la tenga, para poder reagendar.
