@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -113,13 +112,7 @@ export class UpdatePatientFlagsUseCase {
     tenantUuid: string,
     actorUuid: string,
     dto: UpdatePatientFlagsDto,
-    actorAttendsPatients: boolean | undefined,
   ): Promise<PatientRecord> {
-    // La nota queda en Control de evolución, que solo ve quien atiende pacientes.
-    if (dto.note && actorAttendsPatients !== true) {
-      throw new ForbiddenException('Solo quien atiende pacientes puede agregar notas.');
-    }
-
     const existing = await this.storage.findByUuid(uuid, tenantUuid);
     if (!existing) {
       throw new NotFoundException(`Paciente con UUID ${uuid} no encontrado`);

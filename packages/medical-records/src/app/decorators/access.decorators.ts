@@ -17,6 +17,10 @@ export const AnyLevel = (): CustomDecorator => requireAccess({});
 /** Datos clínicos: solo quien atiende pacientes, de cualquier nivel. */
 export const ClinicalAccess = (): CustomDecorator => requireAccess({ clinical: true });
 
+/** Modificar datos del paciente: ADMIN u OWNER, o cualquier nivel que atienda pacientes. */
+export const PatientEditAccess = (): CustomDecorator =>
+  requireAccess({ managementOrClinical: true });
+
 /** Configuración y bitácora: ADMIN u OWNER, atienda o no pacientes. */
 export const MinLevel = (minLevel: AccessLevel): CustomDecorator => requireAccess({ minLevel });
 

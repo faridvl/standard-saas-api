@@ -22,6 +22,7 @@ import {
   AnyLevel,
   ClinicalAccess,
   MinLevel,
+  PatientEditAccess,
 } from '@medical-records/app/decorators/access.decorators';
 import { CreatePatientUseCase } from '../../domain/use-cases/create-patient.use-case';
 import { CreatePatientDto, CreatePatientSchema } from '../dtos/create-patient.dto';
@@ -163,6 +164,7 @@ export class PatientController {
       tenantId: user.tenantId,
       tenantUuid: user.tenantUuid,
       sub: user.sub,
+      attendsPatients: user.attendsPatients === true,
     });
     return filterPatientClinicalFields(created, user.attendsPatients === true);
   }
@@ -239,17 +241,25 @@ export class PatientController {
   }
 
   @Patch(':uuid')
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientSchema))
   async update(
     @Param('uuid') uuid: string,
     @Body() dto: UpdatePatientDto,
     @CurrentUser() user: JwtPayload,
   ): Promise<PatientRecord> {
-    const updated = await this.updatePatientUseCase.execute(uuid, user.tenantUuid, dto, user.sub);
+    const updated = await this.updatePatientUseCase.execute(
+      uuid,
+      user.tenantUuid,
+      dto,
+      user.sub,
+      user.attendsPatients === true,
+    );
     return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
 
   @Put(':uuid/status')
+  @PatientEditAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientStatusSchema))
   async updateStatus(
     @Param('uuid') uuid: string,
@@ -266,6 +276,7 @@ export class PatientController {
   }
 
   @Put(':uuid/flags')
+  @ClinicalAccess()
   @UsePipes(new ZodValidationPipe(UpdatePatientFlagsSchema))
   async updateFlags(
     @Param('uuid') uuid: string,
@@ -277,7 +288,6 @@ export class PatientController {
       user.tenantUuid,
       user.sub,
       dto,
-      user.attendsPatients,
     );
     return filterPatientClinicalFields(updated, user.attendsPatients === true);
   }
